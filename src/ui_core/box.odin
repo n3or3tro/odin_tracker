@@ -124,14 +124,6 @@ box_from_cache :: proc(
 ) -> ^Box {
 	if id_string in ui_state.box_cache {
 		box := ui_state.box_cache[id_string]
-		fmt.printfln(
-			"fetched %s from cache, it has parent: %s",
-			box.id_string,
-			box.parent.id_string,
-		)
-		println("box.parent.first: ", box.parent.first.id_string)
-		println("box.parent.last: ", box.parent.last.id_string)
-		println("==================================================")
 		return box
 	} else {
 		println("creating new box: ", id_string)
@@ -193,7 +185,6 @@ box_signals :: proc(ui_state: UI_State, box: ^Box) -> Box_Signals {
 	mouseX, mouseY: i32
 	sdl.GetMouseState(&mouseX, &mouseY)
 	signals.hovering = mouse_inside_box(box, Vec2{cast(f32)mouseX, cast(f32)mouseY})
-
 
 	if signals.hovering {
 		signals.clicked = ui_state.mouse.left_pressed

@@ -9,7 +9,7 @@ import "core:mem"
 import "core:os"
 import "core:strings"
 import "core:time"
-import "ui_builder"
+import builder "ui_builder"
 import core "ui_core"
 import gl "vendor:OpenGL"
 import sdl "vendor:sdl2"
@@ -88,6 +88,8 @@ setup_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 
 	sdl.GL_SetAttribute(.CONTEXT_PROFILE_MASK, gl.CONTEXT_CORE_PROFILE_BIT)
 
+	sdl.Init({.AUDIO, .EVENTS, .TIMER})
+
 	gl.load_up_to(4, 1, sdl.gl_set_proc_address)
 	gl_context := sdl.GL_CreateContext(window)
 	sdl.GL_MakeCurrent(window, gl_context)
@@ -150,29 +152,62 @@ setup_for_quads :: proc(vbuffer: ^u32, vabuffer: ^u32, shader: ^u32) {
 	core.bind_shader(shader^)
 }
 
+sv1: f32 = 10
+sv2: f32 = 10
+sv3: f32 = 10
+
 draw_quads :: proc(slider_value, slider_max: ^f32, vbuffer, ibuffer, program: ^u32) {
 
+	root_box.child_layout_axis = .X
 	core.layout_push_parent(&ui_state.layout_stack, &root_box)
 
 	slider_size: [2]core.Size = {
-		core.Size{kind = .Pecent_Of_Parent, value = 0.02},
 		core.Size{kind = .Pecent_Of_Parent, value = 0.2},
+		core.Size{kind = .Pecent_Of_Parent, value = 0.8},
 	}
 
-	slider1 := ui_builder.slider(ui_state, slider_size, "slider1_rect", slider_value^, slider_max^)
-	space1 := ui_builder.x_space_pixels(ui_state, 30, "what1 space1")
-
-	slider2 := ui_builder.slider(ui_state, slider_size, "slider2_rect", slider_value^, slider_max^)
-	space2 := ui_builder.x_space_pixels(ui_state, 30, "what2 space2")
-
-	slider3 := ui_builder.slider(ui_state, slider_size, "slider3_rect", slider_value^, slider_max^)
-
-	defer free(space1)
-	defer free(space2)
-
-	if slider1.track_signals.scrolled || slider2.track_signals.scrolled {
-		slider_value^ += -3 * cast(f32)ui_state.mouse.wheel.y
+	player_size: [2]core.Size = {
+		core.Size{kind = .Pecent_Of_Parent, value = 0.2},
+		core.Size{kind = .Pecent_Of_Parent, value = 0.5},
 	}
+
+	player1_container := core.box_from_cache({}, ui_state, "player1_container", player_size)
+	player1_container.child_layout_axis = .Y
+	core.layout_push_parent(&ui_state.layout_stack, player1_container)
+	// builder.x_space(ui_state, 0.1, "player1_space1")
+	slider1 := builder.slider(ui_state, slider_size, "slider1_rect", sv1, slider_max^)
+	b1 := builder.button(
+		ui_state,
+		"button1",
+		{{kind = .Pecent_Of_Parent, value = 0.2}, {kind = .Pecent_Of_Parent, value = 0.1}},
+	)
+	core.layout_pop_parent(&ui_state.layout_stack)
+
+	player2_container := core.box_from_cache({}, ui_state, "player2_container", player_size)
+	player2_container.child_layout_axis = .Y
+	core.layout_push_parent(&ui_state.layout_stack, player2_container)
+	slider2 := builder.slider(ui_state, slider_size, "slider2_rect", sv2, slider_max^)
+	b2 := builder.button(
+		ui_state,
+		"button2",
+		{{kind = .Pecent_Of_Parent, value = 0.2}, {kind = .Pecent_Of_Parent, value = 0.1}},
+	)
+	core.layout_pop_parent(&ui_state.layout_stack)
+
+
+	if slider1.track_signals.scrolled {
+		sv1 += -3 * cast(f32)ui_state.mouse.wheel.y
+	}
+	if slider2.track_signals.scrolled {
+		sv2 += -3 * cast(f32)ui_state.mouse.wheel.y
+	}
+	if b1.clicked {
+		println("button 1 clicked")
+	}
+	if b2.clicked {
+		println("button 2 clicked")
+	}
+
 
 	core.layout_pop_parent(&ui_state.layout_stack)
 	core.layout_from_root(ui_state^, &root_box, core.Axis.Y)
@@ -198,77 +233,68 @@ draw_quads :: proc(slider_value, slider_max: ^f32, vbuffer, ibuffer, program: ^u
 			raw_data(ui_state.renderer_data.indices),
 		)
 	}
-
-	println("printing children of root")
-	for child := root_box.first; child != nil; child = child.next {
-		println(child.id_string)
-	}
 }
 
 main :: proc() {
-	ui_state.renderer_data = new(core.Renderer_Data)
-	ui_state.layout_stack = make(core.Layout_Stack)
-	ui_state.box_cache = make(map[string]^core.Box)
-	ui_state.temp_boxes = make([dynamic]^core.Box)
-	ui_state.first_frame = true
+	// ui_state.renderer_data = new(core.Renderer_Data)
+	// ui_state.layout_stack = make(core.Layout_Stack)
+	// ui_state.box_cache = make(map[string]^core.Box)
+	// ui_state.temp_boxes = make([dynamic]^core.Box)
+	// ui_state.first_frame = true
 
 	window, gl_context := setup_window()
+	play_sound("/home/lucas/Music/greyson.wav")
+	// setup_audio()
 
-	// create data to run setup for quad drawing
-	quad_vabuffer, text_vabuffer: u32
-	quad_vbuffer, text_vbuffer: u32
-	vabuffers: [^]u32
-	gl.GenVertexArrays(1, &quad_vabuffer)
-	gl.GenVertexArrays(1, &text_vabuffer)
-	core.create_vbuffer(&quad_vbuffer, nil, 1000 * size_of(core.Vertex))
-	program := core.create_shader(
-		"src/shaders/vertex_shader.glsl",
-		"src/shaders/fragment_shader.glsl",
-	)
-	index_buffer: u32
-	core.create_ibuffer(&index_buffer, nil, 1000 * size_of(u32))
-	setup_for_quads(&quad_vbuffer, &quad_vabuffer, &program)
+	// // create data to run setup for quad drawing
+	// quad_vabuffer, text_vabuffer: u32
+	// quad_vbuffer, text_vbuffer: u32
+	// vabuffers: [^]u32
+	// gl.GenVertexArrays(1, &quad_vabuffer)
+	// gl.GenVertexArrays(1, &text_vabuffer)
+	// core.create_vbuffer(&quad_vbuffer, nil, 1000 * size_of(core.Vertex))
+	// program := core.create_shader(
+	// 	"src/shaders/vertex_shader.glsl",
+	// 	"src/shaders/fragment_shader.glsl",
+	// )
+	// index_buffer: u32
+	// core.create_ibuffer(&index_buffer, nil, 1000 * size_of(u32))
+	// setup_for_quads(&quad_vbuffer, &quad_vabuffer, &program)
 
-	char_map := core.create_font_map(30)
-	text_proj := alg.matrix_ortho3d_f32(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1)
+	// char_map := core.create_font_map(30)
+	// text_proj := alg.matrix_ortho3d_f32(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1)
 
-	// this will probably need to be dynamically sized in the future...
-	core.create_vbuffer(&text_vbuffer, nil, 1000 * size_of(f32))
+	// // this will probably need to be dynamically sized in the future...
+	// core.create_vbuffer(&text_vbuffer, nil, 1000 * size_of(f32))
 
-	sdl.GetWindowSize(window, &wx, &wy)
-	slider_value: f32 = 30
-	slider_max: f32 = 100
-	mx, my: i32
-	app_loop: for {
-		start := sdl.GetTicks()
-		// this sets wx, wy
-		register_resize(window)
-		reset_ui_state()
-		event: sdl.Event
-		for sdl.PollEvent(&event) {
-			if !handle_input(event) {
-				println("quit event received, exiting...")
-				break app_loop
-			}
-		}
-		core.clear()
-		core.draw_text(
-			"bruh it works",
-			&text_vbuffer,
-			&text_vabuffer,
-			char_map,
-			{cast(u32)wx, cast(u32)wy},
-		)
-		setup_for_quads(&quad_vbuffer, &quad_vabuffer, &program)
-		draw_quads(&slider_value, &slider_max, &quad_vbuffer, &index_buffer, &program)
-		reset_renderer_data()
-		register_resize(window)
-		sdl.GL_SwapWindow(window)
-		end := sdl.GetTicks()
-		ui_state.first_frame = false
-		// sdl.Delay(500)
-		println("***************************")
-		println("end of frame")
-		println("***************************\n\n")
-	}
+	// sdl.GetWindowSize(window, &wx, &wy)
+	// slider_value: f32 = 30
+	// slider_max: f32 = 100
+	// mx, my: i32
+	// app_loop: for {
+	// 	start := sdl.GetTicks()
+	// 	register_resize(window)
+	// 	reset_ui_state()
+	// 	event: sdl.Event
+	// 	for sdl.PollEvent(&event) {
+	// 		if !handle_input(event) {
+	// 			println("quit event received, exiting...")
+	// 			break app_loop
+	// 		}
+	// 	}
+	// 	core.clear()
+	// 	core.draw_text(
+	// 		"bruh it works",
+	// 		&text_vbuffer,
+	// 		&text_vabuffer,
+	// 		char_map,
+	// 		{cast(u32)wx, cast(u32)wy},
+	// 	)
+	// 	setup_for_quads(&quad_vbuffer, &quad_vabuffer, &program)
+	// 	draw_quads(&slider_value, &slider_max, &quad_vbuffer, &index_buffer, &program)
+	// 	reset_renderer_data()
+	// 	register_resize(window)
+	// 	sdl.GL_SwapWindow(window)
+	// 	ui_state.first_frame = false
+	// }
 }

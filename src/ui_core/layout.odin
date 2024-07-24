@@ -121,7 +121,8 @@ calc_positions :: proc(ui_state: UI_State, root: ^Box, axis: Axis) {
 			if .No_Offset in child.flags {
 				// will be set manually in builder code.
 			} else {
-				child.calc_rel_pos[axis] += tmp
+				// child.calc_rel_pos[axis] += tmp
+				child.calc_rel_pos[axis] = tmp
 			}
 			tmp += child.calc_size[axis]
 		}
