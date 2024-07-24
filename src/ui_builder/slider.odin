@@ -45,14 +45,14 @@ slider :: proc(
 	track_container.child_layout_axis = .X
 	core.layout_push_parent(&ui_state.layout_stack, track_container)
 
-	// x_space(ui_state, 0.3, fmt.aprintf("%s%s", text, "__space1"))
+	x_space(ui_state, 0.3, fmt.aprintf("%s%s", text, "__space1"))
 	track_size: [2]core.Size = {
 		core.Size{kind = .Pecent_Of_Parent, value = TRACK_WIDTH},
 		core.Size{kind = .Pecent_Of_Parent, value = 1},
 	}
 	track_id: string = fmt.aprintf("%s%s", text, "_track")
 	slider_track := core.box_from_cache({.Scrollable, .Draw}, ui_state, track_id, track_size)
-	// x_space(ui_state, 0.3, fmt.aprintf("%s%s", text, "__space2"))
+	x_space(ui_state, 0.3, fmt.aprintf("%s%s", text, "__space2"))
 
 	core.layout_pop_parent(&ui_state.layout_stack)
 
@@ -77,8 +77,6 @@ slider :: proc(
 	)
 
 	slider_grip.calc_rel_pos = {0, calc_grip_height(value, max, slider_track.calc_size.y)}
-	println(slider_grip.calc_rel_pos)
-	println(slider_grip.rect)
 
 	append(&ui_state.temp_boxes, slider_track)
 	append(&ui_state.temp_boxes, slider_grip)

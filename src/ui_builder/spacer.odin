@@ -43,3 +43,23 @@ y_space_pixels :: proc(ui_state: ^core.UI_State, amount: f32, id_string: string)
 		{{kind = .Pixels, value = 0}, {kind = .Pixels, value = amount}},
 	)
 }
+custom_space_x :: proc(ui_state: ^core.UI_State, percent: f32, id_string: string) -> ^core.Box {
+	b := core.box_from_cache(
+		{.No_Offset},
+		ui_state,
+		id_string,
+		{{kind = .Pecent_Of_Parent, value = percent}, {kind = .Pixels, value = 0}},
+	)
+	b.calc_rel_pos = {0, 0}
+	return b
+}
+custom_space_y :: proc(ui_state: ^core.UI_State, percent: f32, id_string: string) -> ^core.Box {
+	b := core.box_from_cache(
+		{.No_Offset},
+		ui_state,
+		id_string,
+		{{kind = .Pecent_Of_Parent, value = 0}, {kind = .Pixels, value = percent}},
+	)
+	b.calc_rel_pos = {0, 0}
+	return b
+}
