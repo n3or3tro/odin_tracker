@@ -8,10 +8,12 @@ import glm "core:math/linalg/glsl"
 import "core:mem"
 import "core:os"
 import "core:strings"
+import "core:thread"
 import "core:time"
 import builder "ui_builder"
 import core "ui_core"
 import gl "vendor:OpenGL"
+import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
 import sttf "vendor:sdl2/ttf"
 
@@ -155,7 +157,6 @@ setup_for_quads :: proc(vbuffer: ^u32, vabuffer: ^u32, shader: ^u32) {
 sv1: f32 = 10
 sv2: f32 = 10
 sv3: f32 = 10
-
 draw_quads :: proc(slider_value, slider_max: ^f32, vbuffer, ibuffer, program: ^u32) {
 
 	root_box.child_layout_axis = .X
@@ -236,65 +237,72 @@ draw_quads :: proc(slider_value, slider_max: ^f32, vbuffer, ibuffer, program: ^u
 }
 
 main :: proc() {
-	// ui_state.renderer_data = new(core.Renderer_Data)
-	// ui_state.layout_stack = make(core.Layout_Stack)
-	// ui_state.box_cache = make(map[string]^core.Box)
-	// ui_state.temp_boxes = make([dynamic]^core.Box)
-	// ui_state.first_frame = true
+	ui_state.renderer_data = new(core.Renderer_Data)
+	ui_state.layout_stack = make(core.Layout_Stack)
+	ui_state.box_cache = make(map[string]^core.Box)
+	ui_state.temp_boxes = make([dynamic]^core.Box)
+	ui_state.first_frame = true
 
 	window, gl_context := setup_window()
-	play_sound("/home/lucas/Music/greyson.wav")
-	// setup_audio()
 
-	// // create data to run setup for quad drawing
-	// quad_vabuffer, text_vabuffer: u32
-	// quad_vbuffer, text_vbuffer: u32
-	// vabuffers: [^]u32
-	// gl.GenVertexArrays(1, &quad_vabuffer)
-	// gl.GenVertexArrays(1, &text_vabuffer)
-	// core.create_vbuffer(&quad_vbuffer, nil, 1000 * size_of(core.Vertex))
-	// program := core.create_shader(
-	// 	"src/shaders/vertex_shader.glsl",
-	// 	"src/shaders/fragment_shader.glsl",
-	// )
-	// index_buffer: u32
-	// core.create_ibuffer(&index_buffer, nil, 1000 * size_of(u32))
-	// setup_for_quads(&quad_vbuffer, &quad_vabuffer, &program)
+	// files := new([dynamic]string)
+	// append(files, "/home/lucas/Music/test_sounds/StarWars3.wav")
+	// setup_and_play(files^)
+	// ma.event_signal(&stop_event)
+	// ma.event_wait(&stop_event)
+	// println("Press [Enter] to stop the program")
+	// buf: [1]byte
+	// os.read(os.stdin, buf[:])
 
-	// char_map := core.create_font_map(30)
-	// text_proj := alg.matrix_ortho3d_f32(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1)
+	// create data to run setup for quad drawing
+	quad_vabuffer, text_vabuffer: u32
+	quad_vbuffer, text_vbuffer: u32
+	vabuffers: [^]u32
+	gl.GenVertexArrays(1, &quad_vabuffer)
+	gl.GenVertexArrays(1, &text_vabuffer)
+	core.create_vbuffer(&quad_vbuffer, nil, 1000 * size_of(core.Vertex))
+	program := core.create_shader(
+		"src/shaders/vertex_shader.glsl",
+		"src/shaders/fragment_shader.glsl",
+	)
+	index_buffer: u32
+	core.create_ibuffer(&index_buffer, nil, 1000 * size_of(u32))
+	setup_for_quads(&quad_vbuffer, &quad_vabuffer, &program)
 
-	// // this will probably need to be dynamically sized in the future...
-	// core.create_vbuffer(&text_vbuffer, nil, 1000 * size_of(f32))
+	char_map := core.create_font_map(30)
+	text_proj := alg.matrix_ortho3d_f32(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1)
 
-	// sdl.GetWindowSize(window, &wx, &wy)
-	// slider_value: f32 = 30
-	// slider_max: f32 = 100
-	// mx, my: i32
-	// app_loop: for {
-	// 	start := sdl.GetTicks()
-	// 	register_resize(window)
-	// 	reset_ui_state()
-	// 	event: sdl.Event
-	// 	for sdl.PollEvent(&event) {
-	// 		if !handle_input(event) {
-	// 			println("quit event received, exiting...")
-	// 			break app_loop
-	// 		}
-	// 	}
-	// 	core.clear()
-	// 	core.draw_text(
-	// 		"bruh it works",
-	// 		&text_vbuffer,
-	// 		&text_vabuffer,
-	// 		char_map,
-	// 		{cast(u32)wx, cast(u32)wy},
-	// 	)
-	// 	setup_for_quads(&quad_vbuffer, &quad_vabuffer, &program)
-	// 	draw_quads(&slider_value, &slider_max, &quad_vbuffer, &index_buffer, &program)
-	// 	reset_renderer_data()
-	// 	register_resize(window)
-	// 	sdl.GL_SwapWindow(window)
-	// 	ui_state.first_frame = false
-	// }
+	// this will probably need to be dynamically sized in the future...
+	core.create_vbuffer(&text_vbuffer, nil, 1000 * size_of(f32))
+
+	sdl.GetWindowSize(window, &wx, &wy)
+	slider_value: f32 = 30
+	slider_max: f32 = 100
+	mx, my: i32
+	app_loop: for {
+		start := sdl.GetTicks()
+		register_resize(window)
+		reset_ui_state()
+		event: sdl.Event
+		for sdl.PollEvent(&event) {
+			if !handle_input(event) {
+				println("quit event received, exiting...")
+				break app_loop
+			}
+		}
+		core.clear()
+		core.draw_text(
+			"bruh it works",
+			&text_vbuffer,
+			&text_vabuffer,
+			char_map,
+			{cast(u32)wx, cast(u32)wy},
+		)
+		setup_for_quads(&quad_vbuffer, &quad_vabuffer, &program)
+		draw_quads(&slider_value, &slider_max, &quad_vbuffer, &index_buffer, &program)
+		reset_renderer_data()
+		register_resize(window)
+		sdl.GL_SwapWindow(window)
+		ui_state.first_frame = false
+	}
 }
