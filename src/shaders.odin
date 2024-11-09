@@ -1,6 +1,6 @@
 // Basic abstraction to make working with OpenGL shaders easier.
 
-package ui_core
+package main
 import "core:fmt"
 import alg "core:math/linalg"
 import "core:os"

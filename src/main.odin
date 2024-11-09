@@ -10,8 +10,8 @@ import "core:os"
 import "core:strings"
 import "core:thread"
 import "core:time"
-import builder "ui_builder"
-import core "ui_core"
+// import builder "ui_builder"
+// import core "ui_core"
 import gl "vendor:OpenGL"
 import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
@@ -23,15 +23,15 @@ WINDOW_HEIGHT :: 1080
 
 
 wx, wy: i32
-ui_state: ^core.UI_State = new(core.UI_State)
+ui_state: ^UI_State = new(UI_State)
 ui_font: ^sttf.Font
-root_box := core.Box {
+root_box := Box {
 	rect              = {{20, 20}, {cast(f32)wx, cast(f32)wy}},
 	id_string         = "root",
 	child_layout_axis = .X,
 	pref_size         = {
-		core.Size{kind = .Pixels, value = cast(f32)WINDOW_WIDTH},
-		core.Size{kind = .Pixels, value = cast(f32)WINDOW_HEIGHT},
+		Size{kind = .Pixels, value = cast(f32)WINDOW_WIDTH},
+		Size{kind = .Pixels, value = cast(f32)WINDOW_HEIGHT},
 	},
 }
 
@@ -133,26 +133,12 @@ reset_ui_state :: proc() {
 
 setup_for_quads :: proc(vbuffer: ^u32, vabuffer: ^u32, shader: ^u32) {
 	gl.BindVertexArray(vabuffer^)
-	core.enable_layout(0)
-	core.layout_vbuffer(
-		0,
-		2,
-		gl.FLOAT,
-		gl.FALSE,
-		size_of(core.Vertex),
-		offset_of(core.Vertex, pos),
-	)
+	enable_layout(0)
+	layout_vbuffer(0, 2, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, pos))
 
-	core.enable_layout(1)
-	core.layout_vbuffer(
-		1,
-		4,
-		gl.FLOAT,
-		gl.FALSE,
-		size_of(core.Vertex),
-		offset_of(core.Vertex, color),
-	)
-	core.bind_shader(shader^)
+	enable_layout(1)
+	layout_vbuffer(1, 4, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, color))
+	bind_shader(shader^)
 }
 
 sv1: f32 = 10
@@ -161,39 +147,39 @@ sv3: f32 = 10
 draw_quads :: proc(slider_value, slider_max: ^f32, vbuffer, ibuffer, program: ^u32) {
 
 	root_box.child_layout_axis = .X
-	core.layout_push_parent(&ui_state.layout_stack, &root_box)
+	layout_push_parent(&ui_state.layout_stack, &root_box)
 
-	slider_size: [2]core.Size = {
-		core.Size{kind = .Pecent_Of_Parent, value = 0.2},
-		core.Size{kind = .Pecent_Of_Parent, value = 0.8},
+	slider_size: [2]Size = {
+		Size{kind = .Pecent_Of_Parent, value = 0.2},
+		Size{kind = .Pecent_Of_Parent, value = 0.8},
 	}
 
-	player_size: [2]core.Size = {
-		core.Size{kind = .Pecent_Of_Parent, value = 0.2},
-		core.Size{kind = .Pecent_Of_Parent, value = 0.5},
+	player_size: [2]Size = {
+		Size{kind = .Pecent_Of_Parent, value = 0.2},
+		Size{kind = .Pecent_Of_Parent, value = 0.5},
 	}
 
-	player1_container := core.box_from_cache({}, ui_state, "player1_container", player_size)
+	player1_container := box_from_cache({}, ui_state, "player1_container", player_size)
 	player1_container.child_layout_axis = .Y
-	core.layout_push_parent(&ui_state.layout_stack, player1_container)
-	slider1 := builder.slider(ui_state, slider_size, "slider1_rect", sv1, slider_max^)
-	b1 := builder.button(
+	layout_push_parent(&ui_state.layout_stack, player1_container)
+	slider1 := slider(ui_state, slider_size, "slider1_rect", sv1, slider_max^)
+	b1 := button(
 		ui_state,
 		"button1",
 		{{kind = .Pecent_Of_Parent, value = 0.2}, {kind = .Pecent_Of_Parent, value = 0.1}},
 	)
-	core.layout_pop_parent(&ui_state.layout_stack)
+	layout_pop_parent(&ui_state.layout_stack)
 
-	player2_container := core.box_from_cache({}, ui_state, "player2_container", player_size)
+	player2_container := box_from_cache({}, ui_state, "player2_container", player_size)
 	player2_container.child_layout_axis = .Y
-	core.layout_push_parent(&ui_state.layout_stack, player2_container)
-	slider2 := builder.slider(ui_state, slider_size, "slider2_rect", sv2, slider_max^)
-	b2 := builder.button(
+	layout_push_parent(&ui_state.layout_stack, player2_container)
+	slider2 := slider(ui_state, slider_size, "slider2_rect", sv2, slider_max^)
+	b2 := button(
 		ui_state,
 		"button2",
 		{{kind = .Pecent_Of_Parent, value = 0.2}, {kind = .Pecent_Of_Parent, value = 0.1}},
 	)
-	core.layout_pop_parent(&ui_state.layout_stack)
+	layout_pop_parent(&ui_state.layout_stack)
 
 
 	if slider1.track_signals.scrolled {
@@ -213,26 +199,26 @@ draw_quads :: proc(slider_value, slider_max: ^f32, vbuffer, ibuffer, program: ^u
 		toggle_sound(engine_sounds[1])
 	}
 
-	core.layout_pop_parent(&ui_state.layout_stack)
-	core.layout_from_root(ui_state^, &root_box, core.Axis.Y)
-	core.layout_from_root(ui_state^, &root_box, core.Axis.X)
+	layout_pop_parent(&ui_state.layout_stack)
+	layout_from_root(ui_state^, &root_box, Axis.Y)
+	layout_from_root(ui_state^, &root_box, Axis.X)
 	if !ui_state.first_frame {
-		core.render_boxes(ui_state)
-		core.populate_ibuffer(
+		render_boxes(ui_state)
+		populate_ibuffer(
 			ibuffer,
 			raw_data(ui_state.renderer_data.indices),
 			ui_state.renderer_data.n_quads * 6,
 		)
-		core.populate_vbuffer(
+		populate_vbuffer(
 			vbuffer,
 			0,
 			raw_data(ui_state.renderer_data.raw_vertices),
 			// no idea why i need to 4x this...
-			4 * ui_state.renderer_data.n_quads * size_of(core.Vertex),
+			4 * ui_state.renderer_data.n_quads * size_of(Vertex),
 		)
 		proj := alg.matrix_ortho3d_f32(0, cast(f32)wx, cast(f32)wy, 0, -1, 1)
-		core.set_shader_matrix4(program^, "proj", &proj)
-		core.draw(
+		set_shader_matrix4(program^, "proj", &proj)
+		draw(
 			cast(i32)(ui_state.renderer_data.n_quads * 6),
 			raw_data(ui_state.renderer_data.indices),
 		)
@@ -241,10 +227,10 @@ draw_quads :: proc(slider_value, slider_max: ^f32, vbuffer, ibuffer, program: ^u
 
 main :: proc() {
 	// setup state for UI
-	ui_state.renderer_data = new(core.Renderer_Data)
-	ui_state.layout_stack = make(core.Layout_Stack)
-	ui_state.box_cache = make(map[string]^core.Box)
-	ui_state.temp_boxes = make([dynamic]^core.Box)
+	ui_state.renderer_data = new(Renderer_Data)
+	ui_state.layout_stack = make(Layout_Stack)
+	ui_state.box_cache = make(map[string]^Box)
+	ui_state.temp_boxes = make([dynamic]^Box)
 	ui_state.first_frame = true
 	window, gl_context := setup_window()
 
@@ -258,20 +244,17 @@ main :: proc() {
 	vabuffers: [^]u32
 	gl.GenVertexArrays(1, &quad_vabuffer)
 	gl.GenVertexArrays(1, &text_vabuffer)
-	core.create_vbuffer(&quad_vbuffer, nil, 1000 * size_of(core.Vertex))
-	program := core.create_shader(
-		"src/shaders/vertex_shader.glsl",
-		"src/shaders/fragment_shader.glsl",
-	)
+	create_vbuffer(&quad_vbuffer, nil, 1000 * size_of(Vertex))
+	program := create_shader("src/shaders/vertex_shader.glsl", "src/shaders/fragment_shader.glsl")
 	index_buffer: u32
-	core.create_ibuffer(&index_buffer, nil, 1000 * size_of(u32))
+	create_ibuffer(&index_buffer, nil, 1000 * size_of(u32))
 	setup_for_quads(&quad_vbuffer, &quad_vabuffer, &program)
 
-	char_map := core.create_font_map(30)
+	char_map := create_font_map(30)
 	text_proj := alg.matrix_ortho3d_f32(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1)
 
 	// this will probably need to be dynamically sized in the future...
-	core.create_vbuffer(&text_vbuffer, nil, 1000 * size_of(f32))
+	create_vbuffer(&text_vbuffer, nil, 1000 * size_of(f32))
 
 	sdl.GetWindowSize(window, &wx, &wy)
 	slider_value: f32 = 30
@@ -288,8 +271,8 @@ main :: proc() {
 				break app_loop
 			}
 		}
-		core.clear()
-		core.draw_text(
+		clear()
+		draw_text(
 			"bruh it works",
 			&text_vbuffer,
 			&text_vabuffer,

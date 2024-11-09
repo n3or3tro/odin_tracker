@@ -1,6 +1,5 @@
 // Functions to clean up the handling of OpenGL buffers and associated data.
-
-package ui_core
+package main
 import "core:fmt"
 import "core:math/rand"
 import gl "vendor:OpenGL"

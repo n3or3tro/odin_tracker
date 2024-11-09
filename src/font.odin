@@ -1,8 +1,8 @@
 // Code to handle text rendering with OpenGL.
 
-package ui_core
-import ft "../third_party/freetype"
+package main
 import alg "core:math/linalg"
+import ft "third_party/freetype"
 import gl "vendor:OpenGL"
 
 // font_path :: "/usr/share/fonts/TTF/Sauce Code Pro Medium Nerd Font Complete.ttf"
