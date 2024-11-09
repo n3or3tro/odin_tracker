@@ -21,6 +21,7 @@ println :: fmt.println
 WINDOW_WIDTH :: 1920
 WINDOW_HEIGHT :: 1080
 
+
 wx, wy: i32
 ui_state: ^core.UI_State = new(core.UI_State)
 ui_font: ^sttf.Font
@@ -175,7 +176,6 @@ draw_quads :: proc(slider_value, slider_max: ^f32, vbuffer, ibuffer, program: ^u
 	player1_container := core.box_from_cache({}, ui_state, "player1_container", player_size)
 	player1_container.child_layout_axis = .Y
 	core.layout_push_parent(&ui_state.layout_stack, player1_container)
-	// builder.x_space(ui_state, 0.1, "player1_space1")
 	slider1 := builder.slider(ui_state, slider_size, "slider1_rect", sv1, slider_max^)
 	b1 := builder.button(
 		ui_state,
@@ -201,14 +201,17 @@ draw_quads :: proc(slider_value, slider_max: ^f32, vbuffer, ibuffer, program: ^u
 	}
 	if slider2.track_signals.scrolled {
 		sv2 += -3 * cast(f32)ui_state.mouse.wheel.y
+		println("sv2: ", sv2)
+		println("sv_2 slider max", slider_max^)
 	}
 	if b1.clicked {
 		println("button 1 clicked")
+		toggle_sound(engine_sounds[0])
 	}
 	if b2.clicked {
 		println("button 2 clicked")
+		toggle_sound(engine_sounds[1])
 	}
-
 
 	core.layout_pop_parent(&ui_state.layout_stack)
 	core.layout_from_root(ui_state^, &root_box, core.Axis.Y)
@@ -237,22 +240,17 @@ draw_quads :: proc(slider_value, slider_max: ^f32, vbuffer, ibuffer, program: ^u
 }
 
 main :: proc() {
+	// setup state for UI
 	ui_state.renderer_data = new(core.Renderer_Data)
 	ui_state.layout_stack = make(core.Layout_Stack)
 	ui_state.box_cache = make(map[string]^core.Box)
 	ui_state.temp_boxes = make([dynamic]^core.Box)
 	ui_state.first_frame = true
-
 	window, gl_context := setup_window()
 
-	// files := new([dynamic]string)
-	// append(files, "/home/lucas/Music/test_sounds/StarWars3.wav")
-	// setup_and_play(files^)
-	// ma.event_signal(&stop_event)
-	// ma.event_wait(&stop_event)
-	// println("Press [Enter] to stop the program")
-	// buf: [1]byte
-	// os.read(os.stdin, buf[:])
+	// setup audio stuff
+	setup_audio_engine(audio_engine)
+	load_files()
 
 	// create data to run setup for quad drawing
 	quad_vabuffer, text_vabuffer: u32
