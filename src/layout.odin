@@ -1,6 +1,6 @@
 // Code associated with layout algorithm for the UI.
 
-package ui_core
+package main
 import "base:intrinsics"
 import "core:fmt"
 import "core:math"

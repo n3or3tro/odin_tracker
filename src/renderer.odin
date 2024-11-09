@@ -1,8 +1,7 @@
 // Code associated with turning UI boxes into OpenGL quads.
 // Might be able to merge this code with buffers.odin.
 
-package ui_core
-import "../ui_core"
+package main
 import "core:fmt"
 import alg "core:math/linalg"
 import "core:math/rand"
@@ -49,7 +48,7 @@ Renderer_Data :: struct {
 }
 
 // Assumes a box is 4 vertices (might break if we change to pass more info to GL later)
-renderer_add_box :: proc(ui_state: ^UI_State, box: ui_core.Box) {
+renderer_add_box :: proc(ui_state: ^UI_State, box: Box) {
 	renderer_data := ui_state.renderer_data
 	renderer_data.n_quads += 1
 	vertex_data := raw_vertex_data(vertices_of_box(box))

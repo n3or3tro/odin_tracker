@@ -1,20 +1,15 @@
 // Code to handle 'boxes' which are essentially the most fundamental logical
 // building block of the UI; following Ryan Fleury's UI methods.
-
-package ui_core
+package main
 import "base:intrinsics"
 import "core:fmt"
 import "core:math/fixed"
 import sdl "vendor:sdl2"
-println :: fmt.println
 
 // Absolute value
 abs :: proc(x: $T) -> T where intrinsics.type_is_numeric(T) {
 	return x if x >= 0 else -1 * x
 }
-Vec2 :: [2]f32
-Vec3 :: [3]f32
-Vec4 :: [4]f32
 
 Box_Cache :: map[string]^Box
 
