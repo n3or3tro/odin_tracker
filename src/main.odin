@@ -8,6 +8,7 @@ import glm "core:math/linalg/glsl"
 import "core:mem"
 import "core:os"
 import "core:strings"
+import sys_l "core:sys/linux"
 import "core:thread"
 import "core:time"
 // import builder "ui_builder"
@@ -64,6 +65,9 @@ handle_input :: proc(event: sdl.Event) -> bool {
 	case .MOUSEWHEEL:
 		ui_state.mouse.wheel.x = cast(i8)event.wheel.x
 		ui_state.mouse.wheel.y = cast(i8)event.wheel.y
+	case .DROPFILE:
+		// probably have some logic to only pickup files dropped in the right location
+		println("file dropped: {}", event.drop.file)
 	}
 	return true
 }
@@ -159,23 +163,21 @@ draw_quads :: proc(slider_value, slider_max: ^f32, vbuffer, ibuffer, program: ^u
 		Size{kind = .Pecent_Of_Parent, value = 0.5},
 	}
 
-	player1_container := box_from_cache({}, ui_state, "player1_container", player_size)
+	player1_container := box_from_cache({}, "player1_container", player_size)
 	player1_container.child_layout_axis = .Y
 	layout_push_parent(&ui_state.layout_stack, player1_container)
-	slider1 := slider(ui_state, slider_size, "slider1_rect", sv1, slider_max^)
+	slider1 := slider(slider_size, "slider1_rect", sv1, slider_max^)
 	b1 := button(
-		ui_state,
 		"button1",
 		{{kind = .Pecent_Of_Parent, value = 0.2}, {kind = .Pecent_Of_Parent, value = 0.1}},
 	)
 	layout_pop_parent(&ui_state.layout_stack)
 
-	player2_container := box_from_cache({}, ui_state, "player2_container", player_size)
+	player2_container := box_from_cache({}, "player2_container", player_size)
 	player2_container.child_layout_axis = .Y
 	layout_push_parent(&ui_state.layout_stack, player2_container)
-	slider2 := slider(ui_state, slider_size, "slider2_rect", sv2, slider_max^)
+	slider2 := slider(slider_size, "slider2_rect", sv2, slider_max^)
 	b2 := button(
-		ui_state,
 		"button2",
 		{{kind = .Pecent_Of_Parent, value = 0.2}, {kind = .Pecent_Of_Parent, value = 0.1}},
 	)
@@ -183,25 +185,23 @@ draw_quads :: proc(slider_value, slider_max: ^f32, vbuffer, ibuffer, program: ^u
 
 
 	if slider1.track_signals.scrolled {
-		sv1 += -3 * cast(f32)ui_state.mouse.wheel.y
+		sv1 = calc_slider_grip_val(sv1, slider_max^)
+		ma.sound_set_volume(engine_sounds[0], calc_slider_volume(0, slider_max^, 0, 1, sv1))
 	}
 	if slider2.track_signals.scrolled {
-		sv2 += -3 * cast(f32)ui_state.mouse.wheel.y
-		println("sv2: ", sv2)
-		println("sv_2 slider max", slider_max^)
+		sv2 = calc_slider_grip_val(sv2, slider_max^)
+		ma.sound_set_volume(engine_sounds[1], calc_slider_volume(0, slider_max^, 0, 1, sv2))
 	}
 	if b1.clicked {
-		println("button 1 clicked")
 		toggle_sound(engine_sounds[0])
 	}
 	if b2.clicked {
-		println("button 2 clicked")
 		toggle_sound(engine_sounds[1])
 	}
 
 	layout_pop_parent(&ui_state.layout_stack)
-	layout_from_root(ui_state^, &root_box, Axis.Y)
-	layout_from_root(ui_state^, &root_box, Axis.X)
+	layout_from_root(&root_box, Axis.Y)
+	layout_from_root(&root_box, Axis.X)
 	if !ui_state.first_frame {
 		render_boxes(ui_state)
 		populate_ibuffer(
@@ -238,7 +238,7 @@ main :: proc() {
 	setup_audio_engine(audio_engine)
 	load_files()
 
-	// create data to run setup for quad drawing
+	// create data to run setup for quad drawing and text rendering
 	quad_vabuffer, text_vabuffer: u32
 	quad_vbuffer, text_vbuffer: u32
 	vabuffers: [^]u32
@@ -252,7 +252,6 @@ main :: proc() {
 
 	char_map := create_font_map(30)
 	text_proj := alg.matrix_ortho3d_f32(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1)
-
 	// this will probably need to be dynamically sized in the future...
 	create_vbuffer(&text_vbuffer, nil, 1000 * size_of(f32))
 
@@ -273,7 +272,7 @@ main :: proc() {
 		}
 		clear()
 		draw_text(
-			"bruh it works",
+			"why is this shit bugging out :()",
 			&text_vbuffer,
 			&text_vabuffer,
 			char_map,

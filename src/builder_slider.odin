@@ -19,21 +19,25 @@ calc_grip_height :: proc(value, max: f32, track_height: f32) -> f32 {
 	return (value / max) * track_height
 }
 
-slider :: proc(
-	ui_state: ^UI_State,
-	size: [2]Size,
-	text: string,
-	value: f32,
-	max: f32,
-) -> Slider_Signals {
+// Max is 0, min is pixel_height(slider), this is because the co-ord system of our layout.
+calc_slider_grip_val :: proc(current_val: f32, max: f32) -> f32 {
+	proposed_value := current_val + (-3 * cast(f32)ui_state.mouse.wheel.y)
+	if proposed_value < 0 {
+		return 0
+	} else if proposed_value > max {
+		return max
+	} else {
+		return proposed_value
+	}
+}
 
-	bounding_box := box_from_cache({}, ui_state, text, size)
+slider :: proc(size: [2]Size, text: string, value: f32, max: f32) -> Slider_Signals {
+	bounding_box := box_from_cache({}, text, size)
 	bounding_box.child_layout_axis = .Y
 	layout_push_parent(&ui_state.layout_stack, bounding_box)
 
 	track_container := box_from_cache(
 		{},
-		ui_state,
 		fmt.aprintf("%s%s", text, "_track_container"),
 		{
 			{kind = .Pecent_Of_Parent, value = 1.0},
@@ -43,14 +47,14 @@ slider :: proc(
 	track_container.child_layout_axis = .X
 	layout_push_parent(&ui_state.layout_stack, track_container)
 
-	x_space(ui_state, 0.3, fmt.aprintf("%s%s", text, "__space1"))
+	x_space(0.3, fmt.aprintf("%s%s", text, "__space1"))
 	track_size: [2]Size = {
 		Size{kind = .Pecent_Of_Parent, value = TRACK_WIDTH},
 		Size{kind = .Pecent_Of_Parent, value = 1},
 	}
 	track_id: string = fmt.aprintf("%s%s", text, "_track")
-	slider_track := box_from_cache({.Scrollable, .Draw}, ui_state, track_id, track_size)
-	x_space(ui_state, 0.3, fmt.aprintf("%s%s", text, "__space2"))
+	slider_track := box_from_cache({.Scrollable, .Draw}, track_id, track_size)
+	x_space(0.3, fmt.aprintf("%s%s", text, "__space2"))
 
 	layout_pop_parent(&ui_state.layout_stack)
 
@@ -69,7 +73,6 @@ slider :: proc(
 			.Draw,
 			.No_Offset,
 		},
-		ui_state,
 		grip_id,
 		grip_size,
 	)
@@ -80,8 +83,8 @@ slider :: proc(
 	append(&ui_state.temp_boxes, slider_grip)
 	layout_pop_parent(&ui_state.layout_stack)
 	return Slider_Signals {
-		grip_signals = box_signals(ui_state^, slider_grip),
-		track_signals = box_signals(ui_state^, slider_track),
+		grip_signals = box_signals(slider_grip),
+		track_signals = box_signals(slider_track),
 		value = value,
 		max = max,
 	}
