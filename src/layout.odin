@@ -42,7 +42,7 @@ get_text_from_idstring :: proc(id_string: string) -> string {
 	return id_string
 }
 
-calc_standalone_sizes :: proc(ui_state: UI_State, root: ^Box, axis: Axis) {
+calc_standalone_sizes :: proc(root: ^Box, axis: Axis) {
 	#partial switch root.pref_size[axis].kind {
 	case .Pixels:
 		// The way our data is setup, root.rect should already be set here
@@ -62,11 +62,11 @@ calc_standalone_sizes :: proc(ui_state: UI_State, root: ^Box, axis: Axis) {
 		}
 	}
 	for child := root.first; child != nil; child = child.next {
-		calc_standalone_sizes(ui_state, child, axis)
+		calc_standalone_sizes(child, axis)
 	}
 }
 
-calc_upwards_dependant_sizes :: proc(ui_state: UI_State, root: ^Box, axis: Axis) {
+calc_upwards_dependant_sizes :: proc(root: ^Box, axis: Axis) {
 	#partial switch root.pref_size[axis].kind {
 	case .Pecent_Of_Parent:
 		ancestor: ^Box
@@ -83,15 +83,15 @@ calc_upwards_dependant_sizes :: proc(ui_state: UI_State, root: ^Box, axis: Axis)
 		}
 	}
 	for child := root.first; child != nil; child = child.next {
-		calc_upwards_dependant_sizes(ui_state, child, axis)
+		calc_upwards_dependant_sizes(child, axis)
 	}
 }
 
-calc_downwards_dependant_sizes :: proc(ui_state: UI_State, root: ^Box, axis: Axis) {
+calc_downwards_dependant_sizes :: proc(root: ^Box, axis: Axis) {
 	// Unlike other layout functions, we recurse first as we may depend on children
 	// that have the same downward dependance property.
 	for child := root.first; child != nil; child = child.next {
-		calc_downwards_dependant_sizes(ui_state, child, axis)
+		calc_downwards_dependant_sizes(child, axis)
 	}
 	#partial switch root.pref_size[axis].kind {
 	case .Children_Sum:
@@ -109,11 +109,11 @@ calc_downwards_dependant_sizes :: proc(ui_state: UI_State, root: ^Box, axis: Axi
 	}
 }
 
-solve_size_violations :: proc(ui_state: UI_State, root: ^Box, axis: Axis) {
+solve_size_violations :: proc(root: ^Box, axis: Axis) {
 	// we're not doing this yet xD
 }
 
-calc_positions :: proc(ui_state: UI_State, root: ^Box, axis: Axis) {
+calc_positions :: proc(root: ^Box, axis: Axis) {
 	// println("calculating position of: ", root.id_string)
 	if axis == root.child_layout_axis {
 		tmp: f32 = 0
@@ -139,15 +139,15 @@ calc_positions :: proc(ui_state: UI_State, root: ^Box, axis: Axis) {
 		}
 	}
 	for child := root.first; child != nil; child = child.next {
-		calc_positions(ui_state, child, axis)
+		calc_positions(child, axis)
 	}
 }
 
-layout_from_root :: proc(ui_state: UI_State, root: ^Box, axis: Axis) {
-	calc_standalone_sizes(ui_state, root, axis)
-	calc_upwards_dependant_sizes(ui_state, root, axis)
-	calc_downwards_dependant_sizes(ui_state, root, axis)
-	calc_positions(ui_state, root, axis)
+layout_from_root :: proc(root: ^Box, axis: Axis) {
+	calc_standalone_sizes(root, axis)
+	calc_upwards_dependant_sizes(root, axis)
+	calc_downwards_dependant_sizes(root, axis)
+	calc_positions(root, axis)
 	// enforce_layout_constraints(ui_state, root)
 	// calc_layout_positions(ui_state, root)
 }

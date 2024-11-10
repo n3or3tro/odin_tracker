@@ -99,7 +99,7 @@ render_text :: proc(
 		w := char.size[0]
 		h := char.size[1]
 		xpos := x^ + char.bearing[0]
-		ypos := 1000 - (y^ - (h - char.bearing[1]))
+		ypos := f32(window_height) - (y^ - (h - char.bearing[1]))
 		
 			//odinfmt:disable
 		vertices := [6 * 4]f32 {

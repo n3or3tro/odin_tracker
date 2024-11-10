@@ -111,25 +111,20 @@ Box :: struct {
 }
 
 
-box_from_cache :: proc(
-	flags: Box_Flags,
-	ui_state: ^UI_State,
-	id_string: string,
-	size: [2]Size,
-) -> ^Box {
+box_from_cache :: proc(flags: Box_Flags, id_string: string, size: [2]Size) -> ^Box {
 	if id_string in ui_state.box_cache {
 		box := ui_state.box_cache[id_string]
 		return box
 	} else {
 		println("creating new box: ", id_string)
-		new_box := box_make(flags, ui_state, id_string, size)
+		new_box := box_make(flags, id_string, size)
 		ui_state.box_cache[id_string] = new_box
 		new_box.parent.n_children += 1
 		return new_box
 	}
 }
 
-box_set_tree_links :: proc(ui_state: ^UI_State, box: ^Box) {
+box_set_tree_links :: proc(box: ^Box) {
 	box.parent = ui_state.layout_stack[len(ui_state.layout_stack) - 1]
 	if box.parent.first == nil {
 		box.parent.first = box
@@ -142,19 +137,14 @@ box_set_tree_links :: proc(ui_state: ^UI_State, box: ^Box) {
 }
 
 // this is not actually how this function signature will ultimately be
-box_make :: proc(
-	flags: Box_Flags,
-	ui_state: ^UI_State,
-	id_string: string,
-	size: [2]Size,
-) -> ^Box { 	// rect_size: [2]Vec2,
+box_make :: proc(flags: Box_Flags, id_string: string, size: [2]Size) -> ^Box { 	// rect_size: [2]Vec2,
 	box := new(Box)
 	box.flags = flags
 	box.id_string = id_string
 	box.hot = false
 	box.color = {1, 0.5, 0.2, 1}
 	box.pref_size = size
-	box_set_tree_links(ui_state, box)
+	box_set_tree_links(box)
 	return box
 }
 
@@ -173,7 +163,7 @@ rect_from_points :: proc(a, b: Vec2) -> sdl.Rect {
 	return sdl.Rect{w = width, h = height, x = cast(i32)a.x, y = cast(i32)a.y}
 }
 
-box_signals :: proc(ui_state: UI_State, box: ^Box) -> Box_Signals {
+box_signals :: proc(box: ^Box) -> Box_Signals {
 	signals: Box_Signals
 	signals.box = box
 

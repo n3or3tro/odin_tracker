@@ -6,14 +6,14 @@ Vec4 :: [4]f32
 
 // right now we take in an explicit rect_size, but in the future this will
 // be determined by looking at the layout / app state.
-button :: proc(ui_state: ^UI_State, text: string, size: [2]Size) -> Box_Signals {
+button :: proc(text: string, size: [2]Size) -> Box_Signals {
 	b := box_from_cache(
 		{.Clickable, .Draw_Background, .Draw, .Draw_Text, .Hot_Animation},
-		ui_state,
 		text,
 		size,
 	)
 	// add to list so we can render it later
 	append(&ui_state.temp_boxes, b)
-	return box_signals(ui_state^, b)
+	// draw_text("button1", &text_vbuffer, &text_vabuffer, char_map, {cast(u32)wx, cast(u32)wy})
+	return box_signals(b)
 }
