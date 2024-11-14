@@ -12,8 +12,6 @@ button :: proc(text: string, size: [2]Size) -> Box_Signals {
 		text,
 		size,
 	)
-	// add to list so we can render it later
 	append(&ui_state.temp_boxes, b)
-	// draw_text("button1", &text_vbuffer, &text_vabuffer, char_map, {cast(u32)wx, cast(u32)wy})
 	return box_signals(b)
 }

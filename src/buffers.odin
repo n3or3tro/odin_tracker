@@ -38,6 +38,9 @@ delete_vbuffer :: proc(buffer: ^u32) {
 enable_layout :: proc(which: u32 = 0) {
 	gl.EnableVertexAttribArray(which)
 }
+disable_layout :: proc(which: u32 = 0) {
+	gl.DisableVertexAttribArray(which)
+}
 
 // vertex_element_type is kinda weird, should probs fix.
 layout_vbuffer :: proc(
@@ -59,17 +62,12 @@ layout_vbuffer :: proc(
 	)
 }
 
-disable_layout :: proc(which: u32 = 0) {
-	gl.DisableVertexAttribArray(which)
-}
-
 unbind_vbuffer :: proc() {
 	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 }
 
 // pretty sure gl.GenBuffers must be called before you create an index buffer.
 create_ibuffer :: proc(buffer: ^u32, indices: rawptr, n_indices: u32) {
-	// gl.GenBuffers(1, buffer)
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer^)
 	gl.BufferData(
 		gl.ELEMENT_ARRAY_BUFFER,

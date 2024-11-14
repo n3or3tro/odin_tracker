@@ -34,7 +34,7 @@ calc_slider_grip_val :: proc(current_val: f32, max: f32) -> f32 {
 slider :: proc(size: [2]Size, text: string, value: f32, max: f32) -> Slider_Signals {
 	bounding_box := box_from_cache({}, text, size)
 	bounding_box.child_layout_axis = .Y
-	layout_push_parent(&ui_state.layout_stack, bounding_box)
+	layout_push_parent(bounding_box)
 
 	track_container := box_from_cache(
 		{},
@@ -45,7 +45,7 @@ slider :: proc(size: [2]Size, text: string, value: f32, max: f32) -> Slider_Sign
 		},
 	)
 	track_container.child_layout_axis = .X
-	layout_push_parent(&ui_state.layout_stack, track_container)
+	layout_push_parent(track_container)
 
 	x_space(0.3, fmt.aprintf("%s%s", text, "__space1"))
 	track_size: [2]Size = {
@@ -56,7 +56,7 @@ slider :: proc(size: [2]Size, text: string, value: f32, max: f32) -> Slider_Sign
 	slider_track := box_from_cache({.Scrollable, .Draw}, track_id, track_size)
 	x_space(0.3, fmt.aprintf("%s%s", text, "__space2"))
 
-	layout_pop_parent(&ui_state.layout_stack)
+	layout_pop_parent()
 
 	grip_size: [2]Size = {
 		Size{kind = .Pecent_Of_Parent, value = GRIP_WIDTH},
@@ -81,7 +81,7 @@ slider :: proc(size: [2]Size, text: string, value: f32, max: f32) -> Slider_Sign
 
 	append(&ui_state.temp_boxes, slider_track)
 	append(&ui_state.temp_boxes, slider_grip)
-	layout_pop_parent(&ui_state.layout_stack)
+	layout_pop_parent()
 	return Slider_Signals {
 		grip_signals = box_signals(slider_grip),
 		track_signals = box_signals(slider_track),

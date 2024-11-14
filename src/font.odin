@@ -78,19 +78,19 @@ render_text :: proc(
 	proj: ^alg.Matrix4x4f32,
 	text: string,
 	color: [3]f32,
-	vbuffer: ^u32,
-	char_map: map[rune]Character,
-	window_height: u32,
-	x: ^f32,
-	y: ^f32,
+	x: f32,
+	y: f32,
 ) {
+	window_height := cast(u32)wy^
 	set_shader_matrix4(shader, "proj", proj)
 	set_shader_vec3(shader, "textColor", color)
 	set_shader_u32(shader, "window_height", window_height)
 	gl.ActiveTexture(gl.TEXTURE0)
+	// create this because of weird non-mutable proc arg stuff
+	x := x
 	// iterate through all characters
 	for c in text {
-		char := char_map[c]
+		char := ui_state.char_map[c]
 		if char.texture_id == 0 {
 			continue
 		}
@@ -98,8 +98,9 @@ render_text :: proc(
 		// update VBO for each character
 		w := char.size[0]
 		h := char.size[1]
-		xpos := x^ + char.bearing[0]
-		ypos := f32(window_height) - (y^ - (h - char.bearing[1]))
+		xpos := x + char.bearing[0]
+		// vvv chatgpt fixed vvv
+		ypos := (f32(window_height) - y) + char.bearing[1] - h
 		
 			//odinfmt:disable
 		vertices := [6 * 4]f32 {
@@ -112,22 +113,17 @@ render_text :: proc(
 		}
 		//odinfmt:enable
 
+
 		gl.BindTexture(gl.TEXTURE_2D, char.texture_id)
-		populate_vbuffer(vbuffer, 0, raw_data(&vertices), size_of(vertices))
+		populate_vbuffer(text_vbuffer, 0, raw_data(&vertices), size_of(vertices))
 		gl.DrawArrays(gl.TRIANGLES, 0, 6)
-		x^ += f32((char.advance >> 6))
+		x += f32((char.advance >> 6))
 	}
 	gl.BindTexture(gl.TEXTURE_2D, 0)
 }
 
-draw_text :: proc(
-	text: string,
-	vbuffer: ^u32,
-	vabuffer: ^u32,
-	char_map: map[rune]Character,
-	window_dimensions: [2]u32,
-) {
-	gl.BindVertexArray(vabuffer^)
+draw_text :: proc(text: string, x, y: f32) {
+	gl.BindVertexArray(text_vabuffer^)
 	enable_layout(0)
 	layout_vbuffer(0, 4, gl.FLOAT, gl.FALSE, 4 * size_of(f32), 0)
 
@@ -135,25 +131,9 @@ draw_text :: proc(
 		"src/shaders/text_vertex_shader.glsl",
 		"src/shaders/text_fragment_shader.glsl",
 	)
-	text_proj := alg.matrix_ortho3d_f32(
-		0,
-		cast(f32)window_dimensions.x,
-		0,
-		cast(f32)window_dimensions.y,
-		-1,
-		1,
-	)
+	// maps text within the bounds of the screen
+	text_proj := alg.matrix_ortho3d_f32(0, cast(f32)wx^, 0, cast(f32)wy^, -1, 1)
 	set_shader_matrix4(text_program, "proj", &text_proj)
-	x, y: f32 = 500, 50
-	render_text(
-		text_program,
-		&text_proj,
-		text,
-		{1, 0, 0},
-		vbuffer,
-		char_map,
-		window_dimensions.y,
-		&x,
-		&y,
-	)
+	render_text(text_program, &text_proj, text, {1, 0, 0}, x, y)
+	setup_for_quads(&quad_shader_program)
 }

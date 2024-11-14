@@ -9,3 +9,5 @@ calc_slider_volume :: proc(in_min, in_max, out_min, out_max, value: f32) -> f32 
 	mapped_value := map_range(in_min, in_max, out_min, out_max, value)
 	return abs(-1 * (1 - mapped_value))
 }
+
+// rect_from_points()
