@@ -10,17 +10,17 @@ max :: proc(a, b: $T) -> T where intrinsics.type_is_numeric(T) {
 	return a if a >= b else b
 }
 
-layout_push_parent :: proc(layout_stack: ^Layout_Stack, box: ^Box) {
-	val, err := append_elem(layout_stack, box)
+layout_push_parent :: proc(box: ^Box) {
+	val, err := append_elem(&ui_state.layout_stack, box)
 	if err != .None {
 		println(err)
 		panic("^^^")
 	}
 }
 
-layout_pop_parent :: proc(layout_stack: ^Layout_Stack) -> ^Box {
-	if len(layout_stack) > 0 {
-		return pop(layout_stack)
+layout_pop_parent :: proc() -> ^Box {
+	if len(ui_state.layout_stack) > 0 {
+		return pop(&ui_state.layout_stack)
 	} else {
 		panic("layout_pop_parent: layout_stack is empty")
 	}
@@ -34,10 +34,12 @@ calculate_text_size :: proc(char_map: map[rune]Character, text: string) -> Vec2 
 	for c in text {
 		character := char_map[c]
 		width += character.size[0]
+		println("this char", character, "has width:", character.size[0])
 		height = max(height, character.size[1])
 	}
 	return Vec2{width, height}
 }
+
 get_text_from_idstring :: proc(id_string: string) -> string {
 	return id_string
 }
@@ -114,7 +116,6 @@ solve_size_violations :: proc(root: ^Box, axis: Axis) {
 }
 
 calc_positions :: proc(root: ^Box, axis: Axis) {
-	// println("calculating position of: ", root.id_string)
 	if axis == root.child_layout_axis {
 		tmp: f32 = 0
 		for child := root.first; child != nil; child = child.next {

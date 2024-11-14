@@ -26,6 +26,8 @@ UI_State :: struct {
 	char_map:      map[rune]Character,
 	temp_boxes:    [dynamic]^Box, // store boxes so we can access them when rendering
 	first_frame:   bool,
+	window_width:  u32,
+	window_height: u32,
 }
 
 MyRect :: struct {
@@ -49,22 +51,20 @@ Renderer_Data :: struct {
 
 // Assumes a box is 4 vertices (might break if we change to pass more info to GL later)
 renderer_add_box :: proc(ui_state: ^UI_State, box: Box) {
-	renderer_data := ui_state.renderer_data
-	renderer_data.n_quads += 1
+	ui_state.renderer_data.n_quads += 1
 	vertex_data := raw_vertex_data(vertices_of_box(box))
 	for i in 0 ..< 24 {
-		append(&renderer_data.raw_vertices, vertex_data[i])
+		append(&ui_state.renderer_data.raw_vertices, vertex_data[i])
 	}
 	// Definitely not efficient to delete and reallocate the indices every time
 	// we add a new quad.
-	if renderer_data.indices != nil {
-		delete(renderer_data.indices)
+	if ui_state.renderer_data.indices != nil {
+		delete(ui_state.renderer_data.indices)
 	}
-	renderer_data.indices = generate_indices(renderer_data.n_quads)
+	ui_state.renderer_data.indices = generate_indices(ui_state.renderer_data.n_quads)
 }
 
 render_boxes :: proc(ui_state: ^UI_State) {
-	renderer_data := ui_state.renderer_data
 	for box in ui_state.temp_boxes {
 		if .Draw in box.flags {
 			renderer_add_box(ui_state, box^)

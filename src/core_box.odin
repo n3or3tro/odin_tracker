@@ -4,6 +4,7 @@ package main
 import "base:intrinsics"
 import "core:fmt"
 import "core:math/fixed"
+import "core:math/rand"
 import sdl "vendor:sdl2"
 
 // Absolute value
@@ -77,7 +78,8 @@ Box :: struct {
 	parent:                   ^Box,
 	n_children:               u32,
 
-	// color
+	// UI info - color, padding, visual names, etc
+	name:                     string,
 	color:                    [4]f32,
 	padding:                  [4]Size, // {x-left, x-right, y-bottom, y-top}
 
@@ -111,13 +113,13 @@ Box :: struct {
 }
 
 
-box_from_cache :: proc(flags: Box_Flags, id_string: string, size: [2]Size) -> ^Box {
+box_from_cache :: proc(flags: Box_Flags, name: string, size: [2]Size) -> ^Box {
+	id_string := fmt.aprintf("%s_id_%d", name, n_boxes, context.temp_allocator)
 	if id_string in ui_state.box_cache {
 		box := ui_state.box_cache[id_string]
 		return box
 	} else {
-		println("creating new box: ", id_string)
-		new_box := box_make(flags, id_string, size)
+		new_box := box_make(flags, name, size)
 		ui_state.box_cache[id_string] = new_box
 		new_box.parent.n_children += 1
 		return new_box
@@ -137,13 +139,16 @@ box_set_tree_links :: proc(box: ^Box) {
 }
 
 // this is not actually how this function signature will ultimately be
-box_make :: proc(flags: Box_Flags, id_string: string, size: [2]Size) -> ^Box { 	// rect_size: [2]Vec2,
+box_make :: proc(flags: Box_Flags, name: string, size: [2]Size) -> ^Box {
+	id_string := fmt.aprintf("%s_id_%d", name, n_boxes)
 	box := new(Box)
 	box.flags = flags
 	box.id_string = id_string
 	box.hot = false
-	box.color = {1, 0.5, 0.2, 1}
+	box.color = {1, 0.9, 0.2, 1}
+	box.color = {1, rand.float32_range(0, 1), 0.2, 1}
 	box.pref_size = size
+	box.name = name
 	box_set_tree_links(box)
 	return box
 }
