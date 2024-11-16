@@ -1,27 +1,66 @@
 package main
+import "core:crypto/hash"
 import "core:fmt"
 import "core:strings"
 
-Slider_Signals :: struct {
+Track_Control_Signals :: struct {
 	value:         f32,
 	max:           f32,
 	grip_signals:  Box_Signals,
 	track_signals: Box_Signals,
+	play_signals:  Box_Signals,
 }
 
-TRACK_WIDTH :: 0.4
-TRACK_HEIGHT :: 0.8
-GRIP_WIDTH :: 1.0
-GRIP_HEIGHT :: 0.07
+// assumes 0 <= value <= 100
+track_controls :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Control_Signals {
+	cut_rect(rect, {Size{.Percent, 0.33}, .Left})
 
-// will return in pixels for now.
-calc_grip_height :: proc(value, max: f32, track_height: f32) -> f32 {
-	return (value / max) * track_height
+	play_button_rect := cut_rect(top_rect(), {Size{.Percent, 0.1}, .Bottom})
+
+	play_button := button(
+		fmt.aprintf("%s_play_button@1", get_name_from_id_string(id_string)),
+		play_button_rect,
+	)
+	// This is a bit hacky but for now it's okay, and should stay in proportion. It won't be responsive
+	// however :(
+	cut_right(&play_button.box.rect, Size{.Percent, 0.5})
+	cut_top(&play_button.box.rect, Size{.Percent, 0.4})
+	play_button.box.rect = expand(play_button.box.rect, Size{.Percent, 0.4})
+
+	slider_track_rect := cut_rect(rect, RectCut{Size{.Percent, 0.5}, .Left})
+	slider_track := box_from_cache({.Scrollable, .Draw}, id_string, slider_track_rect)
+	append(&ui_state.temp_boxes, slider_track)
+
+	slider_grip_rect := get_bottom(&slider_track.rect, Size{.Pixels, 30})
+	slider_grip_rect = expand_x(slider_grip_rect, Size{.Percent, 0.5})
+
+	space_below_grip := get_bottom(&slider_track_rect, Size{.Percent, value / 100})
+	slider_grip_rect.bottom_right.y -= (value / 100) * rect_height(slider_track_rect)
+	slider_grip_rect.top_left.y -= (value / 100) * rect_height(slider_track_rect)
+	slider_grip := box_from_cache(
+		{.Clickable, .Hot_Animation, .Active_Animation, .Draggable, .Draw},
+		fmt.aprintf(
+			"%s%s@%s",
+			get_name_from_id_string(id_string),
+			"_grip",
+			get_id_from_id_string(id_string),
+		),
+		slider_grip_rect,
+	)
+	append(&ui_state.temp_boxes, slider_grip)
+
+	return Track_Control_Signals {
+		value = value,
+		max = 100,
+		grip_signals = box_signals(slider_grip),
+		track_signals = box_signals(slider_track),
+		play_signals = play_button,
+	}
 }
 
 // Max is 0, min is pixel_height(slider), this is because the co-ord system of our layout.
 calc_slider_grip_val :: proc(current_val: f32, max: f32) -> f32 {
-	proposed_value := current_val + (-3 * cast(f32)ui_state.mouse.wheel.y)
+	proposed_value := current_val + (3 * cast(f32)ui_state.mouse.wheel.y)
 	if proposed_value < 0 {
 		return 0
 	} else if proposed_value > max {
@@ -31,61 +70,9 @@ calc_slider_grip_val :: proc(current_val: f32, max: f32) -> f32 {
 	}
 }
 
-slider :: proc(size: [2]Size, text: string, value: f32, max: f32) -> Slider_Signals {
-	bounding_box := box_from_cache({}, text, size)
-	bounding_box.child_layout_axis = .Y
-	layout_push_parent(bounding_box)
-
-	track_container := box_from_cache(
-		{},
-		fmt.aprintf("%s%s", text, "_track_container"),
-		{
-			{kind = .Pecent_Of_Parent, value = 1.0},
-			{kind = .Pecent_Of_Parent, value = TRACK_HEIGHT},
-		},
-	)
-	track_container.child_layout_axis = .X
-	layout_push_parent(track_container)
-
-	x_space(0.3, fmt.aprintf("%s%s", text, "__space1"))
-	track_size: [2]Size = {
-		Size{kind = .Pecent_Of_Parent, value = TRACK_WIDTH},
-		Size{kind = .Pecent_Of_Parent, value = 1},
-	}
-	track_id: string = fmt.aprintf("%s%s", text, "_track")
-	slider_track := box_from_cache({.Scrollable, .Draw}, track_id, track_size)
-	x_space(0.3, fmt.aprintf("%s%s", text, "__space2"))
-
-	layout_pop_parent()
-
-	grip_size: [2]Size = {
-		Size{kind = .Pecent_Of_Parent, value = GRIP_WIDTH},
-		Size{kind = .Pecent_Of_Parent, value = GRIP_HEIGHT},
-	}
-	grip_id: string = fmt.aprintf("%s%s", text, "_grip")
-	slider_grip := box_from_cache(
-		{
-			.Clickable,
-			.Hot_Animation,
-			.Scrollable,
-			.Active_Animation,
-			.Draggable,
-			.Draw,
-			.No_Offset,
-		},
-		grip_id,
-		grip_size,
-	)
-
-	slider_grip.calc_rel_pos = {0, calc_grip_height(value, max, slider_track.calc_size.y)}
-
-	append(&ui_state.temp_boxes, slider_track)
-	append(&ui_state.temp_boxes, slider_grip)
-	layout_pop_parent()
-	return Slider_Signals {
-		grip_signals = box_signals(slider_grip),
-		track_signals = box_signals(slider_track),
-		value = value,
-		max = max,
-	}
+rect_height :: proc(rect: Rect) -> f32 {
+	return rect.bottom_right.y - rect.top_left.y
+}
+rect_width :: proc(rect: Rect) -> f32 {
+	return rect.bottom_right.x - rect.top_left.x
 }
