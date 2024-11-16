@@ -95,7 +95,7 @@ delete_ibuffer :: proc(buffer: ^u32) {
 }
 
 vertices_of_box :: proc(box: Box) -> [4]Vertex {
-	r := rect_from_points(box.rect[0], box.rect[1])
+	r := rect_from_points(box.rect.top_left, box.rect.bottom_right)
 	rect := MyRect {
 		w = cast(f32)r.w,
 		h = cast(f32)r.h,

@@ -1,17 +1,8 @@
 package main
-Vec2 :: [2]f32
-Vec3 :: [3]f32
-Vec4 :: [4]f32
 
-
-// right now we take in an explicit rect_size, but in the future this will
-// be determined by looking at the layout / app state.
-button :: proc(text: string, size: [2]Size) -> Box_Signals {
-	b := box_from_cache(
-		{.Clickable, .Draw_Background, .Draw, .Draw_Text, .Hot_Animation},
-		text,
-		size,
-	)
+button :: proc(id_string: string, rect: Rect) -> Box_Signals {
+	// rect := cut_rect(top_rect(), rect_cut)
+	b := box_from_cache({.Draw, .Clickable, .Active_Animation, .Draw_Text}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)
 }

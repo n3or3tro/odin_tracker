@@ -19,24 +19,14 @@ import sdl "vendor:sdl2"
 import sttf "vendor:sdl2/ttf"
 
 println :: fmt.println
-WINDOW_WIDTH :: 1920
-WINDOW_HEIGHT :: 1080
-
-// theres are i32 because of SDL fuckery, they should be u32
+WINDOW_WIDTH :: 3000
+WINDOW_HEIGHT :: 2000
 n_boxes: u64 = 0
+// theres are i32 because of SDL fuckery, they should be u32
 wx: ^i32 = new(i32)
 wy: ^i32 = new(i32)
 ui_state: ^UI_State = new(UI_State)
 ui_font: ^sttf.Font
-root_box := Box {
-	rect              = {{20, 20}, {cast(f32)wx^, cast(f32)wy^}},
-	id_string         = "root",
-	child_layout_axis = .X,
-	pref_size         = {
-		Size{kind = .Pixels, value = cast(f32)WINDOW_WIDTH},
-		Size{kind = .Pixels, value = cast(f32)WINDOW_HEIGHT},
-	},
-}
 text_vbuffer := new(u32)
 text_vabuffer := new(u32)
 char_map := new(u32)
@@ -148,93 +138,53 @@ setup_for_quads :: proc(shader: ^u32) {
 	gl.BindVertexArray(quad_vabuffer^)
 	enable_layout(0)
 	layout_vbuffer(0, 2, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, pos))
-	// disable_layout(0)
 
 	enable_layout(1)
 	layout_vbuffer(1, 4, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, color))
-	// disable_layout(1)
 	bind_shader(shader^)
 }
 
 tracker_track :: proc(which_track: u32, slider_value: ^f32) {
-	name := fmt.aprintf("track_%d", which_track)
-	// // need a smart way to set the width of tracks
-	track_size: [2]Size = {
-		Size{kind = .Pecent_Of_Parent, value = 0.125},
-		Size{kind = .Pecent_Of_Parent, value = 1},
-	}
-	track_container := box_from_cache(
-		{.Draw, .Draw_Background},
-		fmt.aprintf("%s_container", name, context.temp_allocator),
-		track_size,
-	)
-	append(&ui_state.temp_boxes, track_container)
-	track_container.child_layout_axis = .Y
-	layout_push_parent(track_container)
-
-	tracker_notes_size: [2]Size = {
-		Size{kind = .Pecent_Of_Parent, value = 1},
-		Size{kind = .Pecent_Of_Parent, value = 0.7},
-	}
-	tracker_steps := box_from_cache(
-		{},
-		fmt.aprintf("%s_tracker_steps", name, context.temp_allocator),
-		tracker_notes_size,
-	)
-
-	// controls_container := box_from_cache(
-	// 	{},
-	// 	fmt.aprintf("%s_controls_container", name, context.temp_allocator),
-	// 	{{kind = .Pecent_Of_Parent, value = 1}, {kind = .Pecent_Of_Parent, value = 0.3}},
-	// )
-	slider := slider(
-		{Size{.Pecent_Of_Parent, 0.2, 1}, Size{.Pecent_Of_Parent, 0.3, 1}}, // Need to be careful with the size.strictness which = 1 here.
-		fmt.aprintf("%s_volume_slider", name, context.temp_allocator),
-		slider_value^,
-		slider_max,
-	)
-	button_container := box_from_cache(
-		{},
-		fmt.aprintf("%s_button_container", name, context.temp_allocator),
-		{{kind = .Pecent_Of_Parent, value = 0.2}, {kind = .Pecent_Of_Parent, value = 0.05}},
-	)
-	button_container.child_layout_axis = .X
-	layout_push_parent(button_container)
-
-	// this is arbitrary
-	x_space(0.48, fmt.aprintf("%s_space", name, context.temp_allocator))
-	b := button(
-		fmt.aprintf("%s_play_button1", name, context.temp_allocator),
-		{{kind = .Pecent_Of_Parent, value = 1}, {kind = .Pecent_Of_Parent, value = 1}},
-	)
-
-	layout_pop_parent()
-	layout_pop_parent()
-	if slider.track_signals.scrolled {
-		slider_value^ = calc_slider_grip_val(slider_value^, slider_max)
-		ma.sound_set_volume(
-			engine_sounds[which_track],
-			calc_slider_volume(0, slider_max, 0, 1, slider_value^),
-		)
-	}
-	if b.clicked {
-		toggle_sound(engine_sounds[which_track])
-	}
-	draw_text("sau paulo", b.box.rect[0].x, b.box.rect[0].y + b.box.calc_size.y / 1.5)
 }
 
-sv1: f32 = 10
-sv2: f32 = 10
-sv3: f32 = 10
-draw_ui :: proc(shader_program: ^u32) {
-	root_box.child_layout_axis = .X
-	layout_push_parent(&root_box)
-	tracker_track(0, &sv1)
-	tracker_track(1, &sv2)
-	layout_pop_parent()
+handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, which: u32) {
+	if t_controls.track_signals.scrolled {
+		slider_volumes[which] = calc_slider_grip_val(slider_volumes[which], 100)
+		ma.sound_set_volume(engine_sounds[which], map_range(0, 100, 0, 1, slider_volumes[which]))
+	}
+	if t_controls.play_signals.clicked {
+		toggle_sound(engine_sounds[which])
+	}
+}
+// handle_track_interactions :: proc() {
+// }
+// Obviously not a complete track, but as complete-ish for now :).
+create_track :: proc(which: u32) {
+	track_container := cut_rect(top_rect(), RectCut{Size{.Pixels, 200}, .Left})
+	track_controller_container := cut_rect(&track_container, RectCut{Size{.Percent, 0.3}, .Bottom})
+	push_parent_rect(&track_container)
+	push_parent_rect(&track_controller_container)
+	track_controls_0 := track_controls(
+		fmt.aprintf("track%d_controls@1", which),
+		&track_controller_container,
+		slider_volumes[which],
+	)
+	pop_parent_rect()
+	track_step_container := cut_rect(top_rect(), {Size{.Percent, 0.95}, .Top})
+	track_steps(fmt.aprintf("track_steps%d@1", which), &track_step_container)
+	pop_parent_rect()
 
-	layout_from_root(&root_box, Axis.Y)
-	layout_from_root(&root_box, Axis.X)
+	// handle_track_step_interactions(&track, which)
+	handle_track_control_interactions(&track_controls_0, which)
+}
+
+slider_volumes: [10]f32 = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10}
+draw_ui :: proc(shader_program: ^u32) {
+	for i in 0 ..= 9 {
+		create_track(u32(i))
+		spacer(fmt.aprintf("track_spacer%s", i), RectCut{Size{.Percent, 0.01}, .Left})
+	}
+
 	if !ui_state.first_frame {
 		render_boxes(ui_state)
 		populate_ibuffer(
@@ -261,7 +211,11 @@ draw_ui :: proc(shader_program: ^u32) {
 main :: proc() {
 	// setup state for UI
 	ui_state.renderer_data = new(Renderer_Data)
-	ui_state.layout_stack = make(Layout_Stack)
+	ui_state.rect_stack = make([dynamic]^Rect)
+	ui_state.rect_hash_cache = make(map[string][]byte)
+	root_rect := new(Rect)
+	append(&ui_state.rect_stack, root_rect)
+
 	ui_state.box_cache = make(map[string]^Box)
 	ui_state.temp_boxes = make([dynamic]^Box)
 	ui_state.first_frame = true
@@ -278,19 +232,19 @@ main :: proc() {
 		"src/shaders/vertex_shader.glsl",
 		"src/shaders/fragment_shader.glsl",
 	)
-	create_ibuffer(index_buffer, nil, 1000 * size_of(u32))
+	create_ibuffer(index_buffer, nil, 100_000 * size_of(u32))
 	setup_for_quads(&quad_shader_program)
 
 	ui_state.char_map = create_font_map(30)
 	text_proj := alg.matrix_ortho3d_f32(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1)
 	// this will probably need to be dynamically sized in the future...
-	create_vbuffer(text_vbuffer, nil, 1000 * size_of(f32))
+	create_vbuffer(text_vbuffer, nil, 100_000 * size_of(f32))
 
 	sdl.GetWindowSize(window, wx, wy)
 	mx, my: i32
+	println("about to start event loop, top rect is:", top_rect(), "\n")
 	app_loop: for {
-		start := sdl.GetTicks()
-		register_resize(window)
+		root_rect.top_left = {0, 0}
 		reset_ui_state()
 		event: sdl.Event
 		for sdl.PollEvent(&event) {
@@ -299,6 +253,7 @@ main :: proc() {
 				break app_loop
 			}
 		}
+		root_rect.bottom_right = {WINDOW_WIDTH, WINDOW_HEIGHT}
 		clear()
 		setup_for_quads(&quad_shader_program)
 		draw_ui(&quad_shader_program)
