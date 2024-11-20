@@ -11,16 +11,15 @@ import "core:strings"
 import sys_l "core:sys/linux"
 import "core:thread"
 import "core:time"
-// import builder "ui_builder"
-// import core "ui_core"
+import osd "third_party/osdialog"
 import gl "vendor:OpenGL"
 import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
 import sttf "vendor:sdl2/ttf"
 
 println :: fmt.println
-WINDOW_WIDTH :: 3000
-WINDOW_HEIGHT :: 2000
+WINDOW_WIDTH :: 2000
+WINDOW_HEIGHT :: 1500
 n_boxes: u64 = 0
 // theres are i32 because of SDL fuckery, they should be u32
 wx: ^i32 = new(i32)
@@ -109,6 +108,7 @@ setup_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	gl.Enable(gl.MULTISAMPLE)
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
 	return window, gl_context
 }
 
@@ -152,14 +152,23 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 		slider_volumes[which] = calc_slider_grip_val(slider_volumes[which], 100)
 		ma.sound_set_volume(engine_sounds[which], map_range(0, 100, 0, 1, slider_volumes[which]))
 	}
-	if t_controls.play_signals.clicked {
+	if t_controls.button_signals.play_signals.clicked {
 		toggle_sound(engine_sounds[which])
 	}
+	if t_controls.button_signals.file_load_signals.clicked {
+		// println(osd.path(.Open_Dir))
+	}
 }
-// handle_track_interactions :: proc() {
-// }
+handle_track_steps_interactions :: proc(track: [33]Box_Signals) {
+	for step in track {
+		if step.hovering {
+			println("hovering over:", step.box.id_string)
+		}
+	}
+}
+
 // Obviously not a complete track, but as complete-ish for now :).
-create_track :: proc(which: u32) {
+create_track :: proc(which: u32) -> [33]Box_Signals {
 	track_container := cut_rect(top_rect(), RectCut{Size{.Pixels, 200}, .Left})
 	track_controller_container := cut_rect(&track_container, RectCut{Size{.Percent, 0.3}, .Bottom})
 	push_parent_rect(&track_container)
@@ -171,18 +180,21 @@ create_track :: proc(which: u32) {
 	)
 	pop_parent_rect()
 	track_step_container := cut_rect(top_rect(), {Size{.Percent, 0.95}, .Top})
-	track_steps(fmt.aprintf("track_steps%d@1", which), &track_step_container)
+	steps := track_steps(fmt.aprintf("track_steps%d@1", which), &track_step_container)
 	pop_parent_rect()
 
-	// handle_track_step_interactions(&track, which)
+	handle_track_steps_interactions(steps)
 	handle_track_control_interactions(&track_controls_0, which)
+
+	return steps
 }
 
-slider_volumes: [10]f32 = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10}
+slider_volumes: [10]f32 = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
 draw_ui :: proc(shader_program: ^u32) {
+	steps: [33]Box_Signals
 	for i in 0 ..= 9 {
-		create_track(u32(i))
-		spacer(fmt.aprintf("track_spacer%s", i), RectCut{Size{.Percent, 0.01}, .Left})
+		steps = create_track(u32(i))
+		spacer(fmt.aprintf("track_spacer%s", i), RectCut{Size{.Pixels, 2}, .Left})
 	}
 
 	if !ui_state.first_frame {

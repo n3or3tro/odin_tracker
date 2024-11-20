@@ -3,24 +3,34 @@ import "core:crypto/hash"
 import "core:fmt"
 import "core:strings"
 
+Track_Button_Signals :: struct {
+	play_signals:      Box_Signals,
+	file_load_signals: Box_Signals,
+}
 Track_Control_Signals :: struct {
-	value:         f32,
-	max:           f32,
-	grip_signals:  Box_Signals,
-	track_signals: Box_Signals,
-	play_signals:  Box_Signals,
+	value:          f32,
+	max:            f32,
+	grip_signals:   Box_Signals,
+	track_signals:  Box_Signals,
+	button_signals: Track_Button_Signals,
 }
 
 // assumes 0 <= value <= 100
 track_controls :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Control_Signals {
+
 	cut_rect(rect, {Size{.Percent, 0.33}, .Left})
-
-	play_button_rect := cut_rect(top_rect(), {Size{.Percent, 0.1}, .Bottom})
-
+	buttons_rect := cut_rect(rect, {Size{.Percent, 0.1}, .Bottom})
+	play_button_rect := get_rect(&buttons_rect, {Size{.Percent, 0.4}, .Left})
 	play_button := button(
 		fmt.aprintf("%s_play_button@1", get_name_from_id_string(id_string)),
 		play_button_rect,
 	)
+	file_load_button_rect := get_rect(&buttons_rect, {Size{.Percent, 0.4}, .Right})
+	file_load_button := button(
+		fmt.aprintf("%s_file_load_button@1", get_name_from_id_string(id_string)),
+		file_load_button_rect,
+	)
+
 	// This is a bit hacky but for now it's okay, and should stay in proportion. It won't be responsive
 	// however :(
 	cut_right(&play_button.box.rect, Size{.Percent, 0.5})
@@ -54,7 +64,7 @@ track_controls :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Cont
 		max = 100,
 		grip_signals = box_signals(slider_grip),
 		track_signals = box_signals(slider_track),
-		play_signals = play_button,
+		button_signals = {play_button, file_load_button},
 	}
 }
 

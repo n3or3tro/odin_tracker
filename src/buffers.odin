@@ -79,6 +79,9 @@ create_ibuffer :: proc(buffer: ^u32, indices: rawptr, n_indices: u32) {
 
 populate_ibuffer :: proc(buffer: ^u32, indices: [^]u32, n_indices: u32) {
 	// gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer^)
+	current_buffer: i32
+	gl.GetIntegerv(gl.ELEMENT_ARRAY_BUFFER_BINDING, &current_buffer)
+	assert(current_buffer == i32(buffer^), "Buffer is not bound!")
 	gl.BufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, cast(int)(n_indices * size_of(u32)), indices)
 }
 

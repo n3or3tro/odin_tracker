@@ -232,6 +232,19 @@ cut_bottom :: proc(rect: ^Rect, amount: Size) -> Rect {
 }
 // All the get_* functions, return the desired rectangle, without cutting
 // the source rectangle.
+get_rect :: proc(rect: ^Rect, rect_cut: RectCut) -> Rect {
+	switch rect_cut.side {
+	case .Left:
+		return get_left(rect, rect_cut.size)
+	case .Right:
+		return get_right(rect, rect_cut.size)
+	case .Top:
+		return get_top(rect, rect_cut.size)
+	case .Bottom:
+		return get_bottom(rect, rect_cut.size)
+	}
+	panic("[!] cut_rect: invalid side")
+}
 get_left :: proc(rect: ^Rect, amount: Size) -> Rect {
 	parent_top_left_x: f32 = rect.top_left.x
 	px_amount := math.floor(get_amount(rect^, amount, .Left))
@@ -309,6 +322,25 @@ expand_y :: proc(rect: Rect, amount: Size) -> Rect {
 // Adds pixels along x AND y.
 expand :: proc(rect: Rect, amount: Size) -> Rect {
 	return expand_x(expand_y(rect, amount), amount)
+}
+
+// Let's you remove pixels in a specific direction
+shrink_x :: proc(rect: Rect, amount: Size) -> Rect {
+	px_amount := math.floor(get_amount(rect, amount, .Left))
+	new_rect := rect
+	new_rect.top_left.x = rect.top_left.x + px_amount
+	new_rect.bottom_right.x = rect.bottom_right.x - px_amount
+	return new_rect
+}
+shrink_y :: proc(rect: Rect, amount: Size) -> Rect {
+	px_amount := math.floor(get_amount(rect, amount, .Left))
+	new_rect := rect
+	new_rect.top_left.y = rect.top_left.y - px_amount
+	new_rect.bottom_right.y = rect.bottom_right.y + px_amount
+	return new_rect
+}
+shrink :: proc(rect: Rect, amount: Size) -> Rect {
+	return shrink_x(shrink_y(rect, amount), amount)
 }
 
 // Calulcates actual pixel amount based on abstract size.
