@@ -8,7 +8,6 @@ import glm "core:math/linalg/glsl"
 import "core:mem"
 import "core:os"
 import "core:strings"
-import sys_l "core:sys/linux"
 import "core:thread"
 import "core:time"
 import gl "vendor:OpenGL"
@@ -75,45 +74,89 @@ handle_input :: proc(event: sdl.Event) -> bool {
 	return true
 }
 
+// setup_window :: proc() -> (^sdl.Window, sdl.GLContext) {
+// 	window_flags :=
+// 		sdl.WINDOW_OPENGL | sdl.WINDOW_RESIZABLE | sdl.WINDOW_ALLOW_HIGHDPI | sdl.WINDOW_UTILITY
+
+// 	window := sdl.CreateWindow(
+// 		"Odin sdl2 Demo",
+// 		sdl.WINDOWPOS_UNDEFINED,
+// 		sdl.WINDOWPOS_UNDEFINED,
+// 		WINDOW_WIDTH,
+// 		WINDOW_HEIGHT,
+// 		window_flags,
+// 	)
+// 	if window == nil {
+// 		panic("Failed to create window")
+// 	}
+// 	sdl.GL_SetAttribute(.MULTISAMPLEBUFFERS, 1)
+// 	sdl.GL_SetAttribute(.MULTISAMPLESAMPLES, 8)
+
+// 	sdl.GL_SetAttribute(.CONTEXT_MAJOR_VERSION, 4)
+// 	sdl.GL_SetAttribute(.CONTEXT_MINOR_VERSION, 1)
+
+// 	sdl.GL_SetAttribute(.CONTEXT_PROFILE_MASK, gl.CONTEXT_CORE_PROFILE_BIT)
+
+// 	sdl.Init({.AUDIO, .EVENTS, .TIMER})
+
+// 	gl.load_up_to(4, 1, sdl.gl_set_proc_address)
+// 	gl_context := sdl.GL_CreateContext(window)
+// 	sdl.GL_MakeCurrent(window, gl_context)
+
+// 	gl.Hint(gl.LINE_SMOOTH_HINT, gl.NICEST)
+// 	gl.Hint(gl.POLYGON_SMOOTH_HINT, gl.NICEST)
+// 	gl.Enable(gl.LINE_SMOOTH)
+// 	gl.Enable(gl.POLYGON_SMOOTH)
+// 	gl.Enable(gl.MULTISAMPLE)
+// 	gl.Enable(gl.BLEND)
+// 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
+// 	return window, gl_context
+// }
+
 setup_window :: proc() -> (^sdl.Window, sdl.GLContext) {
-	window_flags :=
-		sdl.WINDOW_OPENGL | sdl.WINDOW_RESIZABLE | sdl.WINDOW_ALLOW_HIGHDPI | sdl.WINDOW_UTILITY
+    sdl.Init({.AUDIO, .EVENTS, .TIMER})
 
-	window := sdl.CreateWindow(
-		"Odin sdl2 Demo",
-		sdl.WINDOWPOS_UNDEFINED,
-		sdl.WINDOWPOS_UNDEFINED,
-		WINDOW_WIDTH,
-		WINDOW_HEIGHT,
-		window_flags,
-	)
-	if window == nil {
-		panic("Failed to create window")
-	}
-	sdl.GL_SetAttribute(.MULTISAMPLEBUFFERS, 1)
-	sdl.GL_SetAttribute(.MULTISAMPLESAMPLES, 8)
+    window_flags := sdl.WINDOW_OPENGL | sdl.WINDOW_RESIZABLE | sdl.WINDOW_ALLOW_HIGHDPI | sdl.WINDOW_UTILITY
+    window := sdl.CreateWindow(
+        "Odin SDL2 Demo",
+        sdl.WINDOWPOS_UNDEFINED,
+        sdl.WINDOWPOS_UNDEFINED,
+        WINDOW_WIDTH,
+        WINDOW_HEIGHT,
+        window_flags,
+    )
+    if window == nil {
+        panic("Failed to create window")
+    }
 
-	sdl.GL_SetAttribute(.CONTEXT_MAJOR_VERSION, 4)
-	sdl.GL_SetAttribute(.CONTEXT_MINOR_VERSION, 1)
+    // Set OpenGL attributes after SDL initialization
+    sdl.GL_SetAttribute(.CONTEXT_MAJOR_VERSION, 4)
+    sdl.GL_SetAttribute(.CONTEXT_MINOR_VERSION, 1)
+    sdl.GL_SetAttribute(.CONTEXT_PROFILE_MASK, gl.CONTEXT_CORE_PROFILE_BIT)
+    sdl.GL_SetAttribute(.MULTISAMPLEBUFFERS, 1)
+    sdl.GL_SetAttribute(.MULTISAMPLESAMPLES, 8)
 
-	sdl.GL_SetAttribute(.CONTEXT_PROFILE_MASK, gl.CONTEXT_CORE_PROFILE_BIT)
+    gl_context := sdl.GL_CreateContext(window)
+    if gl_context == nil {
+        panic("Failed to create OpenGL context")
+    }
+    sdl.GL_MakeCurrent(window, gl_context)
 
-	sdl.Init({.AUDIO, .EVENTS, .TIMER})
+    gl.load_up_to(4, 1, sdl.gl_set_proc_address)
 
-	gl.load_up_to(4, 1, sdl.gl_set_proc_address)
-	gl_context := sdl.GL_CreateContext(window)
-	sdl.GL_MakeCurrent(window, gl_context)
+    // Enable OpenGL settings
+    gl.Hint(gl.LINE_SMOOTH_HINT, gl.NICEST)
+    gl.Hint(gl.POLYGON_SMOOTH_HINT, gl.NICEST)
+    gl.Enable(gl.LINE_SMOOTH)
+    gl.Enable(gl.POLYGON_SMOOTH)
+    gl.Enable(gl.MULTISAMPLE)
+    gl.Enable(gl.BLEND)
+    gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
-	gl.Hint(gl.LINE_SMOOTH_HINT, gl.NICEST)
-	gl.Hint(gl.POLYGON_SMOOTH_HINT, gl.NICEST)
-	gl.Enable(gl.LINE_SMOOTH)
-	gl.Enable(gl.POLYGON_SMOOTH)
-	gl.Enable(gl.MULTISAMPLE)
-	gl.Enable(gl.BLEND)
-	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-
-	return window, gl_context
+    return window, gl_context
 }
+
 
 register_resize :: proc(window: ^sdl.Window) {
 	sdl.GetWindowSize(window, wx, wy)
@@ -207,7 +250,6 @@ draw_ui :: proc(shader_program: ^u32) {
 		steps = create_track(u32(i))
 		spacer(fmt.aprintf("track_spacer%s", i), RectCut{Size{.Pixels, 2}, .Left})
 	}
-
 	if !ui_state.first_frame {
 		rect_rendering_data := get_box_rendering_data(ui_state)
 		defer free(rect_rendering_data)
@@ -236,7 +278,8 @@ main :: proc() {
 
 	// setup audio stuff
 	setup_audio_engine(audio_engine)
-	load_files()
+	// interacting with audio without running this function first will crash the app.
+	// load_files()
 
 	gl.GenVertexArrays(1, quad_vabuffer)
 	gl.GenVertexArrays(1, text_vabuffer)

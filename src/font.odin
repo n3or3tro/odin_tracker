@@ -6,7 +6,11 @@ import ft "third_party/freetype"
 import gl "vendor:OpenGL"
 
 // font_path :: "/usr/share/fonts/TTF/Sauce Code Pro Medium Nerd Font Complete.ttf"
-font_path :: "/usr/share/fonts/TTF/SauceCodeProNerdFontMono-Medium.ttf"
+when ODIN_OS == .Windows {
+	font_path :: "C:\\windows\\fonts\\arial.ttf"
+} else {
+	font_path :: "/usr/share/fonts/TTF/SauceCodeProNerdFontMono-Medium.ttf"
+}
 
 Character :: struct {
 	texture_id: u32,
@@ -30,7 +34,7 @@ create_font_map :: proc(font_size: u32) -> map[rune]Character {
 
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
 	for c := rune(0); c < 128; c += 1 {
-		if ft.load_char(font_face, cast(u64)c, {.Render}) != ft.Error.Ok {
+		if ft.load_char(font_face, cast(u32)c, {.Render}) != ft.Error.Ok {
 			panic("Failed to load glyph")
 		}
 		// Generate texture
