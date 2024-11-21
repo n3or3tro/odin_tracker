@@ -26,7 +26,12 @@ populate_vbuffer :: proc(buffer: ^u32, offset: u32, data: [^]f32, size: u32) {
 	// gl.BindBuffer(gl.ARRAY_BUFFER, buffer^)
 	gl.BufferSubData(gl.ARRAY_BUFFER, cast(int)offset, cast(int)size, data)
 }
-populate_vbuffer_vertices :: proc(buffer: ^u32, offset: u32, data: [^]Vertex, size: u32) {
+populate_vbuffer_with_rects :: proc(
+	buffer: ^u32,
+	offset: u32,
+	data: [^]Rect_Render_Data,
+	size: u32,
+) {
 	gl.BufferSubData(gl.ARRAY_BUFFER, cast(int)offset, cast(int)size, data)
 }
 
