@@ -16,8 +16,8 @@ import sdl "vendor:sdl2"
 import sttf "vendor:sdl2/ttf"
 
 println :: fmt.println
-WINDOW_WIDTH :: 2000
-WINDOW_HEIGHT :: 1500
+WINDOW_WIDTH :: 1000
+WINDOW_HEIGHT :: 800
 // theres are i32 because of SDL fuckery, they should be u32
 wx: ^i32 = new(i32)
 wy: ^i32 = new(i32)
@@ -159,8 +159,14 @@ setup_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 
 
 register_resize :: proc(window: ^sdl.Window) {
+	og_width, og_height := wx^, wy^
 	sdl.GetWindowSize(window, wx, wy)
-	gl.Viewport(0, 0, wx^, wy^)
+	if og_width != wx^ || og_height != wy^ { 
+		gl.Viewport(0, 0, wx^, wy^)
+		location := gl.GetUniformLocation(quad_shader_program, "res")
+		println("res uniform location: ", location)
+		// set_shader_vec2(quad_shader_program, "res", {f32(wx^), f32(wy^)})
+	}
 }
 
 reset_renderer_data :: proc() {
@@ -195,7 +201,7 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 handle_track_steps_interactions :: proc(track: [33]Box_Signals) {
 	for step in track {
 		if step.hovering {
-			println("hovering over:", step.box.id_string)
+			// println("hovering over:", step.box.id_string)
 		}
 	}
 }
@@ -282,7 +288,6 @@ main :: proc() {
 
 	// setup audio stuff
 	setup_audio_engine(audio_engine)
-	// interacting with audio without running this function first will crash the app.
 	// load_files()
 
 	gl.GenVertexArrays(1, quad_vabuffer)
@@ -297,6 +302,7 @@ main :: proc() {
 	assert(pok)
 	// Not sure if this call still needs to be here with the new renderer, but it can
 	// stay for now. 
+	set_shader_vec2(quad_shader_program, "res", {WINDOW_WIDTH, WINDOW_HEIGHT})
 	setup_for_quads(&quad_shader_program)
 
 	ui_state.char_map = create_font_map(30)
