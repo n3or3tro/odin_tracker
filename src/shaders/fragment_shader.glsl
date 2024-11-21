@@ -1,9 +1,9 @@
 #version 410 core
 
-in vec4 vColor; // Interpolated color from vertex shader
+in vec4 v_color;
 
-out vec4 fragColor; // Output color
+out vec4 fragColor;
 
 void main() {
-	fragColor = vColor; // Use the per-rectangle color
+	fragColor = v_color; // Use the per-rectangle color
 }
