@@ -11,7 +11,6 @@ import "core:strings"
 import sys_l "core:sys/linux"
 import "core:thread"
 import "core:time"
-import osd "third_party/osdialog"
 import gl "vendor:OpenGL"
 import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
@@ -134,16 +133,6 @@ reset_ui_state :: proc() {
 	ui_state.mouse.wheel = {0, 0}
 }
 
-setup_for_quads :: proc(shader: ^u32) {
-	gl.BindVertexArray(quad_vabuffer^)
-	enable_layout(0)
-	layout_vbuffer(0, 2, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, pos))
-
-	enable_layout(1)
-	layout_vbuffer(1, 4, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, color))
-	bind_shader(shader^)
-}
-
 tracker_track :: proc(which_track: u32, slider_value: ^f32) {
 }
 
@@ -188,6 +177,23 @@ create_track :: proc(which: u32) -> [33]Box_Signals {
 
 	return steps
 }
+setup_for_quads :: proc(shader_program: ^u32) {
+	gl.BindVertexArray(quad_vabuffer^)
+	gl.VertexAttribPointer(0, 2, gl.FLOAT, false, size_of(Vec2), 0)
+	enable_layout(0)
+	gl.VertexAttribDivisor(0, 1)
+
+	gl.VertexAttribPointer(1, 2, gl.FLOAT, false, size_of(Vec2), offset_of(Vertex, bottom_right))
+	enable_layout(1)
+
+	gl.VertexAttribDivisor(1, 1)
+	gl.VertexAttribPointer(2, 4, gl.FLOAT, false, size_of(Vec4), offset_of(Vertex, color))
+	enable_layout(2)
+
+	gl.VertexAttribDivisor(2, 1)
+	bind_shader(shader_program^)
+}
+
 
 slider_volumes: [10]f32 = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
 draw_ui :: proc(shader_program: ^u32) {
@@ -199,24 +205,16 @@ draw_ui :: proc(shader_program: ^u32) {
 
 	if !ui_state.first_frame {
 		render_boxes(ui_state)
-		populate_ibuffer(
-			index_buffer,
-			raw_data(ui_state.renderer_data.indices),
-			ui_state.renderer_data.n_quads * 6,
-		)
-		populate_vbuffer(
+		populate_vbuffer_vertices(
 			quad_vabuffer,
 			0,
-			raw_data(ui_state.renderer_data.raw_vertices),
+			raw_data(ui_state.renderer_data.vertices),
 			// no idea why i need to 4x this...
 			4 * ui_state.renderer_data.n_quads * size_of(Vertex),
 		)
-		proj := alg.matrix_ortho3d_f32(0, cast(f32)wx^, cast(f32)wy^, 0, -1, 1)
-		set_shader_matrix4(shader_program^, "proj", &proj)
-		draw(
-			cast(i32)(ui_state.renderer_data.n_quads * 6),
-			raw_data(ui_state.renderer_data.indices),
-		)
+		// set_shader_vec2(shader_program^, "res", {3000, 2000})
+		println("trying to draw: ", i32(len(ui_state.renderer_data.vertices)))
+		gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, i32(len(ui_state.renderer_data.vertices)))
 	}
 }
 
@@ -244,7 +242,6 @@ main :: proc() {
 		"src/shaders/vertex_shader.glsl",
 		"src/shaders/fragment_shader.glsl",
 	)
-	create_ibuffer(index_buffer, nil, 100_000 * size_of(u32))
 	setup_for_quads(&quad_shader_program)
 
 	ui_state.char_map = create_font_map(30)
@@ -255,6 +252,7 @@ main :: proc() {
 	sdl.GetWindowSize(window, wx, wy)
 	mx, my: i32
 	println("about to start event loop, top rect is:", top_rect(), "\n")
+	i := 0
 	app_loop: for {
 		root_rect.top_left = {0, 0}
 		reset_ui_state()
@@ -273,5 +271,9 @@ main :: proc() {
 		register_resize(window)
 		sdl.GL_SwapWindow(window)
 		ui_state.first_frame = false
+		i += 1
+		// if i > 3 {
+		// 	return
+		// }
 	}
 }

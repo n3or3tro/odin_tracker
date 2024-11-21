@@ -41,8 +41,9 @@ MyRect :: struct {
 }
 
 Vertex :: struct {
-	pos:   Vec2,
-	color: Vec4,
+	top_left:     Vec2,
+	bottom_right: Vec2,
+	color:        Vec4,
 }
 
 Renderer_Data :: struct {
@@ -55,16 +56,15 @@ Renderer_Data :: struct {
 // Assumes a box is 4 vertices (might break if we change to pass more info to GL later)
 renderer_add_box :: proc(ui_state: ^UI_State, box: Box) {
 	ui_state.renderer_data.n_quads += 1
-	vertex_data := raw_vertex_data(vertices_of_box(box))
-	for i in 0 ..< 24 {
-		append(&ui_state.renderer_data.raw_vertices, vertex_data[i])
-	}
+	vertex_data := Vertex{box.rect.top_left, box.rect.bottom_right, box.color}
+	append(&ui_state.renderer_data.vertices, vertex_data)
+
 	// Definitely not efficient to delete and reallocate the indices every time
 	// we add a new quad.
-	if ui_state.renderer_data.indices != nil {
-		delete(ui_state.renderer_data.indices)
-	}
-	ui_state.renderer_data.indices = generate_indices(ui_state.renderer_data.n_quads)
+	// if ui_state.renderer_data.indices != nil {
+	// 	delete(ui_state.renderer_data.indices)
+	// }
+	// ui_state.renderer_data.indices = generate_indices(ui_state.renderer_data.n_quads)
 }
 
 render_boxes :: proc(ui_state: ^UI_State) {
