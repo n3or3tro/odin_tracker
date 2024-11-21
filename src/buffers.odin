@@ -26,6 +26,9 @@ populate_vbuffer :: proc(buffer: ^u32, offset: u32, data: [^]f32, size: u32) {
 	// gl.BindBuffer(gl.ARRAY_BUFFER, buffer^)
 	gl.BufferSubData(gl.ARRAY_BUFFER, cast(int)offset, cast(int)size, data)
 }
+populate_vbuffer_vertices :: proc(buffer: ^u32, offset: u32, data: [^]Vertex, size: u32) {
+	gl.BufferSubData(gl.ARRAY_BUFFER, cast(int)offset, cast(int)size, data)
+}
 
 bind_vbuffer :: proc(buffer: u32) {
 	gl.BindBuffer(gl.ARRAY_BUFFER, buffer)
@@ -97,66 +100,38 @@ delete_ibuffer :: proc(buffer: ^u32) {
 	gl.DeleteBuffers(1, buffer)
 }
 
-vertices_of_box :: proc(box: Box) -> [4]Vertex {
-	r := rect_from_points(box.rect.top_left, box.rect.bottom_right)
-	rect := MyRect {
-		w = cast(f32)r.w,
-		h = cast(f32)r.h,
-		x = cast(f32)r.x,
-		y = cast(f32)r.y,
-	}
-	top_left: Vec2 = {rect.x, rect.y}
-	bottom_left: Vec2 = {rect.x, rect.y + rect.h}
-	bottom_right: Vec2 = {rect.x + rect.w, rect.y + rect.h}
-	top_right: Vec2 = {rect.x + rect.w, rect.y}
+// vertices_of_box :: proc(box: Box) -> [4]Vertex {
+// 	r := rect_from_points(box.rect.top_left, box.rect.bottom_right)
+// 	rect := MyRect {
+// 		w = cast(f32)r.w,
+// 		h = cast(f32)r.h,
+// 		x = cast(f32)r.x,
+// 		y = cast(f32)r.y,
+// 	}
+// 	top_left: Vec2 = {rect.x, rect.y}
+// 	bottom_left: Vec2 = {rect.x, rect.y + rect.h}
+// 	bottom_right: Vec2 = {rect.x + rect.w, rect.y + rect.h}
+// 	top_right: Vec2 = {rect.x + rect.w, rect.y}
 
-	v1 := Vertex {
-		pos   = top_left,
-		color = box.color,
-	}
-	v2 := Vertex {
-		pos   = bottom_left,
-		color = {box.color.r / 8, box.color.g / 8, box.color.b / 8, box.color.a},
-	}
-	v3 := Vertex {
-		pos   = bottom_right,
-		color = {box.color.r / 8, box.color.g / 8, box.color.b / 8, box.color.a},
-	}
-	v4 := Vertex {
-		pos   = top_right,
-		color = box.color,
-	}
-	return [4]Vertex{v1, v2, v3, v4}
-}
+// 	v1 := Vertex{top_left, bottom_right, box.color}
+// 	v2 := Vertex {
+// 		pos   = bottom_left,
+// 		color = {box.color.r / 8, box.color.g / 8, box.color.b / 8, box.color.a},
+// 	}
+// 	v3 := Vertex {
+// 		pos   = bottom_right,
+// 		color = {box.color.r / 8, box.color.g / 8, box.color.b / 8, box.color.a},
+// 	}
+// 	v4 := Vertex {
+// 		pos   = top_right,
+// 		color = box.color,
+// 	}
+// 	return [4]Vertex{v1, v2, v3, v4}
+// }
 
-raw_vertex_data :: proc(vertices: [4]Vertex) -> [6 * 4]f32 {
-	return {
-		vertices[0].pos.x,
-		vertices[0].pos.y,
-		vertices[0].color[0],
-		vertices[0].color[1],
-		vertices[0].color[2],
-		vertices[0].color[3],
-		vertices[1].pos.x,
-		vertices[1].pos.y,
-		vertices[1].color[0],
-		vertices[1].color[1],
-		vertices[1].color[2],
-		vertices[1].color[3],
-		vertices[2].pos.x,
-		vertices[2].pos.y,
-		vertices[2].color[0],
-		vertices[2].color[1],
-		vertices[2].color[2],
-		vertices[2].color[3],
-		vertices[3].pos.x,
-		vertices[3].pos.y,
-		vertices[3].color[0],
-		vertices[3].color[1],
-		vertices[3].color[2],
-		vertices[3].color[3],
-	}
-}
+// raw_vertex_data :: proc(vertices: [4]Vertex) -> [size_of(Vertex)]f32 {
+// 	return {}
+// }
 
 // this probably doesn't need to be dynamic? but I guess we can't predict the size
 // so maybe it does.
