@@ -226,15 +226,16 @@ setup_for_quads :: proc(shader_program: ^u32) {
 	//odinfmt:disable
 	gl.BindVertexArray(quad_vabuffer^)
 
-	gl.VertexAttribPointer(0, 2, gl.FLOAT, false, size_of(Vec2), 0)
 	enable_layout(0)
+
+	gl.VertexAttribPointer(0, 2, gl.FLOAT, false, size_of(Rect_Render_Data), 0)
 	gl.VertexAttribDivisor(0, 1)
 
-	gl.VertexAttribPointer(1, 2, gl.FLOAT, false, size_of(Vec2), offset_of(Rect_Render_Data, bottom_right))
+	gl.VertexAttribPointer(1, 2, gl.FLOAT, false, size_of(Rect_Render_Data), offset_of(Rect_Render_Data, bottom_right))
 	enable_layout(1)
 	gl.VertexAttribDivisor(1, 1)
 
-	gl.VertexAttribPointer(2, 4, gl.FLOAT, false, size_of(Vec4), offset_of(Rect_Render_Data, color))
+	gl.VertexAttribPointer(2, 4, gl.FLOAT, false, size_of(Rect_Render_Data), offset_of(Rect_Render_Data, color))
 	enable_layout(2)
 	gl.VertexAttribDivisor(2, 1)
 
@@ -258,12 +259,15 @@ draw_ui :: proc(shader_program: ^u32) {
 			quad_vabuffer,
 			0,
 			raw_data(rect_rendering_data^),
-			n_boxes * size_of(Rect_Render_Data),
+			n_rects * size_of(Rect_Render_Data),
 		)
 		// this cast could get shady if n_rects approached 2^31
 		gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, i32(n_rects))
 	}
 }
+
+ui_vertex_shader_data :: #load("shaders/vertex_shader.glsl")
+ui_pixel_shader_data :: #load("shaders/fragment_shader.glsl")
 
 main :: proc() {
 	// setup state for UI
@@ -284,10 +288,13 @@ main :: proc() {
 	gl.GenVertexArrays(1, quad_vabuffer)
 	gl.GenVertexArrays(1, text_vabuffer)
 	create_vbuffer(quad_vbuffer, nil, 1000 * size_of(Rect_Render_Data))
-	quad_shader_program = create_shader(
-		"src/shaders/vertex_shader.glsl",
-		"src/shaders/fragment_shader.glsl",
-	)
+	// quad_shader_program = create_shader(
+	// 	"src/shaders/vertex_shader.glsl",
+	// 	"src/shaders/fragment_shader.glsl",
+	// )
+
+	quad_shader_program, pok := gl.load_shaders_source(string(ui_vertex_shader_data), string(ui_pixel_shader_data))
+	assert(pok)
 	// Not sure if this call still needs to be here with the new renderer, but it can
 	// stay for now. 
 	setup_for_quads(&quad_shader_program)

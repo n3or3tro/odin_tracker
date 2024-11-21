@@ -31,7 +31,7 @@ UI_State :: struct {
 	rect_stack:    [dynamic]^Rect,
 }
 
-MyRect :: struct {
+MyRect :: struct #packed {
 	x: f32,
 	y: f32,
 	w: f32,
