@@ -19,23 +19,27 @@ import sttf "vendor:sdl2/ttf"
 println :: fmt.println
 WINDOW_WIDTH :: 2000
 WINDOW_HEIGHT :: 1500
-n_boxes: u64 = 0
 // theres are i32 because of SDL fuckery, they should be u32
 wx: ^i32 = new(i32)
 wy: ^i32 = new(i32)
 ui_state: ^UI_State = new(UI_State)
 ui_font: ^sttf.Font
-text_vbuffer := new(u32)
-text_vabuffer := new(u32)
+
 char_map := new(u32)
+
 quad_vbuffer := new(u32)
 quad_vabuffer := new(u32)
-index_buffer := new(u32)
+quad_shader_program: u32
+
+text_vbuffer := new(u32)
+text_vabuffer := new(u32)
 
 slider_value: f32 = 30
 slider_max: f32 = 100
 
-quad_shader_program: u32
+n_boxes: u32 = 0
+rect_rendering_data := make([dynamic]Rect_Render_Data)
+
 handle_input :: proc(event: sdl.Event) -> bool {
 	#partial switch event.type {
 	case .KEYDOWN:
@@ -117,10 +121,7 @@ register_resize :: proc(window: ^sdl.Window) {
 }
 
 reset_renderer_data :: proc() {
-	ui_state.renderer_data.n_quads = 0
-	clear_dynamic_array(&ui_state.renderer_data.indices)
-	clear_dynamic_array(&ui_state.renderer_data.vertices)
-	clear_dynamic_array(&ui_state.renderer_data.raw_vertices)
+	n_boxes = 0
 	clear_dynamic_array(&ui_state.temp_boxes)
 }
 
@@ -177,21 +178,25 @@ create_track :: proc(which: u32) -> [33]Box_Signals {
 
 	return steps
 }
+
 setup_for_quads :: proc(shader_program: ^u32) {
+	//odinfmt:disable
 	gl.BindVertexArray(quad_vabuffer^)
+
 	gl.VertexAttribPointer(0, 2, gl.FLOAT, false, size_of(Vec2), 0)
 	enable_layout(0)
 	gl.VertexAttribDivisor(0, 1)
 
-	gl.VertexAttribPointer(1, 2, gl.FLOAT, false, size_of(Vec2), offset_of(Vertex, bottom_right))
+	gl.VertexAttribPointer(1, 2, gl.FLOAT, false, size_of(Vec2), offset_of(Rect_Render_Data, bottom_right))
 	enable_layout(1)
-
 	gl.VertexAttribDivisor(1, 1)
-	gl.VertexAttribPointer(2, 4, gl.FLOAT, false, size_of(Vec4), offset_of(Vertex, color))
-	enable_layout(2)
 
+	gl.VertexAttribPointer(2, 4, gl.FLOAT, false, size_of(Vec4), offset_of(Rect_Render_Data, color))
+	enable_layout(2)
 	gl.VertexAttribDivisor(2, 1)
+
 	bind_shader(shader_program^)
+	//odinfmt:enable
 }
 
 
@@ -204,25 +209,23 @@ draw_ui :: proc(shader_program: ^u32) {
 	}
 
 	if !ui_state.first_frame {
-		render_boxes(ui_state)
-		populate_vbuffer_vertices(
+		rect_rendering_data := get_box_rendering_data(ui_state)
+		defer free(rect_rendering_data)
+		n_rects := u32(len(rect_rendering_data))
+		populate_vbuffer_with_rects(
 			quad_vabuffer,
 			0,
-			raw_data(ui_state.renderer_data.vertices),
-			// no idea why i need to 4x this...
-			4 * ui_state.renderer_data.n_quads * size_of(Vertex),
+			raw_data(rect_rendering_data^),
+			n_boxes * size_of(Rect_Render_Data),
 		)
-		// set_shader_vec2(shader_program^, "res", {3000, 2000})
-		println("trying to draw: ", i32(len(ui_state.renderer_data.vertices)))
-		gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, i32(len(ui_state.renderer_data.vertices)))
+		// this cast could get shady if n_rects approached 2^31
+		gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, i32(n_rects))
 	}
 }
 
 main :: proc() {
 	// setup state for UI
-	ui_state.renderer_data = new(Renderer_Data)
 	ui_state.rect_stack = make([dynamic]^Rect)
-	ui_state.rect_hash_cache = make(map[string][]byte)
 	root_rect := new(Rect)
 	append(&ui_state.rect_stack, root_rect)
 
@@ -237,24 +240,23 @@ main :: proc() {
 
 	gl.GenVertexArrays(1, quad_vabuffer)
 	gl.GenVertexArrays(1, text_vabuffer)
-	create_vbuffer(quad_vbuffer, nil, 1000 * size_of(Vertex))
+	create_vbuffer(quad_vbuffer, nil, 1000 * size_of(Rect_Render_Data))
 	quad_shader_program = create_shader(
 		"src/shaders/vertex_shader.glsl",
 		"src/shaders/fragment_shader.glsl",
 	)
+	// Not sure if this call still needs to be here with the new renderer, but it can
+	// stay for now. 
 	setup_for_quads(&quad_shader_program)
 
 	ui_state.char_map = create_font_map(30)
 	text_proj := alg.matrix_ortho3d_f32(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1)
-	// this will probably need to be dynamically sized in the future...
-	create_vbuffer(text_vbuffer, nil, 100_000 * size_of(f32))
+	create_vbuffer(text_vbuffer, nil, 10_000 * size_of(f32))
 
 	sdl.GetWindowSize(window, wx, wy)
-	mx, my: i32
-	println("about to start event loop, top rect is:", top_rect(), "\n")
-	i := 0
 	app_loop: for {
 		root_rect.top_left = {0, 0}
+		n_boxes = 0
 		reset_ui_state()
 		event: sdl.Event
 		for sdl.PollEvent(&event) {
@@ -271,9 +273,5 @@ main :: proc() {
 		register_resize(window)
 		sdl.GL_SwapWindow(window)
 		ui_state.first_frame = false
-		i += 1
-		// if i > 3 {
-		// 	return
-		// }
 	}
 }

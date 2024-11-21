@@ -31,8 +31,6 @@ track_controls :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Cont
 		file_load_button_rect,
 	)
 
-	// This is a bit hacky but for now it's okay, and should stay in proportion. It won't be responsive
-	// however :(
 	cut_right(&play_button.box.rect, Size{.Percent, 0.5})
 	cut_top(&play_button.box.rect, Size{.Percent, 0.4})
 	play_button.box.rect = expand(play_button.box.rect, Size{.Percent, 0.4})
