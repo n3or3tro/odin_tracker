@@ -41,15 +41,30 @@ MyRect :: struct #packed {
 Rect_Render_Data :: struct {
 	top_left:     Vec2,
 	bottom_right: Vec2,
-	color:        Vec4,
+	tl_color:     Vec4,
+	tr_color:     Vec4,
+	bl_color:     Vec4,
+	br_color:     Vec4,
 }
 
 get_box_rendering_data :: proc(ui_state: ^UI_State) -> ^[dynamic]Rect_Render_Data {
+	// get_box_rendering_data :: proc(ui_state: ^UI_State) -> ^[dynamic]f32 {
 	// Deffs not efficient to keep realloc'ing and deleting this list, will fix in future.
 	rendering_data := new([dynamic]Rect_Render_Data)
+	// rendering_data := new([dynamic]f32)
 	for box in ui_state.temp_boxes {
 		if .Draw in box.flags {
-			data := Rect_Render_Data{box.rect.top_left, box.rect.bottom_right, box.color}
+			bl_color: Vec4 = {0.0, 0.0, 0.0, 1} if box.hot else box.color
+			br_color: Vec4 = {0.0, 0.0, 0.0, 1} if box.hot else box.color
+			data: Rect_Render_Data = {
+				box.rect.top_left,
+				box.rect.bottom_right,
+				// idrk the winding order for colors, this works tho.
+				box.color,
+				bl_color,
+				box.color,
+				br_color,
+			}
 			append(rendering_data, data)
 		}
 	}

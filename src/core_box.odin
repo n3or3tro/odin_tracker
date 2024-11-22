@@ -136,6 +136,7 @@ box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box 
 	if id_string in ui_state.box_cache {
 		box := ui_state.box_cache[id_string]
 		box.rect = rect
+		box.hot = false
 		return box
 	} else {
 		new_box := box_make(flags, id_string, rect)
@@ -230,9 +231,10 @@ cut_bottom :: proc(rect: ^Rect, amount: Size) -> Rect {
 		{rect.bottom_right.x, parent_bottom_right_y},
 	}
 }
+
 // All the get_* functions, return the desired rectangle, without cutting
 // the source rectangle.
-get_rect :: proc(rect: ^Rect, rect_cut: RectCut) -> Rect {
+get_rect :: proc(rect: Rect, rect_cut: RectCut) -> Rect {
 	switch rect_cut.side {
 	case .Left:
 		return get_left(rect, rect_cut.size)
@@ -245,33 +247,33 @@ get_rect :: proc(rect: ^Rect, rect_cut: RectCut) -> Rect {
 	}
 	panic("[!] cut_rect: invalid side")
 }
-get_left :: proc(rect: ^Rect, amount: Size) -> Rect {
+get_left :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_top_left_x: f32 = rect.top_left.x
-	px_amount := math.floor(get_amount(rect^, amount, .Left))
+	px_amount := math.floor(get_amount(rect, amount, .Left))
 	return Rect {
 		top_left = {parent_top_left_x, rect.top_left.y},
 		bottom_right = {parent_top_left_x + px_amount, rect.bottom_right.y},
 	}
 }
-get_right :: proc(rect: ^Rect, amount: Size) -> Rect {
+get_right :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_bottom_right_x: f32 = rect.bottom_right.x
-	px_amount := math.floor(get_amount(rect^, amount, .Right))
+	px_amount := math.floor(get_amount(rect, amount, .Right))
 	return Rect {
 		top_left = {parent_bottom_right_x - px_amount, rect.top_left.y},
 		bottom_right = {parent_bottom_right_x, rect.bottom_right.y},
 	}
 }
-get_top :: proc(rect: ^Rect, amount: Size) -> Rect {
+get_top :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_top_left_y: f32 = rect.top_left.y
-	px_amount := math.floor(get_amount(rect^, amount, .Top))
+	px_amount := math.floor(get_amount(rect, amount, .Top))
 	return Rect {
 		{rect.top_left.x, parent_top_left_y},
 		{rect.bottom_right.x, parent_top_left_y + px_amount},
 	}
 }
-get_bottom :: proc(rect: ^Rect, amount: Size) -> Rect {
+get_bottom :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_bottom_right_y: f32 = rect.bottom_right.y
-	px_amount := math.floor(get_amount(rect^, amount, .Bottom))
+	px_amount := math.floor(get_amount(rect, amount, .Bottom))
 	return Rect {
 		{rect.top_left.x, parent_bottom_right_y - px_amount},
 		{rect.bottom_right.x, parent_bottom_right_y},

@@ -34,8 +34,15 @@ create_font_map :: proc(font_size: u32) -> map[rune]Character {
 
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
 	for c := rune(0); c < 128; c += 1 {
-		if ft.load_char(font_face, cast(u32)c, {.Render}) != ft.Error.Ok {
-			panic("Failed to load glyph")
+		// This annoying check is coz the u64/u32 cast, which differs on diff OSs.
+		when ODIN_OS == .Windows {
+			if ft.load_char(font_face, cast(u32)c, {.Render}) != ft.Error.Ok {
+				panic("Failed to load glyph")
+			}
+		} else {
+			if ft.load_char(font_face, cast(u64)c, {.Render}) != ft.Error.Ok {
+				panic("Failed to load glyph")
+			}
 		}
 		// Generate texture
 		texture: u32
@@ -127,17 +134,23 @@ render_text :: proc(
 }
 
 draw_text :: proc(text: string, x, y: f32) {
+	println("fuck")
 	gl.BindVertexArray(text_vabuffer^)
+	println("you")
 	enable_layout(0)
+	println("mate")
 	layout_vbuffer(0, 4, gl.FLOAT, gl.FALSE, 4 * size_of(f32), 0)
 
+	println("1")
 	text_program := create_and_bind_shader(
 		"src/shaders/text_vertex_shader.glsl",
 		"src/shaders/text_fragment_shader.glsl",
 	)
-	// maps text within the bounds of the screen
+	println("2")
 	text_proj := alg.matrix_ortho3d_f32(0, cast(f32)wx^, 0, cast(f32)wy^, -1, 1)
+	println("3")
 	set_shader_matrix4(text_program, "proj", &text_proj)
+	println("4")
 	render_text(text_program, &text_proj, text, {1, 0, 0}, x, y)
 	setup_for_quads(&quad_shader_program)
 }

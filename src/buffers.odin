@@ -18,8 +18,9 @@ gl_check_error :: proc() {
 create_vbuffer :: proc(buffer: ^u32, vertex_positions: [^]f32, size: int) {
 	gl.GenBuffers(1, buffer)
 	gl.BindBuffer(gl.ARRAY_BUFFER, buffer^)
-	// gl.BufferData(gl.ARRAY_BUFFER, size, vertex_positions, gl.STATIC_DRAW)
-	gl.BufferData(gl.ARRAY_BUFFER, size, nil, gl.DYNAMIC_DRAW)
+	// gl.BufferData(gl.ARRAY_BUFFER, size, nil, gl.DYNAMIC_DRAW)
+	// for some reason this isn't working unless I provide a literal size
+	gl.BufferData(gl.ARRAY_BUFFER, 500_000, nil, gl.DYNAMIC_DRAW)
 }
 
 populate_vbuffer :: proc(buffer: ^u32, offset: u32, data: [^]f32, size: u32) {
@@ -58,8 +59,7 @@ layout_vbuffer :: proc(
 	normalize: bool,
 	bytes_to_next_value: i32,
 	offset_pointer: uintptr,
-) // e.g: gl.FLOAT, gl.INT, gl.UNSIGNED_INT
-{
+) {
 	gl.VertexAttribPointer(
 		index,
 		elements_per_vertex,
