@@ -75,6 +75,7 @@ Box_Flag :: enum {
 	View_Scroll,
 	Draw,
 	Draw_Text,
+	Edit_Text,
 	Draw_Border,
 	Draw_Background,
 	Draw_Drop_Shadow,
@@ -97,6 +98,8 @@ Box_Signals :: struct {
 	right_clicked:  bool,
 	pressed:        bool,
 	released:       bool,
+	right_pressed:  bool,
+	right_released: bool,
 	dragging:       bool,
 	hovering:       bool,
 	scrolled:       bool,
@@ -130,13 +133,15 @@ Box :: struct {
 	// Persistent data.
 	hot:                      bool,
 	active:                   bool,
+
+	// Feels a little wrong having this here, but let's try
+	signals:                  Box_Signals,
 }
 
 box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
 	if id_string in ui_state.box_cache {
 		box := ui_state.box_cache[id_string]
 		box.rect = rect
-		box.hot = false
 		return box
 	} else {
 		new_box := box_make(flags, id_string, rect)
@@ -149,7 +154,6 @@ box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
 	box := new(Box)
 	box.flags = flags
 	box.id_string = id_string
-	box.hot = false
 	box.color = {rand.float32_range(0, 1), rand.float32_range(0, 1), rand.float32_range(0, 1), 1}
 	box.name = get_name_from_id_string(id_string)
 	box.rect = rect
@@ -167,17 +171,33 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 	signals: Box_Signals
 	signals.box = box
 
+	// if box.id_string not_in ui_state.box_cache || ui_state.first_frame {
+	// 	printf("this box: %s was not in the box_cache\n", box.id_string)
+	// 	signals: Box_Signals
+	// 	signals.box = box
+	// } else {
+	// 	signals = box.signals
+	// 	printf("box %s was in cache: its signals are: ", box.id_string, signals)
+	// }
 	mouseX, mouseY: i32
 	sdl.GetMouseState(&mouseX, &mouseY)
 	signals.hovering = mouse_inside_box(box, Vec2{cast(f32)mouseX, cast(f32)mouseY})
 
 	if signals.hovering {
-		signals.clicked = ui_state.mouse.left_pressed
-		signals.right_clicked = ui_state.mouse.right_pressed
+		signals.pressed = ui_state.mouse.left_pressed
+		signals.clicked = box.hot && signals.pressed && ui_state.mouse.left_released
+
+		signals.right_pressed = ui_state.mouse.right_pressed
+		signals.clicked = box.hot && signals.right_pressed && ui_state.mouse.right_released
+
 		if ui_state.mouse.wheel.x != 0 || ui_state.mouse.wheel.y != 0 {
 			signals.scrolled = true
 		}
+		signals.box.hot = true
+	} else {
+		signals.box.hot = false
 	}
+	// box.signals = signals
 	return signals
 }
 

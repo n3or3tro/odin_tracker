@@ -22,7 +22,11 @@ track_controls :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Cont
 	buttons_rect := cut_rect(rect, {Size{.Percent, 0.1}, .Bottom})
 	play_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Left})
 	play_button := button(
-		fmt.aprintf("%s_play_button@1", get_name_from_id_string(id_string)),
+		fmt.aprintf(
+			"%s_play_button@1",
+			get_name_from_id_string(id_string),
+			allocator = context.temp_allocator,
+		),
 		play_button_rect,
 	)
 	file_load_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Right})
@@ -54,6 +58,7 @@ track_controls :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Cont
 			get_name_from_id_string(id_string),
 			"_grip",
 			get_id_from_id_string(id_string),
+			allocator = context.temp_allocator,
 		),
 		slider_grip_rect,
 	)
