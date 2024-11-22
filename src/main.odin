@@ -120,25 +120,12 @@ handle_input :: proc(event: sdl.Event) -> bool {
 		ui_state.mouse.wheel.x = cast(i8)event.wheel.x
 		ui_state.mouse.wheel.y = cast(i8)event.wheel.y
 	case .DROPFILE:
-		// probably have some logic to only pickup files dropped in the right location
+		// Need some logic to determine when file was dropped in right location.
 		println("file dropped: {}", event.drop.file)
-
-	case .WINDOWEVENT:
 	}
 	return true
 }
-// resets things which shouldn't hold across frames
-reset_ui_state :: proc() {
-	ui_state.mouse.left_pressed = false
-	ui_state.mouse.right_pressed = false
-	ui_state.mouse.left_released = true
-	ui_state.mouse.right_released = true
-	ui_state.mouse.wheel = {0, 0}
-}
 
-reset_renderer_data :: proc() {
-	clear_dynamic_array(&ui_state.temp_boxes)
-}
 
 register_resize :: proc() -> bool {
 	old_width, old_height := wx^, wy^
@@ -150,107 +137,7 @@ register_resize :: proc() -> bool {
 	return false
 }
 
-tracker_track :: proc(which_track: u32, slider_value: ^f32) {
-}
-
-handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, which: u32) {
-	if t_controls.track_signals.scrolled {
-		slider_volumes[which] = calc_slider_grip_val(slider_volumes[which], 100)
-		ma.sound_set_volume(engine_sounds[which], map_range(0, 100, 0, 1, slider_volumes[which]))
-	}
-	if t_controls.button_signals.play_signals.clicked {
-		toggle_sound(engine_sounds[which])
-	}
-	if t_controls.button_signals.file_load_signals.clicked {
-		// println(osd.path(.Open_Dir))
-	}
-}
-
-handle_track_steps_interactions :: proc(track: [33]Box_Signals) {
-	for step in track {
-		if step.hovering {
-			step.box.hot = true
-		}
-	}
-}
-
-// Obviously not a complete track, but as complete-ish for now :).
-create_track :: proc(which: u32, track_width: f32) -> [33]Box_Signals {
-	track_container := cut_rect(top_rect(), RectCut{Size{.Pixels, track_width}, .Left})
-	track_controller_container := cut_rect(&track_container, RectCut{Size{.Percent, 0.3}, .Bottom})
-	push_parent_rect(&track_container)
-	push_parent_rect(&track_controller_container)
-	track_controls_0 := track_controls(
-		fmt.aprintf("track%d_controls@1", which),
-		&track_controller_container,
-		slider_volumes[which],
-	)
-	pop_parent_rect()
-	track_step_container := cut_rect(top_rect(), {Size{.Percent, 0.95}, .Top})
-	steps := track_steps(fmt.aprintf("track_steps%d@1", which), &track_step_container)
-	pop_parent_rect()
-
-	// handle_track_steps_interactions(steps)
-	handle_track_control_interactions(&track_controls_0, which)
-	return steps
-}
-
-setup_for_quads :: proc(shader_program: ^u32) {
-	//odinfmt:disable
-	gl.BindVertexArray(quad_vabuffer^)
-	bind_shader(shader_program^)
-
-
-	gl.VertexAttribPointer(0, 2, gl.FLOAT, false, size_of(Rect_Render_Data), 0)
-	gl.VertexAttribDivisor(0, 1)
-	enable_layout(0)
-
-	gl.VertexAttribPointer(1, 2, gl.FLOAT, false, size_of(Rect_Render_Data), offset_of(Rect_Render_Data, bottom_right))
-	enable_layout(1)
-	gl.VertexAttribDivisor(1, 1)
-
-	// Trying to pass in a [4]vec4 was fucky, so did this. Should clean up later.
-	gl.VertexAttribPointer(2, 4, gl.FLOAT, false, size_of(Rect_Render_Data), offset_of(Rect_Render_Data, tl_color))
-	enable_layout(2)
-	gl.VertexAttribDivisor(2, 1)
-
-	gl.VertexAttribPointer(3, 4, gl.FLOAT, false, size_of(Rect_Render_Data), offset_of(Rect_Render_Data, tr_color))
-	enable_layout(3)
-	gl.VertexAttribDivisor(3, 1)
-
-	gl.VertexAttribPointer(4, 4, gl.FLOAT, false, size_of(Rect_Render_Data), offset_of(Rect_Render_Data, bl_color))
-	enable_layout(4)
-	gl.VertexAttribDivisor(4, 1)
-
-	gl.VertexAttribPointer(5, 4, gl.FLOAT, false, size_of(Rect_Render_Data), offset_of(Rect_Render_Data, br_color))
-	enable_layout(5)
-	gl.VertexAttribDivisor(5, 1)
-	//odinfmt:enable
-}
-
-
 slider_volumes: [10]f32 = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
-draw_ui :: proc(shader_program: ^u32) {
-
-	track_padding: u32 = 10
-	track_width: f32 = f32(wx^ / i32(n_tracks)) - f32(track_padding)
-	for i in 0 ..= 9 {
-		create_track(u32(i), track_width)
-		spacer(fmt.aprintf("track_spacer%s", i), RectCut{Size{.Pixels, f32(track_padding)}, .Left})
-	}
-	if !ui_state.first_frame {
-		rect_rendering_data := get_box_rendering_data(ui_state)
-		defer free(rect_rendering_data)
-		n_rects := u32(len(rect_rendering_data))
-		populate_vbuffer_with_rects(
-			quad_vabuffer,
-			0,
-			raw_data(rect_rendering_data^),
-			n_rects * size_of(Rect_Render_Data),
-		)
-		gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, i32(n_rects))
-	}
-}
 
 ui_vertex_shader_data :: #load("shaders/vertex_shader.glsl")
 ui_pixel_shader_data :: #load("shaders/fragment_shader.glsl")
@@ -293,19 +180,27 @@ main :: proc() {
 		}
 		root_rect.top_left = {0, 0}
 		root_rect.bottom_right = {f32(wx^), f32(wy^)}
-		reset_ui_state()
 		event: sdl.Event
 		for sdl.PollEvent(&event) {
 			if !handle_input(event) {
-				println("quit event received, exiting...")
 				break app_loop
 			}
 		}
-		setup_for_quads(&quad_shader_program)
-		clear()
 		draw_ui(&quad_shader_program)
+		clear_screen()
+		render_ui()
 		reset_renderer_data()
 		sdl.GL_SwapWindow(window)
 		ui_state.first_frame = false
+		free_all()
 	}
+}
+
+// resets things which shouldn't hold across frames
+reset_mouse_state :: proc() {
+	// ui_state.mouse.left_pressed = false
+	// ui_state.mouse.right_pressed = false
+	// ui_state.mouse.left_released = true
+	// ui_state.mouse.right_released = true
+	// ui_state.mouse.wheel = {0, 0}
 }
