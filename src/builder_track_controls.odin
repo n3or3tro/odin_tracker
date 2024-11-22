@@ -20,16 +20,18 @@ track_controls :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Cont
 
 	cut_rect(rect, {Size{.Percent, 0.33}, .Left})
 	buttons_rect := cut_rect(rect, {Size{.Percent, 0.1}, .Bottom})
-	play_button_rect := get_rect(&buttons_rect, {Size{.Percent, 0.4}, .Left})
+	play_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Left})
 	play_button := button(
 		fmt.aprintf("%s_play_button@1", get_name_from_id_string(id_string)),
 		play_button_rect,
 	)
-	file_load_button_rect := get_rect(&buttons_rect, {Size{.Percent, 0.4}, .Right})
+	file_load_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Right})
 	file_load_button := button(
 		fmt.aprintf("%s_file_load_button@1", get_name_from_id_string(id_string)),
 		file_load_button_rect,
 	)
+	play_button.box.hot = play_button.hovering
+	file_load_button.box.hot = file_load_button.hovering
 
 	cut_right(&play_button.box.rect, Size{.Percent, 0.5})
 	cut_top(&play_button.box.rect, Size{.Percent, 0.4})
@@ -39,10 +41,10 @@ track_controls :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Cont
 	slider_track := box_from_cache({.Scrollable, .Draw}, id_string, slider_track_rect)
 	append(&ui_state.temp_boxes, slider_track)
 
-	slider_grip_rect := get_bottom(&slider_track.rect, Size{.Pixels, 30})
+	slider_grip_rect := get_bottom(slider_track.rect, Size{.Pixels, 30})
 	slider_grip_rect = expand_x(slider_grip_rect, Size{.Percent, 0.5})
 
-	space_below_grip := get_bottom(&slider_track_rect, Size{.Percent, value / 100})
+	space_below_grip := get_bottom(slider_track_rect, Size{.Percent, value / 100})
 	slider_grip_rect.bottom_right.y -= (value / 100) * rect_height(slider_track_rect)
 	slider_grip_rect.top_left.y -= (value / 100) * rect_height(slider_track_rect)
 	slider_grip := box_from_cache(
