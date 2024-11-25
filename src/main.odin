@@ -42,8 +42,6 @@ text_vabuffer := new(u32)
 slider_value: f32 = 30
 slider_max: f32 = 100
 
-rect_rendering_data := make([dynamic]Rect_Render_Data)
-
 // Global audio data
 n_tracks: u32 = 10
 
@@ -145,16 +143,22 @@ ui_pixel_shader_data :: #load("shaders/fragment_shader.glsl")
 main :: proc() {
 	// setup state for UI
 	ui_state.rect_stack = make([dynamic]^Rect)
+	defer delete(ui_state.rect_stack)
 	root_rect := new(Rect)
+	defer free(root_rect)
 	append(&ui_state.rect_stack, root_rect)
 	ui_state.box_cache = make(map[string]^Box)
+	defer delete(ui_state.box_cache)
 	ui_state.temp_boxes = make([dynamic]^Box)
 	ui_state.first_frame = true
 	tmp, gl_context := setup_window()
 	window = tmp
+	// defer free(window)
+	defer free(ui_state)
 
 	// setup audio stuff
 	setup_audio_engine(audio_engine)
+	defer free(audio_engine)
 	load_files()
 
 	gl.GenVertexArrays(1, quad_vabuffer)
@@ -168,9 +172,9 @@ main :: proc() {
 	bind_shader(quad_shader_program)
 	set_shader_vec2(quad_shader_program, "screen_res", {f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)})
 
-	ui_state.char_map = create_font_map(30)
-	text_proj := alg.matrix_ortho3d_f32(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1)
-	create_vbuffer(text_vbuffer, nil, 10_000 * size_of(f32))
+	// ui_state.char_map = create_font_map(30)
+	// text_proj := alg.matrix_ortho3d_f32(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1)
+	// create_vbuffer(text_vbuffer, nil, 10_000 * size_of(f32))
 
 	setup_for_quads(&quad_shader_program)
 	sdl.GetWindowSize(window, wx, wy)
@@ -181,6 +185,7 @@ main :: proc() {
 		root_rect.top_left = {0, 0}
 		root_rect.bottom_right = {f32(wx^), f32(wy^)}
 		event: sdl.Event
+		reset_mouse_state()
 		for sdl.PollEvent(&event) {
 			if !handle_input(event) {
 				break app_loop
@@ -192,15 +197,11 @@ main :: proc() {
 		reset_renderer_data()
 		sdl.GL_SwapWindow(window)
 		ui_state.first_frame = false
+		free_all(context.temp_allocator)
 		free_all()
 	}
 }
 
-// resets things which shouldn't hold across frames
 reset_mouse_state :: proc() {
-	// ui_state.mouse.left_pressed = false
-	// ui_state.mouse.right_pressed = false
-	// ui_state.mouse.left_released = true
-	// ui_state.mouse.right_released = true
-	// ui_state.mouse.wheel = {0, 0}
+	ui_state.mouse.wheel = {0, 0}
 }
