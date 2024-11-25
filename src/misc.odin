@@ -42,3 +42,9 @@ change_cursor :: proc(type: sdl.SystemCursor) {
 	}
 	sdl.SetCursor(hand_cursor)
 }
+rect_height :: proc(rect: Rect) -> f32 {
+	return rect.bottom_right.y - rect.top_left.y
+}
+rect_width :: proc(rect: Rect) -> f32 {
+	return rect.bottom_right.x - rect.top_left.x
+}

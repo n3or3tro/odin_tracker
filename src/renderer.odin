@@ -53,8 +53,7 @@ Rect_Render_Data :: struct {
 get_box_rendering_data :: proc(ui_state: ^UI_State) -> ^[dynamic]Rect_Render_Data {
 	// get_box_rendering_data :: proc(ui_state: ^UI_State) -> ^[dynamic]f32 {
 	// Deffs not efficient to keep realloc'ing and deleting this list, will fix in future.
-	rendering_data := new([dynamic]Rect_Render_Data)
-	// rendering_data := new([dynamic]f32)
+	rendering_data := new([dynamic]Rect_Render_Data, allocator = context.temp_allocator)
 	for box in ui_state.temp_boxes {
 		if .Draw in box.flags {
 			bl_color: Vec4 = box.color
@@ -78,7 +77,6 @@ get_box_rendering_data :: proc(ui_state: ^UI_State) -> ^[dynamic]Rect_Render_Dat
 				20,
 				0,
 				3,
-				// border_thicknes,
 			}
 			append(rendering_data, data)
 		}
@@ -132,7 +130,14 @@ setup_for_quads :: proc(shader_program: ^u32) {
 }
 
 reset_renderer_data :: proc() {
+	// delete_dynamic_array(ui_state.temp_boxes)
 	clear_dynamic_array(&ui_state.temp_boxes)
+	// clear_dynamic_array(&ui_state.rect_stack)
+	// ui_state.temp_boxes = make([dynamic]^Box)
+	// root_rect := new(Rect)
+	// root_rect.top_left = {0, 0}
+	// root_rect.top_left = {f32(wx^), f32(wy^)}
+	// push_parent_rect(root_rect)
 }
 
 clear_screen :: proc() {

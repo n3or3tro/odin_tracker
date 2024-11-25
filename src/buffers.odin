@@ -20,11 +20,10 @@ create_vbuffer :: proc(buffer: ^u32, vertex_positions: [^]f32, size: int) {
 	gl.BindBuffer(gl.ARRAY_BUFFER, buffer^)
 	// gl.BufferData(gl.ARRAY_BUFFER, size, nil, gl.DYNAMIC_DRAW)
 	// for some reason this isn't working unless I provide a literal size
-	gl.BufferData(gl.ARRAY_BUFFER, 500_000, nil, gl.DYNAMIC_DRAW)
+	gl.BufferData(gl.ARRAY_BUFFER, 300_000, nil, gl.DYNAMIC_DRAW)
 }
 
 populate_vbuffer :: proc(buffer: ^u32, offset: u32, data: [^]f32, size: u32) {
-	// gl.BindBuffer(gl.ARRAY_BUFFER, buffer^)
 	gl.BufferSubData(gl.ARRAY_BUFFER, cast(int)offset, cast(int)size, data)
 }
 populate_vbuffer_with_rects :: proc(
@@ -140,14 +139,14 @@ delete_ibuffer :: proc(buffer: ^u32) {
 
 // this probably doesn't need to be dynamic? but I guess we can't predict the size
 // so maybe it does.
-generate_indices :: proc(n_quads: u32) -> [dynamic]u32 {
-	indices: [dynamic]u32
-	for i: u32 = 0; i < n_quads; i += 1 {
-		start := i * 4
-		append(&indices, start, start + 1, start + 2, start + 2, start + 3, start + 0)
-	}
-	return indices
-}
+// generate_indices :: proc(n_quads: u32) -> [dynamic]u32 {
+// 	indices: [dynamic]u32
+// 	for i: u32 = 0; i < n_quads; i += 1 {
+// 		start := i * 4
+// 		append(&indices, start, start + 1, start + 2, start + 2, start + 3, start + 0)
+// 	}
+// 	return indices
+// }
 
 print_vertices :: proc(vertices: [6 * 4]f32) {
 	i := 0

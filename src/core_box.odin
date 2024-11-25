@@ -151,6 +151,7 @@ box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box 
 }
 
 box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
+	println("making new box: ", id_string)
 	box := new(Box)
 	box.flags = flags
 	box.id_string = id_string
@@ -168,17 +169,9 @@ rect_from_points :: proc(a, b: Vec2) -> sdl.Rect {
 }
 
 box_signals :: proc(box: ^Box) -> Box_Signals {
-	signals: Box_Signals
+	signals := box.signals
 	signals.box = box
 
-	// if box.id_string not_in ui_state.box_cache || ui_state.first_frame {
-	// 	printf("this box: %s was not in the box_cache\n", box.id_string)
-	// 	signals: Box_Signals
-	// 	signals.box = box
-	// } else {
-	// 	signals = box.signals
-	// 	printf("box %s was in cache: its signals are: ", box.id_string, signals)
-	// }
 	mouseX, mouseY: i32
 	sdl.GetMouseState(&mouseX, &mouseY)
 	signals.hovering = mouse_inside_box(box, Vec2{cast(f32)mouseX, cast(f32)mouseY})
@@ -193,11 +186,11 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 		if ui_state.mouse.wheel.x != 0 || ui_state.mouse.wheel.y != 0 {
 			signals.scrolled = true
 		}
-		signals.box.hot = true
+		box.hot = true
 	} else {
-		signals.box.hot = false
+		box.hot = false
 	}
-	// box.signals = signals
+	box.signals = signals
 	return signals
 }
 
@@ -412,10 +405,12 @@ pop_parent_rect :: proc() {
 	pop(&ui_state.rect_stack)
 }
 get_name_from_id_string :: proc(id_string: string) -> string {
-	return strings.split(id_string, "@")[0]
+	to := strings.index(id_string, "@")
+	return id_string[:to]
 }
 get_id_from_id_string :: proc(id_string: string) -> string {
-	return strings.split(id_string, "@")[1]
+	from := strings.index(id_string, "@")
+	return id_string[from:]
 }
 
 spacer :: proc(id_string: string, rect_cut: RectCut) -> ^Box {
