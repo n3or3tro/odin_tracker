@@ -67,16 +67,16 @@ get_box_rendering_data :: proc(ui_state: ^UI_State) -> ^[dynamic]Rect_Render_Dat
 			}
 			// border_thicknes: f32 = 20 if box.hot else 0
 			data: Rect_Render_Data = {
-				box.rect.top_left,
-				box.rect.bottom_right,
+				top_left         = box.rect.top_left,
+				bottom_right     = box.rect.bottom_right,
 				// idrk the winding order for colors, this works tho.
-				box.color,
-				bl_color,
-				box.color,
-				br_color,
-				20,
-				0,
-				3,
+				tl_color         = box.color,
+				tr_color         = bl_color,
+				bl_color         = box.color,
+				br_color         = br_color,
+				corner_radius    = 10,
+				edge_softness    = 0,
+				border_thickness = 20,
 			}
 			append(rendering_data, data)
 		}
@@ -130,14 +130,8 @@ setup_for_quads :: proc(shader_program: ^u32) {
 }
 
 reset_renderer_data :: proc() {
-	// delete_dynamic_array(ui_state.temp_boxes)
 	clear_dynamic_array(&ui_state.temp_boxes)
-	// clear_dynamic_array(&ui_state.rect_stack)
-	// ui_state.temp_boxes = make([dynamic]^Box)
-	// root_rect := new(Rect)
-	// root_rect.top_left = {0, 0}
-	// root_rect.top_left = {f32(wx^), f32(wy^)}
-	// push_parent_rect(root_rect)
+	ui_state.first_frame = false
 }
 
 clear_screen :: proc() {

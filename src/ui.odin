@@ -2,7 +2,7 @@ package main
 import "core:fmt"
 import gl "vendor:OpenGL"
 
-draw_ui :: proc(shader_program: ^u32) {
+create_ui :: proc() {
 	track_padding: u32 = 10
 	track_width: f32 = f32(wx^ / i32(n_tracks)) - f32(track_padding)
 	for i in 0 ..= 9 {
