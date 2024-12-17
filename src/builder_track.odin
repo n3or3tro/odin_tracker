@@ -21,7 +21,7 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 	track_controller_container := cut_rect(&track_container, RectCut{Size{.Percent, 0.3}, .Bottom})
 	push_parent_rect(&track_container)
 	push_parent_rect(&track_controller_container)
-	track_controls_0 := track_controls(
+	track_controls := track_control(
 		fmt.aprintf("track%d_controls@1", which, allocator = context.temp_allocator),
 		&track_controller_container,
 		slider_volumes[which],
@@ -35,7 +35,7 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 	pop_parent_rect()
 
 	handle_track_steps_interactions(steps)
-	handle_track_control_interactions(&track_controls_0, which)
+	handle_track_control_interactions(&track_controls, which)
 	return steps
 }
 
@@ -83,7 +83,7 @@ track_steps :: proc(id_string: string, rect: ^Rect) -> Track_Step_Signals {
 }
 
 // assumes 0 <= value <= 100
-track_controls :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Control_Signals {
+track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Control_Signals {
 	cut_rect(rect, {Size{.Percent, 0.33}, .Left})
 	buttons_rect := cut_rect(rect, {Size{.Percent, 0.1}, .Bottom})
 	play_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Left})
@@ -100,8 +100,8 @@ track_controls :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Cont
 		fmt.aprintf("%s_file_load_button@1", get_name_from_id_string(id_string)),
 		file_load_button_rect,
 	)
-	play_button.box.hot = play_button.hovering
-	file_load_button.box.hot = file_load_button.hovering
+	// play_button.box.hot = play_button.hovering
+	// file_load_button.box.hot = file_load_button.hovering
 
 	cut_right(&play_button.box.rect, Size{.Percent, 0.5})
 	cut_top(&play_button.box.rect, Size{.Percent, 0.4})
@@ -155,7 +155,7 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 		ma.sound_set_volume(engine_sounds[which], map_range(0, 100, 0, 1, slider_volumes[which]))
 	}
 	if t_controls.button_signals.play_signals.hovering {
-		println("play button hovered")
+		// println("play button hovered")
 	}
 
 	if t_controls.button_signals.play_signals.clicked {
@@ -171,7 +171,6 @@ handle_track_steps_interactions :: proc(track: Track_Step_Signals) {
 	for step in track {
 		for beat in step {
 			if beat.hovering {
-				beat.box.hot = true
 				println("this beat is HOT!", beat.box.id_string)
 			}
 		}

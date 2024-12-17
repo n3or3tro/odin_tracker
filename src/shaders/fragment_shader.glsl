@@ -48,10 +48,8 @@ float calculate_border_factor(vec2 softness_padding) {
 	}
 }
 void main() {
-	// we need to shrink the rectangle's half-size
-	// that is used for distance calculations with
-	// the edge softness - otherwise the underlying
-	// primitive will cut off the falloff too early.
+	// we need to shrink the rectangle's half-size that is used for distance calculations with
+	// the edge softness - otherwise the underlying primitive will cut off the falloff too early.
 	vec2 softness = vec2(edge_softness, edge_softness);
 	vec2 softness_padding = max(max(softness * 2.0 - 1.0, 0.0), max(softness * 2.0 - 1.0, 0.0));
 
@@ -59,7 +57,6 @@ void main() {
 	float dist = RoundedRectSDF(dst_pos, dst_center, dst_half_size - softness_padding, corner_radius);
 
 	// map distance => a blend factor
-	// float sdf_factor = 1.0 - smoothstep(0.0, 2.0 * softness, dist);
 	float sdf_factor = 1.0 - smoothstep(0.0, 2.0 * edge_softness, dist);
 
 	// use sdf_factor in final color calculation

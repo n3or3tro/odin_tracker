@@ -39,19 +39,6 @@ Axis :: enum {
 	Y = 1,
 }
 
-min :: proc(a, b: $T) -> T where intrinsics.type_is_numeric(T) {
-	if a < b {
-		return a
-	}
-	return b
-}
-max :: proc(a, b: $T) -> T where intrinsics.type_is_numeric(T) {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 Rect :: struct {
 	top_left:     Vec2,
 	bottom_right: Vec2,
@@ -169,28 +156,22 @@ rect_from_points :: proc(a, b: Vec2) -> sdl.Rect {
 }
 
 box_signals :: proc(box: ^Box) -> Box_Signals {
-	signals := box.signals
+	signals: Box_Signals
 	signals.box = box
-
-	mouseX, mouseY: i32
-	sdl.GetMouseState(&mouseX, &mouseY)
-	signals.hovering = mouse_inside_box(box, Vec2{cast(f32)mouseX, cast(f32)mouseY})
+	signals.hovering = mouse_inside_box(box, {ui_state.mouse.pos.x, ui_state.mouse.pos.y})
 
 	if signals.hovering {
+		box.hot = true
 		signals.pressed = ui_state.mouse.left_pressed
-		signals.clicked = box.hot && signals.pressed && ui_state.mouse.left_released
-
+		signals.clicked = ui_state.mouse.left_released
 		signals.right_pressed = ui_state.mouse.right_pressed
-		signals.clicked = box.hot && signals.right_pressed && ui_state.mouse.right_released
-
+		signals.right_clicked = ui_state.mouse.right_released
 		if ui_state.mouse.wheel.x != 0 || ui_state.mouse.wheel.y != 0 {
 			signals.scrolled = true
 		}
-		box.hot = true
 	} else {
-		box.hot = false
+		signals.box.hot = false
 	}
-	box.signals = signals
 	return signals
 }
 
@@ -334,7 +315,6 @@ expand_y :: proc(rect: Rect, amount: Size) -> Rect {
 	new_rect.bottom_right.y = rect.bottom_right.y + px_amount
 	return new_rect
 }
-// Adds pixels along x AND y.
 expand :: proc(rect: Rect, amount: Size) -> Rect {
 	return expand_x(expand_y(rect, amount), amount)
 }
@@ -373,6 +353,7 @@ get_amount :: proc(rect: Rect, amount: Size, side: RectCutSide) -> f32 {
 	}
 	panic("[!] get_amount: invalid kind")
 }
+
 // Doesn't account for padding or anything like that.
 calculate_text_size :: proc(char_map: map[rune]Character, text: string) -> Vec2 {
 	width, height: f32 = 0, 0
@@ -385,12 +366,14 @@ calculate_text_size :: proc(char_map: map[rune]Character, text: string) -> Vec2 
 	return Vec2{width, height}
 }
 
-mouse_inside_box :: proc(box: ^Box, mouse: Vec2) -> bool {
+mouse_inside_box :: proc(box: ^Box, mouse: [2]i32) -> bool {
+	mousex := cast(f32)mouse.x
+	mousey := cast(f32)mouse.y
 	return(
-		mouse.x >= box.rect.top_left.x &&
-		mouse.x <= box.rect.bottom_right.x &&
-		mouse.y >= box.rect.top_left.y &&
-		mouse.y <= box.rect.bottom_right.y \
+		mousex >= box.rect.top_left.x &&
+		mousex <= box.rect.bottom_right.x &&
+		mousey >= box.rect.top_left.y &&
+		mousey <= box.rect.bottom_right.y \
 	)
 }
 

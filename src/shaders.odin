@@ -47,7 +47,6 @@ create_shader :: proc(vshader_path: string, fshader_path: string) -> u32 {
 	gl.LinkProgram(shader_program)
 
 	// check_shader_program_linked(shader_program)
-
 	return shader_program
 }
 check_shader_program_linked :: proc(shader_program: u32) -> bool {

@@ -1,6 +1,7 @@
 // Misellaneous functions that are used in the main file. As the project grows, they may find a 
 // logical home elswewhere.
 package main
+import "base:intrinsics"
 import sdl "vendor:sdl2"
 
 Theme :: struct {
@@ -22,8 +23,6 @@ default_theme := Theme {
 }
 
 keep_aspect_ratio :: proc(window_width, window_height: i32) -> (i32, i32) {
-	// height should be a ratio of with
-	// return window_width, window_width * 10 / 16
 	return window_height * 16 / 10, window_width
 }
 
@@ -45,6 +44,21 @@ change_cursor :: proc(type: sdl.SystemCursor) {
 rect_height :: proc(rect: Rect) -> f32 {
 	return rect.bottom_right.y - rect.top_left.y
 }
+
 rect_width :: proc(rect: Rect) -> f32 {
 	return rect.bottom_right.x - rect.top_left.x
+}
+
+min :: proc(a, b: $T) -> T where intrinsics.type_is_numeric(T) {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+max :: proc(a, b: $T) -> T where intrinsics.type_is_numeric(T) {
+	if a > b {
+		return a
+	}
+	return b
 }

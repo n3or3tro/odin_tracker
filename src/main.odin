@@ -89,6 +89,66 @@ setup_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	return window, gl_context
 }
 
+slider_volumes: [10]f32 = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
+
+ui_vertex_shader_data :: #load("shaders/vertex_shader.glsl")
+ui_pixel_shader_data :: #load("shaders/fragment_shader.glsl")
+
+main :: proc() {
+	// setup state for UI
+	ui_state.rect_stack = make([dynamic]^Rect)
+	root_rect := new(Rect)
+	append(&ui_state.rect_stack, root_rect)
+	ui_state.box_cache = make(map[string]^Box)
+	ui_state.temp_boxes = make([dynamic]^Box)
+	ui_state.first_frame = true
+	tmp, gl_context := setup_window()
+	window = tmp
+
+	// setup audio stuff
+	setup_audio_engine(audio_engine)
+	load_files()
+
+	gl.GenVertexArrays(1, quad_vabuffer)
+	gl.GenVertexArrays(1, text_vabuffer)
+	create_vbuffer(quad_vbuffer, nil, 500_000)
+	quad_shader_program, pok := gl.load_shaders_source(
+		string(ui_vertex_shader_data),
+		string(ui_pixel_shader_data),
+	)
+	assert(pok)
+	bind_shader(quad_shader_program)
+	set_shader_vec2(quad_shader_program, "screen_res", {f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)})
+
+	// ui_state.char_map = create_font_map(30)
+	// text_proj := alg.matrix_ortho3d_f32(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1)
+	// create_vbuffer(text_vbuffer, nil, 10_000 * size_of(f32))
+
+	setup_for_quads(&quad_shader_program)
+	sdl.GetWindowSize(window, wx, wy)
+	app_loop: for {
+		if register_resize() {
+			set_shader_vec2(quad_shader_program, "screen_res", {f32(wx^), f32(wy^)})
+		}
+		root_rect.top_left = {0, 0}
+		root_rect.bottom_right = {f32(wx^), f32(wy^)}
+		event: sdl.Event
+		reset_mouse_state()
+		for sdl.PollEvent(&event) {
+			if !handle_input(event) {
+				break app_loop
+			}
+		}
+		create_ui()
+		clear_screen()
+		render_ui()
+		reset_renderer_data()
+		sdl.GL_SwapWindow(window)
+		free_all(context.temp_allocator)
+		free_all()
+	}
+}
+
 handle_input :: proc(event: sdl.Event) -> bool {
 	#partial switch event.type {
 	case .KEYDOWN:
@@ -124,7 +184,6 @@ handle_input :: proc(event: sdl.Event) -> bool {
 	return true
 }
 
-
 register_resize :: proc() -> bool {
 	old_width, old_height := wx^, wy^
 	sdl.GetWindowSize(window, wx, wy)
@@ -135,73 +194,12 @@ register_resize :: proc() -> bool {
 	return false
 }
 
-slider_volumes: [10]f32 = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
-
-ui_vertex_shader_data :: #load("shaders/vertex_shader.glsl")
-ui_pixel_shader_data :: #load("shaders/fragment_shader.glsl")
-
-main :: proc() {
-	// setup state for UI
-	ui_state.rect_stack = make([dynamic]^Rect)
-	defer delete(ui_state.rect_stack)
-	root_rect := new(Rect)
-	defer free(root_rect)
-	append(&ui_state.rect_stack, root_rect)
-	ui_state.box_cache = make(map[string]^Box)
-	defer delete(ui_state.box_cache)
-	ui_state.temp_boxes = make([dynamic]^Box)
-	ui_state.first_frame = true
-	tmp, gl_context := setup_window()
-	window = tmp
-	// defer free(window)
-	defer free(ui_state)
-
-	// setup audio stuff
-	setup_audio_engine(audio_engine)
-	defer free(audio_engine)
-	load_files()
-
-	gl.GenVertexArrays(1, quad_vabuffer)
-	gl.GenVertexArrays(1, text_vabuffer)
-	create_vbuffer(quad_vbuffer, nil, 500_000)
-	quad_shader_program, pok := gl.load_shaders_source(
-		string(ui_vertex_shader_data),
-		string(ui_pixel_shader_data),
-	)
-	assert(pok)
-	bind_shader(quad_shader_program)
-	set_shader_vec2(quad_shader_program, "screen_res", {f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)})
-
-	// ui_state.char_map = create_font_map(30)
-	// text_proj := alg.matrix_ortho3d_f32(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1)
-	// create_vbuffer(text_vbuffer, nil, 10_000 * size_of(f32))
-
-	setup_for_quads(&quad_shader_program)
-	sdl.GetWindowSize(window, wx, wy)
-	app_loop: for {
-		if register_resize() {
-			set_shader_vec2(quad_shader_program, "screen_res", {f32(wx^), f32(wy^)})
-		}
-		root_rect.top_left = {0, 0}
-		root_rect.bottom_right = {f32(wx^), f32(wy^)}
-		event: sdl.Event
-		reset_mouse_state()
-		for sdl.PollEvent(&event) {
-			if !handle_input(event) {
-				break app_loop
-			}
-		}
-		draw_ui(&quad_shader_program)
-		clear_screen()
-		render_ui()
-		reset_renderer_data()
-		sdl.GL_SwapWindow(window)
-		ui_state.first_frame = false
-		free_all(context.temp_allocator)
-		free_all()
-	}
-}
-
 reset_mouse_state :: proc() {
 	ui_state.mouse.wheel = {0, 0}
+
+	ui_state.mouse.left_pressed = false
+	ui_state.mouse.left_released = false
+
+	ui_state.mouse.right_pressed = false
+	ui_state.mouse.right_released = false
 }
