@@ -159,18 +159,18 @@ handle_input :: proc(event: sdl.Event) -> bool {
 	case .QUIT:
 		return false
 	case .MOUSEBUTTONDOWN:
-		if event.button.button == sdl.BUTTON_LEFT {
+		switch event.button.button {
+		case sdl.BUTTON_LEFT:
 			ui_state.mouse.left_pressed = true
-		}
-		if event.button.button == sdl.BUTTON_RIGHT {
+		case sdl.BUTTON_RIGHT:
 			ui_state.mouse.right_pressed = true
 		}
 	case .MOUSEBUTTONUP:
-		if event.button.button == sdl.BUTTON_LEFT {
-			ui_state.mouse.left_released = true
-		}
-		if event.button.button == sdl.BUTTON_RIGHT {
-			ui_state.mouse.right_released = true
+		switch event.button.button {
+		case sdl.BUTTON_LEFT:
+			ui_state.mouse.left_pressed = false
+		case sdl.BUTTON_RIGHT:
+			ui_state.mouse.right_pressed = false
 		}
 	case .MOUSEMOTION:
 		sdl.GetMouseState(&ui_state.mouse.pos.x, &ui_state.mouse.pos.y)
@@ -196,10 +196,4 @@ register_resize :: proc() -> bool {
 
 reset_mouse_state :: proc() {
 	ui_state.mouse.wheel = {0, 0}
-
-	ui_state.mouse.left_pressed = false
-	ui_state.mouse.left_released = false
-
-	ui_state.mouse.right_pressed = false
-	ui_state.mouse.right_released = false
 }
