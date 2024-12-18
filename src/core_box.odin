@@ -156,22 +156,29 @@ rect_from_points :: proc(a, b: Vec2) -> sdl.Rect {
 }
 
 box_signals :: proc(box: ^Box) -> Box_Signals {
+	// signals from previous frame
+	prev_signals := box.signals
 	signals: Box_Signals
 	signals.box = box
 	signals.hovering = mouse_inside_box(box, {ui_state.mouse.pos.x, ui_state.mouse.pos.y})
 
 	if signals.hovering {
 		box.hot = true
+
 		signals.pressed = ui_state.mouse.left_pressed
-		signals.clicked = ui_state.mouse.left_released
-		signals.right_pressed = ui_state.mouse.right_pressed
-		signals.right_clicked = ui_state.mouse.right_released
+		if prev_signals.pressed && !ui_state.mouse.left_pressed {
+			signals.clicked = true
+		}
 		if ui_state.mouse.wheel.x != 0 || ui_state.mouse.wheel.y != 0 {
 			signals.scrolled = true
 		}
+		if signals.pressed {
+		}
 	} else {
 		signals.box.hot = false
+		// signals.box.active = false
 	}
+	box.signals = signals
 	return signals
 }
 

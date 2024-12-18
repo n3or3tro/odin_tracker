@@ -100,8 +100,6 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 		fmt.aprintf("%s_file_load_button@1", get_name_from_id_string(id_string)),
 		file_load_button_rect,
 	)
-	// play_button.box.hot = play_button.hovering
-	// file_load_button.box.hot = file_load_button.hovering
 
 	cut_right(&play_button.box.rect, Size{.Percent, 0.5})
 	cut_top(&play_button.box.rect, Size{.Percent, 0.4})
