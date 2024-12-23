@@ -87,7 +87,6 @@ track_steps :: proc(id_string: string, rect: ^Rect) -> Track_Step_Signals {
 
 // assumes 0 <= value <= 100
 track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Control_Signals {
-	cut_rect(rect, {Size{.Percent, 0.33}, .Left})
 	buttons_rect := cut_rect(rect, {Size{.Percent, 0.1}, .Bottom})
 	play_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Left})
 	play_button := button(
@@ -104,9 +103,7 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 		file_load_button_rect,
 	)
 
-	cut_right(&play_button.box.rect, Size{.Percent, 0.5})
-	cut_top(&play_button.box.rect, Size{.Percent, 0.4})
-	play_button.box.rect = expand(play_button.box.rect, Size{.Percent, 0.4})
+	cut_rect(rect, {Size{.Percent, 0.33}, .Left})
 
 	slider_track_rect := cut_rect(rect, RectCut{Size{.Percent, 0.5}, .Left})
 	slider_track := box_from_cache({.Scrollable, .Draw}, id_string, slider_track_rect)
