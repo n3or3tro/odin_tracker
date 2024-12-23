@@ -1,5 +1,6 @@
 package main
 import "core:fmt"
+import fd "file_dialog"
 import ma "vendor:miniaudio"
 
 Track_Button_Signals :: struct {
@@ -153,15 +154,14 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 		ma.sound_set_volume(engine_sounds[which], map_range(0, 100, 0, 1, slider_volumes[which]))
 	}
 	if t_controls.button_signals.play_signals.hovering {
-		// println("play button hovered")
 	}
 
 	if t_controls.button_signals.play_signals.clicked {
-		println("clicked play button")
 		toggle_sound(engine_sounds[which])
 	}
 	if t_controls.button_signals.file_load_signals.clicked {
-		// println(osd.path(.Open_Dir))
+		// fd.file_dialog()
+		file_dialog()
 	}
 }
 
@@ -169,7 +169,6 @@ handle_track_steps_interactions :: proc(track: Track_Step_Signals) {
 	for step in track {
 		for beat in step {
 			if beat.hovering {
-				println("this beat is HOT!", beat.box.id_string)
 			}
 		}
 	}
