@@ -28,6 +28,7 @@ window: ^sdl.Window
 wx: ^i32 = new(i32)
 wy: ^i32 = new(i32)
 ui_state: ^UI_State = new(UI_State)
+audio_state: ^Audio_State = new(Audio_State)
 ui_font: ^sttf.Font
 
 char_map := new(u32)
@@ -112,11 +113,11 @@ main :: proc() {
 	gl.GenVertexArrays(1, quad_vabuffer)
 	gl.GenVertexArrays(1, text_vabuffer)
 	create_vbuffer(quad_vbuffer, nil, 500_000)
-	quad_shader_program, pok := gl.load_shaders_source(
+	quad_shader_program, shader_ok := gl.load_shaders_source(
 		string(ui_vertex_shader_data),
 		string(ui_pixel_shader_data),
 	)
-	assert(pok)
+	assert(shader_ok)
 	bind_shader(quad_shader_program)
 	set_shader_vec2(quad_shader_program, "screen_res", {f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)})
 

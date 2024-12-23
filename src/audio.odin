@@ -5,10 +5,16 @@ import "core:strconv"
 import "core:strings"
 import ma "vendor:miniaudio"
 
+Audio_State :: struct {
+	playing: bool,
+	tracks:  [dynamic]^ma.sound_group,
+	engine:  ma.engine,
+}
+
 SOUND_FILE_LOAD_FLAGS :: u32(ma.sound_flags.DECODE | ma.sound_flags.NO_SPATIALIZATION)
 sound_files: [2]cstring = {
-	"/home/lucas/Music/test_sounds/gettysburg.wav",
-	"/home/lucas/Music/test_sounds/preamble.wav",
+	"/home/lucas/Music/test_sounds/bless_america/gettysburg.wav",
+	"/home/lucas/Music/test_sounds/bless_america/preamble.wav",
 }
 
 audio_engine := new(ma.engine)
