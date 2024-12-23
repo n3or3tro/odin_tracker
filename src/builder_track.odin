@@ -1,7 +1,9 @@
 package main
 import "core:fmt"
-import fd "file_dialog"
+import "core:math"
+import s "core:strings"
 import ma "vendor:miniaudio"
+import sdl "vendor:sdl2"
 
 Track_Button_Signals :: struct {
 	play_signals:      Box_Signals,
@@ -160,8 +162,9 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 		toggle_sound(engine_sounds[which])
 	}
 	if t_controls.button_signals.file_load_signals.clicked {
-		// fd.file_dialog()
-		file_dialog()
+		files, fok := file_dialog(false)
+		assert(fok)
+		set_track_sound(files[0], which)
 	}
 }
 
@@ -184,4 +187,21 @@ calc_slider_grip_val :: proc(current_val: f32, max: f32) -> f32 {
 	} else {
 		return proposed_value
 	}
+}
+
+dropped_on_track :: proc() -> (u32, bool) {
+	mouse_x, mouse_y: i32
+	sdl.GetMouseState(&mouse_x, &mouse_y)
+	for i in 0 ..= N_TRACKS - 1 {
+		l := i32(f32(wx^) * f32(i) / f32(N_TRACKS))
+		r := i32(f32(wx^) * f32(i + 1) / f32(N_TRACKS))
+
+		printf("l: %d    r: %d ", l, r)
+		println("mouse state:", mouse_x)
+		println("i:", i, "i/ntracks:", f32(i) / f32(N_TRACKS))
+		if mouse_x >= l && mouse_x <= r {
+			return u32(i), true
+		}
+	}
+	return 0, false
 }
