@@ -23,21 +23,29 @@ UI_State :: struct {
 	rect_stack:  [dynamic]^Rect,
 }
 
+Top_Bar_Signals :: struct {
+	toggle_play:    Box_Signals,
+	toggle_explore: Box_Signals,
+}
+
 top_bar :: proc() {
-	// draw top bar
 	top_bar_rect := cut_top(top_rect(), Size{kind = .Percent, value = 0.03})
-	top_bar_width := rect_width(top_bar_rect)
-	cut_left(&top_bar_rect, Size{kind = .Pixels, value = top_bar_width * 0.9 / 2})
-	cut_right(&top_bar_rect, Size{kind = .Pixels, value = top_bar_width * 0.9 / 2})
-	play_button := get_left(top_bar_rect, Size{kind = .Percent, value = 0.5})
-	stop_button := get_right(top_bar_rect, Size{kind = .Percent, value = 1})
-	// play_button = shrink_x(play_button, Size{.Percent, 0.3})
-	// stop_button = shrink_x(stop_button, Size{.Percent, 0.3})
-	button("lol@yourmum", play_button)
-	button("lolwhat@yourmum", stop_button)
+	// top_bar_width := rect_width(top_bar_rect)
+	play_space := get_left(top_bar_rect, Size{kind = .Percent, value = 0.45})
+	stop_space := get_right(top_bar_rect, Size{kind = .Percent, value = 0.45})
+
+	play_button := get_right(play_space, Size{kind = .Percent, value = 0.5})
+	stop_button := get_left(stop_space, Size{kind = .Percent, value = 0.5})
+	toggle_play := button("lol@yourmum", play_button)
+	toggle_explore := button("lolwhat@yourmum", stop_button)
+	if toggle_play.clicked {
+		audio_state.playing = !audio_state.playing
+		toggle_audio_playing()
+	}
 }
 
 create_ui :: proc() {
+	top_bar()
 	track_padding: u32 = 10
 	track_width: f32 = f32(wx^ / i32(N_TRACKS)) - f32(track_padding)
 	for i in 0 ..= 9 {

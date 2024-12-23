@@ -36,6 +36,18 @@ engine_sounds: [N_TRACKS]^ma.sound
 audio_groups: [N_AUDIO_GROUPS]^ma.sound_group
 
 
+toggle_audio_playing :: proc() {
+	for sound in engine_sounds {
+		if sound != nil {
+			if audio_state.playing {
+				ma.sound_stop(sound)
+			} else {
+				ma.sound_start(sound)
+			}
+		}
+	}
+}
+
 // since we don't have a gui for playing sounds, the engine will just load 2 tracks when created.
 setup_audio_engine :: proc(engine: ^ma.engine) -> ^ma.engine {
 	// Engine config is set by default when you init the engine, but can be manually set.
