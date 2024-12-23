@@ -39,40 +39,9 @@ top_bar :: proc() {
 	button("lolwhat@yourmum", stop_button)
 }
 
-file_dialog :: proc() {
-	init_and_run :: proc() {
-		nfd.Init()
-		defer nfd.Quit()
-
-		paths := make_multi_pointer([^]cstring, 50)
-		path: cstring
-		filters := [2]nfd.Filter_Item{{"Source code", "c,cpp,cc"}, {"Headers", "h,hpp"}}
-
-		args := nfd.Open_Dialog_Args {
-			// filter_list  = raw_data(filters[:]),
-			// filter_count = len(filters),
-			filter_list  = nil,
-			filter_count = 0,
-		}
-
-		result := nfd.OpenDialogMultipleN(paths, nil, 0, nil)
-		switch result {
-		case .Okay:
-			{
-				fmt.println("Success!")
-			}
-		case .Cancel:
-			fmt.println("User pressed cancel.")
-		case .Error:
-			fmt.println("Error:", nfd.GetError())
-		}
-	}
-	thread.create_and_start(init_and_run)
-}
-
 create_ui :: proc() {
 	track_padding: u32 = 10
-	track_width: f32 = f32(wx^ / i32(n_tracks)) - f32(track_padding)
+	track_width: f32 = f32(wx^ / i32(N_TRACKS)) - f32(track_padding)
 	for i in 0 ..= 9 {
 		create_track(u32(i), track_width)
 		spacer(

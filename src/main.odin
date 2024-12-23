@@ -7,7 +7,7 @@ import alg "core:math/linalg"
 import glm "core:math/linalg/glsl"
 import "core:mem"
 import "core:os"
-import "core:strings"
+import s "core:strings"
 import "core:thread"
 import "core:time"
 import gl "vendor:OpenGL"
@@ -18,8 +18,8 @@ import sttf "vendor:sdl2/ttf"
 println :: fmt.println
 printf :: fmt.printf
 aprintf :: fmt.aprintf
-WINDOW_WIDTH :: 3000 * 0.8
-WINDOW_HEIGHT :: 2000 * 0.8
+WINDOW_WIDTH :: 3000 * 0.5
+WINDOW_HEIGHT :: 2000 * 0.5
 ASPECT_RATIO: f32 : 16.0 / 10.0
 
 // Global UI data
@@ -44,7 +44,7 @@ slider_value: f32 = 30
 slider_max: f32 = 100
 
 // Global audio data
-n_tracks: u32 = 10
+N_TRACKS :: 10
 
 setup_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	sdl.Init({.AUDIO, .EVENTS, .TIMER})
@@ -108,7 +108,6 @@ main :: proc() {
 
 	// setup audio stuff
 	setup_audio_engine(audio_engine)
-	load_files()
 
 	gl.GenVertexArrays(1, quad_vabuffer)
 	gl.GenVertexArrays(1, text_vabuffer)
@@ -179,8 +178,12 @@ handle_input :: proc(event: sdl.Event) -> bool {
 		ui_state.mouse.wheel.x = cast(i8)event.wheel.x
 		ui_state.mouse.wheel.y = cast(i8)event.wheel.y
 	case .DROPFILE:
-		// Need some logic to determine when file was dropped in right location.
-		println("file dropped: {}", event.drop.file)
+		which, on_track := dropped_on_track()
+		assert(on_track)
+		if on_track {
+			println("dropped on track:", which)
+			set_track_sound(event.drop.file, which)
+		}
 	}
 	return true
 }
