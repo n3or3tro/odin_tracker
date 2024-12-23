@@ -181,7 +181,6 @@ handle_input :: proc(event: sdl.Event) -> bool {
 		which, on_track := dropped_on_track()
 		assert(on_track)
 		if on_track {
-			println("dropped on track:", which)
 			set_track_sound(event.drop.file, which)
 		}
 	}
