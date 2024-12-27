@@ -20,15 +20,17 @@ MyRect :: struct #packed {
 }
 
 Rect_Render_Data :: struct {
-	top_left:         Vec2,
-	bottom_right:     Vec2,
-	tl_color:         Vec4,
-	tr_color:         Vec4,
-	bl_color:         Vec4,
-	br_color:         Vec4,
-	corner_radius:    f32,
-	edge_softness:    f32,
-	border_thickness: f32,
+	top_left:             Vec2,
+	bottom_right:         Vec2,
+	texture_top_left:     Vec2,
+	texture_bottom_right: Vec2,
+	tl_color:             Vec4,
+	tr_color:             Vec4,
+	bl_color:             Vec4,
+	br_color:             Vec4,
+	corner_radius:        f32,
+	edge_softness:        f32,
+	border_thickness:     f32,
 }
 // sets circumstantial rendering data like radius, borders, etc
 get_boxes_rendering_data :: proc(box: Box) -> (Rect_Render_Data, Maybe(Rect_Render_Data)) {

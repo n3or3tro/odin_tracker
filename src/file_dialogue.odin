@@ -14,6 +14,41 @@ when ODIN_OS == .Windows {
 	file_dialog :: file_dialog_linux
 }
 
+when ODIN_OS == .Linux {
+	file_dialog_linux :: proc(multiselect: bool = false) -> ([dynamic]cstring, bool) {
+		paths := make([dynamic]cstring)
+		fp := posix.popen("zenity --file-selection --multiple", "r\x00")
+		if fp == nil {
+			panic("Could not run zenity!")
+		}
+		in_line: [128]u8
+		stdout_runes := make([dynamic]rune)
+		defer delete(stdout_runes)
+		for {
+			stdout_data := posix.fgets(raw_data(in_line[:]), size_of(in_line), fp)
+			if stdout_data == nil {
+				break
+			}
+			for i in 0 ..< len(in_line) {
+				ch := stdout_data[i]
+				if ch == 0 {
+					break
+				}
+				append(&stdout_runes, rune(ch))
+			}
+		}
+		stdout := utf8.runes_to_string(stdout_runes[:])
+		for file_name in s.split_iterator(&stdout, "|") {
+			append(&paths, s.clone_to_cstring(s.trim_space(file_name)))
+		}
+		println(paths)
+		// delete(stdout) <--- this causes a segfault, not sure why..
+		// it definitely needs to be free tho, lest we leak memory every 
+		// time we open the file dialog
+		return paths, true
+	}
+}
+
 when ODIN_OS == .Windows {
 	file_dialog_windows :: proc(multiselect: bool = false) -> ([dynamic]cstring, bool) {
 		MAX_LEN :: 50_000 // max length of all file paths combined.
@@ -116,18 +151,4 @@ when ODIN_OS == .Windows {
 		return s.clone_to_cstring(path)
 	}
 
-}
-file_dialog_linux :: proc(multiselect: bool = false) -> ([dynamic]cstring, bool) {
-	paths := make([dynamic]cstring)
-	// fp := posix.popen("zenity --file-selection --multiple", "r\x00")
-	// if fp == nil {
-	// 	panic("Could not run zenity!")
-	// }
-
-	// in_line: [500]u8
-	// for {
-	// 	posix.fgets(raw_data(in_line[:]), size_of(in_line), fp)
-	// 	println(in_line)
-	// }
-	return paths, true
 }

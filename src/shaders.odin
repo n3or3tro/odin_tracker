@@ -125,6 +125,10 @@ set_shader_vec2 :: proc(shader: u32, name: cstring, value: Vec2) {
 	gl.Uniform2f(gl.GetUniformLocation(shader, name), value.x, value.y)
 }
 
+set_shader_texture_2d :: proc(shader: u32, name: cstring, texture: [dynamic][dynamic]i32) {
+	// gl.Uniform(gl.GetUniformLocation(shader, name), value.x, value.y)
+}
+
 delete_shader :: proc(shader_program: u32) {
 	gl.DeleteProgram(shader_program)
 }

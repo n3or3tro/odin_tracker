@@ -156,11 +156,13 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 	}
 
 	if t_controls.button_signals.play_signals.clicked {
-		toggle_sound(engine_sounds[which])
+		toggle_sound_playing(engine_sounds[which])
 	}
 	if t_controls.button_signals.file_load_signals.clicked {
+		println("running file_dialog()")
 		files, fok := file_dialog(false)
 		assert(fok)
+		println("returned files from file_dialog()")
 		set_track_sound(files[0], which)
 	}
 }

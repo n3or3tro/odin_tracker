@@ -28,9 +28,9 @@ Top_Bar_Signals :: struct {
 	toggle_explore: Box_Signals,
 }
 
+
 top_bar :: proc() {
 	top_bar_rect := cut_top(top_rect(), Size{kind = .Percent, value = 0.03})
-	// top_bar_width := rect_width(top_bar_rect)
 	play_space := get_left(top_bar_rect, Size{kind = .Percent, value = 0.45})
 	stop_space := get_right(top_bar_rect, Size{kind = .Percent, value = 0.45})
 
@@ -40,7 +40,7 @@ top_bar :: proc() {
 	toggle_explore := button("lolwhat@yourmum", stop_button)
 	if toggle_play.clicked {
 		audio_state.playing = !audio_state.playing
-		toggle_audio_playing()
+		toggle_all_audio_playing()
 	}
 }
 
