@@ -65,7 +65,7 @@ setup_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 
 	// Set OpenGL attributes after SDL initialization
 	sdl.GL_SetAttribute(.CONTEXT_MAJOR_VERSION, 4)
-	sdl.GL_SetAttribute(.CONTEXT_MINOR_VERSION, 3)
+	sdl.GL_SetAttribute(.CONTEXT_MINOR_VERSION, 1)
 	sdl.GL_SetAttribute(.CONTEXT_PROFILE_MASK, gl.CONTEXT_CORE_PROFILE_BIT)
 	sdl.GL_SetAttribute(.MULTISAMPLEBUFFERS, 1)
 	sdl.GL_SetAttribute(.MULTISAMPLESAMPLES, 8)
@@ -76,7 +76,7 @@ setup_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	}
 	sdl.GL_MakeCurrent(window, gl_context)
 
-	gl.load_up_to(4, 3, sdl.gl_set_proc_address)
+	gl.load_up_to(4, 1, sdl.gl_set_proc_address)
 
 	// Enable OpenGL settings
 	gl.Hint(gl.LINE_SMOOTH_HINT, gl.NICEST)

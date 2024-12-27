@@ -36,7 +36,7 @@ engine_sounds: [N_TRACKS]^ma.sound
 audio_groups: [N_AUDIO_GROUPS]^ma.sound_group
 
 
-toggle_audio_playing :: proc() {
+toggle_all_audio_playing :: proc() {
 	for sound in engine_sounds {
 		if sound != nil {
 			if audio_state.playing {
@@ -82,13 +82,19 @@ set_track_sound :: proc(path: cstring, which: u32) {
 	engine_sounds[which] = new_sound
 }
 
-toggle_sound :: proc(sound: ^ma.sound) {
-	if ma.sound_is_playing(sound) {
-		res := ma.sound_stop(sound)
-		assert(res == .SUCCESS)
+toggle_sound_playing :: proc(sound: ^ma.sound) {
+	if sound == nil {
+		println(
+			"Passed in a 'nil' sound.\nMost likely this track hasn't been loaded with a sound.",
+		)
 	} else {
-		res := ma.sound_start(sound)
-		assert(res == .SUCCESS)
+		if ma.sound_is_playing(sound) {
+			res := ma.sound_stop(sound)
+			assert(res == .SUCCESS)
+		} else {
+			res := ma.sound_start(sound)
+			assert(res == .SUCCESS)
+		}
 	}
 }
 

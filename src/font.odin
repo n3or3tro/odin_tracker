@@ -18,8 +18,8 @@ Character :: struct {
 	bearing:    [2]f32,
 	advance:    u32,
 }
-create_font_map :: proc(font_size: u32) -> map[rune]Character {
 
+create_font_map :: proc(font_size: u32) -> map[rune]Character {
 	char_map := make(map[rune]Character)
 	font_lib: ft.Library
 	if ft.init_free_type(&font_lib) != ft.Error.Ok {
@@ -134,23 +134,16 @@ render_text :: proc(
 }
 
 draw_text :: proc(text: string, x, y: f32) {
-	println("fuck")
 	gl.BindVertexArray(text_vabuffer^)
-	println("you")
 	enable_layout(0)
-	println("mate")
 	layout_vbuffer(0, 4, gl.FLOAT, gl.FALSE, 4 * size_of(f32), 0)
 
-	println("1")
 	text_program := create_and_bind_shader(
 		"src/shaders/text_vertex_shader.glsl",
 		"src/shaders/text_fragment_shader.glsl",
 	)
-	println("2")
 	text_proj := alg.matrix_ortho3d_f32(0, cast(f32)wx^, 0, cast(f32)wy^, -1, 1)
-	println("3")
 	set_shader_matrix4(text_program, "proj", &text_proj)
-	println("4")
 	render_text(text_program, &text_proj, text, {1, 0, 0}, x, y)
 	setup_for_quads(&quad_shader_program)
 }
