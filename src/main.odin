@@ -18,8 +18,8 @@ import sttf "vendor:sdl2/ttf"
 println :: fmt.println
 printf :: fmt.printf
 aprintf :: fmt.aprintf
-WINDOW_WIDTH :: 3000 * 0.5
-WINDOW_HEIGHT :: 2000 * 0.5
+WINDOW_WIDTH :: 3000 * 0.8
+WINDOW_HEIGHT :: 2000 * 0.8
 ASPECT_RATIO: f32 : 16.0 / 10.0
 
 // Global UI data
@@ -36,6 +36,7 @@ char_map := new(u32)
 quad_vbuffer := new(u32)
 quad_vabuffer := new(u32)
 quad_shader_program: u32
+text_shader_program: u32
 
 text_vbuffer := new(u32)
 text_vabuffer := new(u32)
@@ -47,6 +48,7 @@ slider_max: f32 = 100
 N_TRACKS :: 10
 
 setup_window :: proc() -> (^sdl.Window, sdl.GLContext) {
+	// create_font_glyph()
 	sdl.Init({.AUDIO, .EVENTS, .TIMER})
 
 	window_flags :=
@@ -95,6 +97,9 @@ slider_volumes: [10]f32 = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
 ui_vertex_shader_data :: #load("shaders/vertex_shader.glsl")
 ui_pixel_shader_data :: #load("shaders/fragment_shader.glsl")
 
+text_vertex_shader_data :: #load("shaders/text_vertex_shader.glsl")
+text_pixel_shader_data :: #load("shaders/text_fragment_shader.glsl")
+
 main :: proc() {
 	// setup state for UI
 	ui_state.rect_stack = make([dynamic]^Rect)
@@ -112,17 +117,23 @@ main :: proc() {
 	gl.GenVertexArrays(1, quad_vabuffer)
 	gl.GenVertexArrays(1, text_vabuffer)
 	create_vbuffer(quad_vbuffer, nil, 500_000)
-	quad_shader_program, shader_ok := gl.load_shaders_source(
+	quad_shader_program, _ = gl.load_shaders_source(
 		string(ui_vertex_shader_data),
 		string(ui_pixel_shader_data),
 	)
-	assert(shader_ok)
+	// assert(quad_shader_ok)
+	text_shader_program, _ = gl.load_shaders_source(
+		string(text_vertex_shader_data),
+		string(text_pixel_shader_data),
+	)
+	// assert(text_shader_ok)
+
 	bind_shader(quad_shader_program)
 	set_shader_vec2(quad_shader_program, "screen_res", {f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)})
 
-	// ui_state.char_map = create_font_map(30)
-	// text_proj := alg.matrix_ortho3d_f32(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1)
-	// create_vbuffer(text_vbuffer, nil, 10_000 * size_of(f32))
+	ui_state.char_map = create_font_map(30)
+	text_proj := alg.matrix_ortho3d_f32(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1)
+	create_vbuffer(text_vbuffer, nil, 100_000 * size_of(f32))
 
 	setup_for_quads(&quad_shader_program)
 	sdl.GetWindowSize(window, wx, wy)
@@ -139,9 +150,11 @@ main :: proc() {
 				break app_loop
 			}
 		}
-		create_ui()
 		clear_screen()
+		create_ui()
 		render_ui()
+		// draw_text("what", 100, 100)
+		render_text2()
 		reset_renderer_data()
 		sdl.GL_SwapWindow(window)
 		free_all(context.temp_allocator)

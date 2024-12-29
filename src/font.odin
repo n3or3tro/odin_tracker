@@ -1,8 +1,14 @@
 // Code to handle text rendering with OpenGL.
+// Mostly copied from online sources... forgot to get the URL might need to 
+// grab it to re-understand :) 
+
+
+// Types in this file a little fucky, this is mostly the result of the weird types in vendore:freetype
 
 package main
 import alg "core:math/linalg"
 import ft "third_party/freetype"
+// import "vendor:"
 import gl "vendor:OpenGL"
 
 // font_path :: "/usr/share/fonts/TTF/Sauce Code Pro Medium Nerd Font Complete.ttf"
@@ -13,10 +19,12 @@ when ODIN_OS == .Windows {
 }
 
 Character :: struct {
-	texture_id: u32,
-	size:       [2]f32,
-	bearing:    [2]f32,
-	advance:    u32,
+	texture_id:   u32,
+	size:         [2]f32,
+	bearing:      [2]f32,
+	advance:      u32,
+	glyph_width:  f32,
+	glyph_height: f32,
 }
 
 create_font_map :: proc(font_size: u32) -> map[rune]Character {
@@ -66,16 +74,18 @@ create_font_map :: proc(font_size: u32) -> map[rune]Character {
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 		// 	// Now store character for later use
 		new_char := Character {
-			texture_id = texture,
-			size       = [2]f32 {
+			texture_id   = texture,
+			size         = [2]f32 {
 				cast(f32)font_face.glyph.bitmap.width,
 				cast(f32)font_face.glyph.bitmap.rows,
 			},
-			bearing    = [2]f32 {
+			bearing      = [2]f32 {
 				cast(f32)font_face.glyph.bitmap_left,
 				cast(f32)font_face.glyph.bitmap_top,
 			},
-			advance    = cast(u32)font_face.glyph.advance.x,
+			advance      = cast(u32)font_face.glyph.advance.x,
+			glyph_width  = cast(f32)font_face.glyph.metrics.width / 64,
+			glyph_height = cast(f32)font_face.glyph.metrics.height / 64,
 		}
 		char_map[c] = new_char
 	}
@@ -99,9 +109,8 @@ render_text :: proc(
 	gl.ActiveTexture(gl.TEXTURE0)
 	// create this because of weird non-mutable proc arg stuff
 	x := x
-	// iterate through all characters
-	for c in text {
-		char := ui_state.char_map[c]
+	for ch in text {
+		char := ui_state.char_map[ch]
 		if char.texture_id == 0 {
 			continue
 		}
@@ -115,12 +124,12 @@ render_text :: proc(
 		
 			//odinfmt:disable
 		vertices := [6 * 4]f32 {
-			xpos, ypos + h, 0, 0,
-			xpos, ypos, 0, 1,
-			xpos + w, ypos, 1, 1,
-			xpos, ypos + h, 0, 0,
-			xpos + w, ypos, 1, 1,
-			xpos + w, ypos + h, 1, 0
+			xpos, 		ypos + h, 	0, 0,
+			xpos, 		ypos, 		0, 1,
+			xpos + w, 	ypos, 		1, 1,
+			xpos, 		ypos + h, 	0, 0,
+			xpos + w, 	ypos, 		1, 1,
+			xpos + w, 	ypos + h, 	1, 0,
 		}
 		//odinfmt:enable
 
@@ -134,16 +143,32 @@ render_text :: proc(
 }
 
 draw_text :: proc(text: string, x, y: f32) {
-	gl.BindVertexArray(text_vabuffer^)
-	enable_layout(0)
-	layout_vbuffer(0, 4, gl.FLOAT, gl.FALSE, 4 * size_of(f32), 0)
+	if !ui_state.first_frame {
 
-	text_program := create_and_bind_shader(
-		"src/shaders/text_vertex_shader.glsl",
-		"src/shaders/text_fragment_shader.glsl",
-	)
-	text_proj := alg.matrix_ortho3d_f32(0, cast(f32)wx^, 0, cast(f32)wy^, -1, 1)
-	set_shader_matrix4(text_program, "proj", &text_proj)
-	render_text(text_program, &text_proj, text, {1, 0, 0}, x, y)
-	setup_for_quads(&quad_shader_program)
+		gl.BindVertexArray(text_vabuffer^)
+		enable_layout(0)
+		layout_vbuffer(0, 4, gl.FLOAT, gl.FALSE, 4 * size_of(f32), 0)
+
+		bind_shader(text_shader_program)
+		text_proj := alg.matrix_ortho3d_f32(0, cast(f32)wx^, 0, cast(f32)wy^, -1, 1)
+		set_shader_matrix4(text_shader_program, "proj", &text_proj)
+		render_text(text_shader_program, &text_proj, text, {1, 0, 0}, x, y)
+
+		setup_for_quads(&quad_shader_program)
+	}
+}
+
+get_font_baseline :: proc(text: string, rect: Rect) -> (x, y: f32) {
+	max_height: f32 = -1
+	str_width: f32 = 0
+	for ch in text {
+		height := ui_state.char_map[ch].glyph_height
+		if height > max_height {
+			max_height = height
+		}
+		str_width += ui_state.char_map[ch].glyph_width
+	}
+	y = rect.bottom_right.y - (rect_height(rect) - max_height) / 2
+	x = rect.top_left.x + (rect_width(rect) - str_width) / 2
+	return x, y
 }

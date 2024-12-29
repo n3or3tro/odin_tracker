@@ -77,7 +77,7 @@ check_shader_compiled :: proc(shader: u32) -> bool {
 		panic(fmt.aprintf("shader %u didn't compile correctly ", shader))
 		// return false
 	}
-	println("shader compiled fine")
+	// println("shader compiled fine")
 	return true
 }
 

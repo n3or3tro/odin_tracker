@@ -81,6 +81,15 @@ get_box_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 	}
 	return rendering_data
 }
+render_text2 :: proc() {
+	for box in ui_state.temp_boxes {
+		if .Draw_Text in box.flags {
+			xx, yy := get_font_baseline(box.name, box.rect)
+			x, y := f32(xx), f32(yy)
+			draw_text(box.name, x, y)
+		}
+	}
+}
 
 setup_for_quads :: proc(shader_program: ^u32) {
 	//odinfmt:disable

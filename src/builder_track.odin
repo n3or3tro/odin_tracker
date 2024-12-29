@@ -89,17 +89,21 @@ track_steps :: proc(id_string: string, rect: ^Rect) -> Track_Step_Signals {
 track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Control_Signals {
 	buttons_rect := cut_rect(rect, {Size{.Percent, 0.1}, .Bottom})
 	play_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Left})
-	play_button := button(
+	play_button := text_button(
 		fmt.aprintf(
-			"%s_play_button@1",
+			"play@%s_play_button",
 			get_name_from_id_string(id_string),
 			allocator = context.temp_allocator,
 		),
 		play_button_rect,
 	)
 	file_load_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Right})
-	file_load_button := button(
-		fmt.aprintf("%s_file_load_button@1", get_name_from_id_string(id_string)),
+	file_load_button := text_button(
+		fmt.aprintf(
+			"load@%s_file_load_button",
+			get_name_from_id_string(id_string),
+			allocator = context.temp_allocator,
+		),
 		file_load_button_rect,
 	)
 
@@ -138,11 +142,7 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 }
 
 tracker_step :: proc(id_string: string, rect: Rect) -> Box_Signals {
-	b := box_from_cache(
-		{.Draw, .Clickable, .Active_Animation, .Draw_Text, .Edit_Text},
-		id_string,
-		rect,
-	)
+	b := box_from_cache({.Draw, .Clickable, .Active_Animation}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)
 }
@@ -170,8 +170,6 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 handle_track_steps_interactions :: proc(track: Track_Step_Signals) {
 	for step in track {
 		for beat in step {
-			if beat.hovering {
-			}
 		}
 	}
 }
