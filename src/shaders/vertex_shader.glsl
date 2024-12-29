@@ -16,6 +16,9 @@ layout(location = 6) in float corner_radius;
 layout(location = 7) in float edge_softness;  // Used for shadows and shit I think. 
 layout(location = 8) in float border_thickness;  // Used for shadows and shit I think. 
 
+// layout(location = 9) in float tl_texture;
+// layout(location = 10) in float br_texture;
+
 layout(location = 0) out vec4 v_color;
 layout(location = 1) out vec2 out_dst_pos;
 layout(location = 2) out vec2 out_dst_center;
@@ -23,6 +26,8 @@ layout(location = 3) out vec2 out_dst_half_size;
 layout(location = 4) out float out_corner_radius;
 layout(location = 5) out float out_edge_softness;
 layout(location = 6) out float out_border_thickness;
+
+// layout(location = 7) out vec2 texture_uv;
 
 uniform vec2 screen_res = vec2(3000, 2000);
 
@@ -40,6 +45,12 @@ void main() {
 	vec2 dst_center = (p1 + p0) / 2.0;
 	vec2 dst_pos = (vertices[gl_VertexID] * dst_half_size) + dst_center;
 
+	// Texture stuff :)
+	// vec2 tex_half_size = (p1 - p0) / 2;
+	// vec2 tex_center = (p1 + p0) / 2;
+	// vec2 tex_pos = (vertices[gl_VertexID] * tex_half_size + tex_center)
+	// texture_uv = vec2(tex_pos.x/)
+
     // Map to screen coordinates (-1 to 1 NDC)
 	// vec2 ndc_pos = 2.0 * dst_pos / screen_res - vec2(1.0);
 
@@ -51,5 +62,6 @@ void main() {
 	out_corner_radius = corner_radius;
 	out_edge_softness = edge_softness;
 	out_border_thickness = border_thickness;
+
 	gl_Position = vec4(2 * dst_pos.x / screen_res.x - 1, -1 * (2 * dst_pos.y / screen_res.y - 1), 0.0, 1.0);
 }
