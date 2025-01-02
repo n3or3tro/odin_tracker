@@ -36,13 +36,13 @@ Rect_Render_Data :: struct {
 get_boxes_rendering_data :: proc(box: Box) -> (Rect_Render_Data, Maybe(Rect_Render_Data)) {
 	bl_color: Vec4 = box.color
 	br_color: Vec4 = box.color
-	if box.signals.pressed {
+	if box.signals.pressed && .Active_Animation in box.flags {
 		bl_color = {0.0, 0.0, 0.0, 1}
 		br_color = {0.0, 0.0, 0.0, 1}
-	} else if box.signals.hovering {
+	} else if box.signals.hovering && .Hot_Animation in box.flags {
 		bl_color.a = 0.1
 		br_color.a = 0.1
-	} // border_thicknes: f32 = 20 if box.hot else 0
+	}
 	data: Rect_Render_Data = {
 		top_left         = box.rect.top_left,
 		bottom_right     = box.rect.bottom_right,
@@ -55,16 +55,26 @@ get_boxes_rendering_data :: proc(box: Box) -> (Rect_Render_Data, Maybe(Rect_Rend
 		edge_softness    = 0,
 		border_thickness = 100,
 	}
-	if s.contains(box.id_string, "step") && s.contains(box.id_string, "beat") && box.hot {
+	if s.contains(box.id_string, "step") {
+		data.border_thickness = 5
+		data.corner_radius = 20
+	}
+	if s.contains(box.id_string, "step") && is_active_step(box) {
 		outlining_rect := data
-		outlining_rect.border_thickness = 2
+		outlining_rect.border_thickness = 1.7
 		outlining_rect.tl_color = {1, 0, 0, 1}
 		outlining_rect.tr_color = {1, 0, 0, 1}
 		outlining_rect.bl_color = {1, 0, 0, 1}
 		outlining_rect.br_color = {1, 0, 0, 1}
+		data.border_thickness = 0
 		return data, outlining_rect
 	}
 	return data, nil
+}
+
+is_active_step :: proc(box: Box) -> bool {
+	num := step_num_from_step(box.id_string)
+	return num == audio_state.curr_step
 }
 
 get_box_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
@@ -81,6 +91,8 @@ get_box_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 	}
 	return rendering_data
 }
+
+// Need to name this and the other text renderings functions better.
 render_text2 :: proc() {
 	for box in ui_state.temp_boxes {
 		if .Draw_Text in box.flags {
@@ -142,7 +154,7 @@ reset_renderer_data :: proc() {
 }
 
 clear_screen :: proc() {
-	gl.ClearColor(1, 1, 1, 1.0)
+	gl.ClearColor(1, 1, 1, 0.5)
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 }
 

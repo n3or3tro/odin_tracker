@@ -144,7 +144,6 @@ render_text :: proc(
 
 draw_text :: proc(text: string, x, y: f32) {
 	if !ui_state.first_frame {
-
 		gl.BindVertexArray(text_vabuffer^)
 		enable_layout(0)
 		layout_vbuffer(0, 4, gl.FLOAT, gl.FALSE, 4 * size_of(f32), 0)

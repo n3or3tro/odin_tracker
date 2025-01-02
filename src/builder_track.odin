@@ -1,6 +1,7 @@
 package main
 import "core:fmt"
 import "core:math"
+import "core:strconv"
 import s "core:strings"
 import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
@@ -16,23 +17,41 @@ Track_Control_Signals :: struct {
 	track_signals:  Box_Signals,
 	button_signals: Track_Button_Signals,
 }
-Track_Step_Signals :: [32][4]Box_Signals
+Track_Step_Signals :: [64]Box_Signals
 
 // Obviously not a complete track, but as complete-ish for now :).
 create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 	track_container := cut_rect(top_rect(), RectCut{Size{.Pixels, track_width}, .Left})
-	track_controller_container := cut_rect(&track_container, RectCut{Size{.Percent, 0.3}, .Bottom})
+	track_controller_container := cut_rect(
+		&track_container,
+		RectCut{Size{.Percent, 0.25}, .Bottom},
+	)
+
+	override_color = true
+	if engine_sounds[which] != nil {
+		push_color({0, 1, 1, 1})
+	} else {
+		push_color({1, 1, 1, 1})
+	}
+	container(
+		aprintf("track%d_container@lol", which, allocator = context.temp_allocator),
+		track_container,
+	)
+	override_color = false
+	pop_color()
+
+
 	push_parent_rect(&track_container)
 	push_parent_rect(&track_controller_container)
 	track_controls := track_control(
-		fmt.aprintf("track%d_controls@1", which, allocator = context.temp_allocator),
+		fmt.aprintf("track%d_controls@lol", which, allocator = context.temp_allocator),
 		&track_controller_container,
 		slider_volumes[which],
 	)
 	pop_parent_rect()
-	track_step_container := cut_rect(top_rect(), {Size{.Percent, 0.95}, .Top})
+	track_step_container := cut_rect(top_rect(), {Size{.Percent, 0.97}, .Top})
 	steps := track_steps(
-		fmt.aprintf("track_steps%d@1", which, allocator = context.temp_allocator),
+		fmt.aprintf("track_steps%d@lol", which, allocator = context.temp_allocator),
 		&track_step_container,
 	)
 	pop_parent_rect()
@@ -43,45 +62,26 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 }
 
 track_steps :: proc(id_string: string, rect: ^Rect) -> Track_Step_Signals {
-	step_size := rect_height(rect^) / 32
+	step_height := rect_height(rect^) / 32
 	steps: Track_Step_Signals
-	for i in 0 ..= 31 {
-		step_rect := cut_rect(rect, {Size{.Pixels, step_size}, .Top})
-		beat_rect_width := rect_width(get_rect(step_rect, {Size{.Percent, 0.25}, .Left}))
+	color1: [4]f32 = {0.9, 0.5, 0.1, 1}
+	color2: [4]f32 = {0.1, 0.2, 0.9, 1}
+	for i in 0 ..< 32 {
+		step_rect := cut_rect(rect, {Size{.Pixels, step_height}, .Top})
 		track_name := get_name_from_id_string(id_string)
-
-		beat1 := cut_rect(&step_rect, {Size{.Pixels, beat_rect_width}, .Left})
-		b1_step := tracker_step(
-			fmt.aprintf("%s_step%d_beat1@1", track_name, i, allocator = context.temp_allocator),
-			beat1,
+		if i % 2 == 0 {
+			push_color(color1)
+		} else {
+			pop_color()
+			push_color(color2)
+		}
+		step := tracker_step(
+			fmt.aprintf("step%d@%s", i, track_name, allocator = context.temp_allocator),
+			step_rect,
 		)
-
-		beat2 := cut_rect(&step_rect, {Size{.Pixels, beat_rect_width}, .Left})
-		b2_step := tracker_step(
-			fmt.aprintf("%s_step%d_beat2@1", track_name, i, allocator = context.temp_allocator),
-			beat2,
-		)
-
-		beat3 := cut_rect(&step_rect, {Size{.Pixels, beat_rect_width}, .Left})
-		b3_step := tracker_step(
-			fmt.aprintf("%s_step%d_beat3@1", track_name, i, allocator = context.temp_allocator),
-			beat3,
-		)
-
-		beat4 := cut_rect(&step_rect, {Size{.Pixels, beat_rect_width}, .Left})
-		b4_step := tracker_step(
-			fmt.aprintf("%s_step%d_beat4@1", track_name, i, allocator = context.temp_allocator),
-			beat4,
-		)
-		append(&ui_state.temp_boxes, b1_step.box)
-		append(&ui_state.temp_boxes, b2_step.box)
-		append(&ui_state.temp_boxes, b3_step.box)
-		append(&ui_state.temp_boxes, b4_step.box)
-		steps[i][0] = b1_step
-		steps[i][1] = b2_step
-		steps[i][2] = b3_step
-		steps[i][3] = b4_step
+		steps[i] = step
 	}
+	clear_dynamic_array(&ui_state.color_stack)
 	return steps
 }
 
@@ -150,7 +150,7 @@ tracker_step :: proc(id_string: string, rect: Rect) -> Box_Signals {
 handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, which: u32) {
 	if t_controls.track_signals.scrolled {
 		slider_volumes[which] = calc_slider_grip_val(slider_volumes[which], 100)
-		ma.sound_set_volume(engine_sounds[which], map_range(0, 100, 0, 1, slider_volumes[which]))
+		set_volume(engine_sounds[which], map_range(0, 100, 0, 1, slider_volumes[which]))
 	}
 	if t_controls.button_signals.play_signals.hovering {
 	}
@@ -169,8 +169,7 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 
 handle_track_steps_interactions :: proc(track: Track_Step_Signals) {
 	for step in track {
-		for beat in step {
-		}
+
 	}
 }
 
@@ -201,4 +200,9 @@ dropped_on_track :: proc() -> (u32, bool) {
 		}
 	}
 	return 0, false
+}
+step_num_from_step :: proc(id_string: string) -> u16 {
+	name := get_name_from_id_string(id_string)
+	num := u16(strconv.atoi(s.split(name, "step")[1]))
+	return num
 }

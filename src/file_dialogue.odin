@@ -8,10 +8,18 @@ import "core:unicode/utf16"
 import "core:unicode/utf8"
 import sdl "vendor:sdl2"
 
-when ODIN_OS == .Windows {
-	file_dialog :: file_dialog_windows
-} else {
-	file_dialog :: file_dialog_linux
+// when ODIN_OS == .Windows {
+// 	file_dialog := file_dialog_windows
+// } else {
+// 	file_dialog := file_dialog_linux
+// }
+
+file_dialog :: proc(multiselect: bool) -> ([dynamic]cstring, bool) {
+	when ODIN_OS == .Windows {
+		return file_dialog_windows(multiselect)
+	} else {
+		return file_dialog_linux(multiselect)
+	}
 }
 
 when ODIN_OS == .Linux {
