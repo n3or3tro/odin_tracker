@@ -34,11 +34,6 @@ Size :: struct {
 	value: f32,
 }
 
-Axis :: enum {
-	X = 0,
-	Y = 1,
-}
-
 Rect :: struct {
 	top_left:     Vec2,
 	bottom_right: Vec2,
@@ -129,6 +124,9 @@ box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box 
 	if id_string in ui_state.box_cache {
 		box := ui_state.box_cache[id_string]
 		box.rect = rect
+		if override_color {
+			box.color, _ = top_color()
+		}
 		return box
 	} else {
 		new_box := box_make(flags, id_string, rect)
@@ -138,11 +136,24 @@ box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box 
 }
 
 box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
-	println("making new box: ", id_string)
+	// println("making new box: ", id_string)
 	box := new(Box)
 	box.flags = flags
 	box.id_string = id_string
 	box.color = {rand.float32_range(0, 1), rand.float32_range(0, 1), rand.float32_range(0, 1), 1}
+	color, is_top := top_color()
+	if !is_top {
+		println("[WARNING] - There was no color assigned to this box, it's color is randomised.")
+		box.color = {
+			rand.float32_range(0, 1),
+			rand.float32_range(0, 1),
+			rand.float32_range(0, 1),
+			1,
+		}
+	} else {
+		println("top color was: ", color)
+		box.color = color
+	}
 	box.name = get_name_from_id_string(id_string)
 	box.rect = rect
 	return box
@@ -384,10 +395,28 @@ mouse_inside_box :: proc(box: ^Box, mouse: [2]i32) -> bool {
 	)
 }
 
+
+push_color :: proc(color: Color) {
+	// println("pushign color:", color)
+	append(&ui_state.color_stack, color)
+}
+
+pop_color :: proc() -> Color {
+	if len(ui_state.color_stack) < 1 {
+		panic("Tried to pop off empty color stack")
+	}
+	return pop(&ui_state.color_stack)
+}
+
+top_color :: proc() -> (Color, bool) {
+	n_colors := len(ui_state.color_stack)
+	if n_colors < 1 do return {20, 20, 20, 20}, false
+	return ui_state.color_stack[n_colors - 1], true
+}
+
 top_rect :: proc() -> ^Rect {
 	return ui_state.rect_stack[len(ui_state.rect_stack) - 1]
 }
-
 push_parent_rect :: proc(rect: ^Rect) {
 	append(&ui_state.rect_stack, rect)
 }

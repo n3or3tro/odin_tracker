@@ -18,8 +18,8 @@ import sttf "vendor:sdl2/ttf"
 println :: fmt.println
 printf :: fmt.printf
 aprintf :: fmt.aprintf
-WINDOW_WIDTH :: 3000 * 0.8
-WINDOW_HEIGHT :: 2000 * 0.8
+WINDOW_WIDTH := 3000 * ui_scale
+WINDOW_HEIGHT := 2000 * ui_scale
 ASPECT_RATIO: f32 : 16.0 / 10.0
 
 // Global UI data
@@ -44,6 +44,13 @@ text_vabuffer := new(u32)
 slider_value: f32 = 30
 slider_max: f32 = 100
 
+ui_scale: f32 = 0.8
+
+// Used to tell the core layer to override some value
+// of a box that's in the cache. Useful for parts of the code
+// where the box isn't easilly accessible (like in audio related stuff).
+override_color := false
+
 // Global audio data
 N_TRACKS :: 10
 
@@ -57,8 +64,8 @@ setup_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 		"Odin SDL2 Demo",
 		sdl.WINDOWPOS_UNDEFINED,
 		sdl.WINDOWPOS_UNDEFINED,
-		WINDOW_WIDTH,
-		WINDOW_HEIGHT,
+		i32(WINDOW_WIDTH),
+		i32(WINDOW_HEIGHT),
 		window_flags,
 	)
 	if window == nil {
@@ -100,9 +107,17 @@ ui_pixel_shader_data :: #load("shaders/fragment_shader.glsl")
 text_vertex_shader_data :: #load("shaders/text_vertex_shader.glsl")
 text_pixel_shader_data :: #load("shaders/text_fragment_shader.glsl")
 
-main :: proc() {
+audio_thread :: proc() {
+
+}
+
+ui_thread :: proc() {
+	frame_num := 0
+	// ui_thread :: proc() {
 	// setup state for UI
+	println("ui thread started")
 	ui_state.rect_stack = make([dynamic]^Rect)
+	ui_state.color_stack = make([dynamic]Color)
 	root_rect := new(Rect)
 	append(&ui_state.rect_stack, root_rect)
 	ui_state.box_cache = make(map[string]^Box)
@@ -117,27 +132,30 @@ main :: proc() {
 	gl.GenVertexArrays(1, quad_vabuffer)
 	gl.GenVertexArrays(1, text_vabuffer)
 	create_vbuffer(quad_vbuffer, nil, 500_000)
-	quad_shader_program, _ = gl.load_shaders_source(
+	program1, quad_shader_ok := gl.load_shaders_source(
 		string(ui_vertex_shader_data),
 		string(ui_pixel_shader_data),
 	)
-	// assert(quad_shader_ok)
-	text_shader_program, _ = gl.load_shaders_source(
+	assert(quad_shader_ok)
+	quad_shader_program = program1
+
+	program2, text_shader_ok := gl.load_shaders_source(
 		string(text_vertex_shader_data),
 		string(text_pixel_shader_data),
 	)
-	// assert(text_shader_ok)
+	assert(text_shader_ok)
+	text_shader_program = program2
 
 	bind_shader(quad_shader_program)
 	set_shader_vec2(quad_shader_program, "screen_res", {f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)})
 
 	ui_state.char_map = create_font_map(30)
-	text_proj := alg.matrix_ortho3d_f32(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1)
 	create_vbuffer(text_vbuffer, nil, 100_000 * size_of(f32))
 
 	setup_for_quads(&quad_shader_program)
 	sdl.GetWindowSize(window, wx, wy)
 	app_loop: for {
+		start := time.now()._nsec
 		if register_resize() {
 			set_shader_vec2(quad_shader_program, "screen_res", {f32(wx^), f32(wy^)})
 		}
@@ -153,13 +171,30 @@ main :: proc() {
 		clear_screen()
 		create_ui()
 		render_ui()
-		// draw_text("what", 100, 100)
 		render_text2()
 		reset_renderer_data()
 		sdl.GL_SwapWindow(window)
+		end := time.now()._nsec
+		length: f32 = f32(end - start) / 1_000_000
+		println("frame took:", length / 1_000_000)
+		if frame_num % (30) == 0 {
+			audio_state.curr_step = (audio_state.curr_step + 1) % 32
+		}
 		free_all(context.temp_allocator)
 		free_all()
+
+		frame_num += 1
 	}
+	println("ui thread is finished")
+}
+
+main :: proc() {
+	ui_thread()
+}
+
+resize_window :: proc() {
+	// sdl.SetWindowSize(window, wx^, wy^)
+	set_shader_vec2(quad_shader_program, "screen_res", {f32(wx^), f32(wy^)})
 }
 
 handle_input :: proc(event: sdl.Event) -> bool {
@@ -199,7 +234,6 @@ handle_input :: proc(event: sdl.Event) -> bool {
 	}
 	return true
 }
-
 register_resize :: proc() -> bool {
 	old_width, old_height := wx^, wy^
 	sdl.GetWindowSize(window, wx, wy)
@@ -209,7 +243,6 @@ register_resize :: proc() -> bool {
 	}
 	return false
 }
-
 reset_mouse_state :: proc() {
 	ui_state.mouse.wheel = {0, 0}
 }
