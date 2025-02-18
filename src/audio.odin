@@ -38,19 +38,6 @@ engine_sounds: [N_TRACKS]^ma.sound
 // as it probably will help in designging the audio processing stuff.
 audio_groups: [N_AUDIO_GROUPS]^ma.sound_group
 
-
-toggle_all_audio_playing :: proc() {
-	for sound in engine_sounds {
-		if sound != nil {
-			if audio_state.playing {
-				ma.sound_stop(sound)
-			} else {
-				ma.sound_start(sound)
-			}
-		}
-	}
-}
-
 setup_audio_engine :: proc(engine: ^ma.engine) -> ^ma.engine {
 	// Engine config is set by default when you init the engine, but can be manually set.
 	res := ma.engine_init(nil, engine)
@@ -65,7 +52,6 @@ setup_audio_engine :: proc(engine: ^ma.engine) -> ^ma.engine {
 	}
 	return engine
 }
-
 
 set_track_sound :: proc(path: cstring, which: u32) {
 	if engine_sounds[which] != nil {
@@ -101,4 +87,22 @@ toggle_sound_playing :: proc(sound: ^ma.sound) {
 
 set_volume :: proc(sound: ^ma.sound, volume: f32) {
 	ma.sound_set_volume(sound, volume)
+}
+
+toggle_all_audio_playing :: proc() {
+	for sound in engine_sounds {
+		toggle_sound_playing(sound)
+	}
+}
+
+play_current_step :: proc() {
+	for sound, row in engine_sounds {
+		if sound != nil {
+			if ui_state.selected_steps[row][audio_state.curr_step] {
+				ma.sound_stop(sound)
+				ma.sound_seek_to_pcm_frame(sound, 0)
+				ma.sound_start(sound)
+			}
+		}
+	}
 }

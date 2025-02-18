@@ -11,7 +11,10 @@ Color :: [4]f32
 UI_State :: struct {
 	window:           ^sdl.Window,
 	mouse:            struct {
-		pos:           [2]i32,
+		pos:           [2]i32, // these are typed like this to follow the SDL api, else, they'd be u16
+		drag_start:    [2]i32, // -1 if drag was already handled
+		drag_end:      [2]i32, // -1 if drag was already handled
+		dragging:      bool,
 		left_pressed:  bool,
 		right_pressed: bool,
 		wheel:         [2]i8, //-1 moved down, +1 move up
@@ -26,96 +29,39 @@ UI_State :: struct {
 	settings_toggled: bool,
 	// color_stack:      [dynamic]^Color,
 	color_stack:      [dynamic]Color,
-}
-Top_Bar_Signals :: struct {
-	play:     Box_Signals,
-	// toggle:   Box_Signals,
-	settings: Box_Signals,
-}
-Settings_Menu_Signals :: struct {
-	grow_ui:   Box_Signals,
-	shrink_ui: Box_Signals,
+	selected_steps:   [N_TRACKS][32]bool,
 }
 
 
-top_bar :: proc() -> Top_Bar_Signals {
-	top_bar_rect := cut_top(top_rect(), Size{kind = .Percent, value = 0.03})
-
-	play_space := get_left(top_bar_rect, Size{kind = .Percent, value = 0.45})
-	stop_space := get_right(top_bar_rect, Size{kind = .Percent, value = 0.45})
-	settings_space := get_right(top_bar_rect, Size{kind = .Percent, value = 0.10})
-
-	play_button_rect := get_right(play_space, Size{kind = .Percent, value = 0.5})
-	stop_button_rect := get_left(stop_space, Size{kind = .Percent, value = 0.5})
-
-	settings_button := text_button("Settings@topbar", settings_space)
-	play_button := text_button("Play@topbar", play_button_rect)
-	explore_button := text_button("Explore@topbar", stop_button_rect)
-	return Top_Bar_Signals{play = play_button, settings = settings_button}
-}
-
-handle_top_bar_interactions :: proc(signals: Top_Bar_Signals) {
-	if signals.settings.clicked {
-		ui_state.settings_toggled = !ui_state.settings_toggled
+num_column :: proc(track_height: u32, n_steps: u32) {
+	num_col_rect := cut_rect(top_rect(), {{.Percent, track_steps_width_ratio}, .Left})
+	step_height := f32(track_height) / f32(n_steps)
+	for i in 0 ..< n_steps {
+		curr_step := cut_top(&num_col_rect, {.Pixels, step_height})
+		text_container(
+			aprintf("%d:@number_column", i, allocator = context.temp_allocator),
+			curr_step,
+		)
 	}
-	if ui_state.settings_toggled {
-		settings_space := signals.settings.box.rect
-		// A litle janky, hardcoded way to figure out how big the settings
-		// box is going to be.
-		settings_window_rect := Rect {
-			top_left     = {
-				settings_space.top_left.x,
-				settings_space.top_left.y + rect_height(settings_space),
-			},
-			bottom_right = {
-				settings_space.bottom_right.x,
-				settings_space.bottom_right.y + rect_height(settings_space) * 7,
-			},
-		}
-		settings_container := container("Options-Container@topbar", settings_window_rect)
-		settings := settings_menu(settings_container.box.rect)
-		if settings.grow_ui.clicked {
-			println("growing")
-			ui_scale += 0.1
-			wx^ = i32(WINDOW_WIDTH * ui_scale)
-			wy^ = i32(WINDOW_HEIGHT * ui_scale)
-			sdl.SetWindowSize(window, wx^, wy^)
-			set_shader_vec2(quad_shader_program, "screen_res", {f32(wx^), f32(wy^)})
-		}
-		if settings.shrink_ui.clicked {
-			println("shrinkgin")
-			ui_scale -= 0.1
-			wx^ = i32(WINDOW_WIDTH * ui_scale)
-			wy^ = i32(WINDOW_HEIGHT * ui_scale)
-
-		}
-	}
-	if signals.play.clicked {
-		audio_state.playing = !audio_state.playing
-		toggle_all_audio_playing()
-	}
-
 }
-settings_menu :: proc(settings_menu_rect: Rect) -> Settings_Menu_Signals {
-	n_buttons: f32 = 5.0
-	padding := 0.01
-	resize_rect := get_top(settings_menu_rect, Size{kind = .Percent, value = 1 / n_buttons})
-	reduce := get_left(resize_rect, Size{.Percent, 0.5})
-	increase := get_right(resize_rect, Size{.Percent, 0.5})
-	reduce_button := text_button("-@topbar", reduce)
-	increase_button := text_button("+@topbar", increase)
-	return Settings_Menu_Signals{grow_ui = increase_button, shrink_ui = reduce_button}
-}
+
+track_steps_height_ratio: f32 = 0.75
+track_steps_width_ratio: f32 = 0.04
+n_track_steps: u32 = 32
 
 create_ui :: proc() {
 	topbar := top_bar()
+	col_height := cast(u32)(rect_height(top_rect()^) * track_steps_height_ratio)
+	num_column(col_height, n_track_steps)
 	track_padding: u32 = 3
-	track_width: f32 = f32(wx^ / i32(N_TRACKS)) - f32(track_padding)
+	// This is the remaining space to the right of the number column.
+	rest_screen := f32(wx^) * (1 - track_steps_width_ratio)
+	track_width: f32 = f32(rest_screen / f32(N_TRACKS) - f32(track_padding))
 	for i in 0 ..= 9 {
 		create_track(u32(i), track_width)
 		push_color({0, 0, 0, 1})
 		spacer(
-			fmt.aprintf("track_spacer%s@1", i, allocator = context.temp_allocator),
+			aprintf("track_spacer%s@1", i, allocator = context.temp_allocator),
 			RectCut{Size{.Pixels, f32(track_padding)}, .Left},
 		)
 		pop_color()
@@ -125,7 +71,6 @@ create_ui :: proc() {
 
 render_ui :: proc() {
 	if !ui_state.first_frame {
-		// setup_for_quads(&quad_shader_program)
 		rect_rendering_data := get_box_rendering_data()
 		defer delete_dynamic_array(rect_rendering_data^)
 		n_rects := u32(len(rect_rendering_data))
@@ -136,5 +81,27 @@ render_ui :: proc() {
 			n_rects * size_of(Rect_Render_Data),
 		)
 		gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, i32(n_rects))
+	}
+}
+
+
+main_color: Color = {0.5, 0.5, 0.5, 1}
+second_color: Color = {0.5, 0.5, 0.5, 1}
+third_color: Color = {0.5, 0.5, 0.5, 1}
+fourth_color: Color = {0.5, 0.5, 0.5, 1}
+accent_color: Color = {0.5, 0.5, 0.5, 1}
+
+// main_color: Color = {0.5, 0.5, 0.5, 255}
+// second_color: Color = {1, 89, 88, 255}
+// third_color: Color = {0, 143, 140, 255}
+// fourth_color: Color = {12, 171, 168, 255}
+// accent_color: Color = {15, 194, 192, 255}
+map_colors :: proc() {
+	for i in 0 ..< 4 {
+		main_color[i] = map_range(0, 255, 0, 1, main_color[i])
+		second_color[i] = map_range(0, 255, 0, 1, second_color[i])
+		third_color[i] = map_range(0, 255, 0, 1, third_color[i])
+		fourth_color[i] = map_range(0, 255, 0, 1, fourth_color[i])
+		accent_color[i] = map_range(0, 255, 0, 1, accent_color[i])
 	}
 }

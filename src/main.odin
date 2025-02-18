@@ -8,6 +8,7 @@ import glm "core:math/linalg/glsl"
 import "core:mem"
 import "core:os"
 import s "core:strings"
+import "core:sync"
 import "core:thread"
 import "core:time"
 import gl "vendor:OpenGL"
@@ -51,6 +52,9 @@ ui_scale: f32 = 0.8
 // where the box isn't easilly accessible (like in audio related stuff).
 override_color := false
 
+
+// The idea is that the UI and other threads will update this queue which will be 
+// repeatedly checked by the audio thread.
 // Global audio data
 N_TRACKS :: 10
 
@@ -108,12 +112,10 @@ text_vertex_shader_data :: #load("shaders/text_vertex_shader.glsl")
 text_pixel_shader_data :: #load("shaders/text_fragment_shader.glsl")
 
 audio_thread :: proc() {
-
+	println("started audio thread")
 }
 
 ui_thread :: proc() {
-	frame_num := 0
-	// ui_thread :: proc() {
 	// setup state for UI
 	println("ui thread started")
 	ui_state.rect_stack = make([dynamic]^Rect)
@@ -154,8 +156,8 @@ ui_thread :: proc() {
 
 	setup_for_quads(&quad_shader_program)
 	sdl.GetWindowSize(window, wx, wy)
+	frame_num := 0
 	app_loop: for {
-		start := time.now()._nsec
 		if register_resize() {
 			set_shader_vec2(quad_shader_program, "screen_res", {f32(wx^), f32(wy^)})
 		}
@@ -174,22 +176,49 @@ ui_thread :: proc() {
 		render_text2()
 		reset_renderer_data()
 		sdl.GL_SwapWindow(window)
-		end := time.now()._nsec
-		length: f32 = f32(end - start) / 1_000_000
-		println("frame took:", length / 1_000_000)
-		if frame_num % (30) == 0 {
-			audio_state.curr_step = (audio_state.curr_step + 1) % 32
+		if audio_state.playing {
+			// at 120 fps, a 1/4 beat lasts for 30 frames. This is probably too hard coded
+			// and fragile, should be made more robust...
+			if frame_num % (30) == 0 {
+				audio_state.curr_step = (audio_state.curr_step + 1) % 32 // 32 == n_steps per track.
+				play_current_step()
+			}
 		}
 		free_all(context.temp_allocator)
 		free_all()
-
 		frame_num += 1
 	}
 	println("ui thread is finished")
 }
 
+stupid_sem: sync.Atomic_Sema
 main :: proc() {
+	// map_colors()
+
 	ui_thread()
+
+
+	// The weird semaphore stuff is required because of Odin's bad thread
+	// implementation, don't exactly understand the issue, but without it t1, will join
+	// and finish before ui_thread has even started.
+
+	// ui_thr := thread.create_and_start(proc() {
+	// 	sync.atomic_sema_post(&stupid_sem)
+	// 	ui_thread()
+	// })
+	// // waiting for ui_thread to start
+	// sync.atomic_sema_wait_with_timeout(&stupid_sem, time.Millisecond * 200)
+
+	// audio_thr := thread.create_and_start(proc() {
+	// 	sync.atomic_sema_post(&stupid_sem)
+	// 	audio_thread()
+	// })
+	// // waiting for audio_thread to start
+	// sync.atomic_sema_wait_with_timeout(&stupid_sem, time.Millisecond * 200)
+
+	// thread.join(ui_thr)
+	// thread.join(audio_thr)
+	// println(main_color)
 }
 
 resize_window :: proc() {
@@ -198,42 +227,59 @@ resize_window :: proc() {
 }
 
 handle_input :: proc(event: sdl.Event) -> bool {
-	#partial switch event.type {
-	case .KEYDOWN:
+	etype := event.type
+	if etype == .QUIT {
+		return false
+	}
+	if etype == .MOUSEMOTION {
+		sdl.GetMouseState(&ui_state.mouse.pos.x, &ui_state.mouse.pos.y)
+	}
+	if etype == .KEYDOWN {
 		#partial switch event.key.keysym.sym {
 		case .ESCAPE:
 			return false
+		case .SPACE:
+			audio_state.playing = !audio_state.playing
 		}
-	case .QUIT:
-		return false
-	case .MOUSEBUTTONDOWN:
+	}
+	if etype == .MOUSEWHEEL {
+		ui_state.mouse.wheel.x = cast(i8)event.wheel.x
+		ui_state.mouse.wheel.y = cast(i8)event.wheel.y
+	}
+	if etype == .MOUSEBUTTONDOWN {
 		switch event.button.button {
 		case sdl.BUTTON_LEFT:
+			if !ui_state.mouse.left_pressed {
+				ui_state.mouse.drag_start = ui_state.mouse.pos
+				ui_state.mouse.dragging = true
+			}
 			ui_state.mouse.left_pressed = true
 		case sdl.BUTTON_RIGHT:
 			ui_state.mouse.right_pressed = true
 		}
-	case .MOUSEBUTTONUP:
+	}
+	if etype == .MOUSEBUTTONUP {
+		println("mouse up ")
 		switch event.button.button {
 		case sdl.BUTTON_LEFT:
 			ui_state.mouse.left_pressed = false
+			ui_state.mouse.drag_end = ui_state.mouse.pos
+			ui_state.mouse.dragging = false
 		case sdl.BUTTON_RIGHT:
 			ui_state.mouse.right_pressed = false
 		}
-	case .MOUSEMOTION:
-		sdl.GetMouseState(&ui_state.mouse.pos.x, &ui_state.mouse.pos.y)
-	case .MOUSEWHEEL:
-		ui_state.mouse.wheel.x = cast(i8)event.wheel.x
-		ui_state.mouse.wheel.y = cast(i8)event.wheel.y
-	case .DROPFILE:
+	}
+	if etype == .DROPFILE {
 		which, on_track := dropped_on_track()
 		assert(on_track)
 		if on_track {
 			set_track_sound(event.drop.file, which)
 		}
 	}
+
 	return true
 }
+
 register_resize :: proc() -> bool {
 	old_width, old_height := wx^, wy^
 	sdl.GetWindowSize(window, wx, wy)
@@ -243,6 +289,7 @@ register_resize :: proc() -> bool {
 	}
 	return false
 }
+
 reset_mouse_state :: proc() {
 	ui_state.mouse.wheel = {0, 0}
 }
