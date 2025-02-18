@@ -32,10 +32,14 @@ Rect_Render_Data :: struct {
 	edge_softness:        f32,
 	border_thickness:     f32,
 }
+
 // sets circumstantial rendering data like radius, borders, etc
 get_boxes_rendering_data :: proc(box: Box) -> (Rect_Render_Data, Maybe(Rect_Render_Data)) {
 	bl_color: Vec4 = box.color
 	br_color: Vec4 = box.color
+	// tr_color: Vec4 = box.color
+	// tl_color: Vec4 = box.color
+
 	if box.signals.pressed && .Active_Animation in box.flags {
 		bl_color = {0.0, 0.0, 0.0, 1}
 		br_color = {0.0, 0.0, 0.0, 1}
@@ -43,6 +47,7 @@ get_boxes_rendering_data :: proc(box: Box) -> (Rect_Render_Data, Maybe(Rect_Rend
 		bl_color.a = 0.1
 		br_color.a = 0.1
 	}
+
 	data: Rect_Render_Data = {
 		top_left         = box.rect.top_left,
 		bottom_right     = box.rect.bottom_right,
@@ -56,18 +61,27 @@ get_boxes_rendering_data :: proc(box: Box) -> (Rect_Render_Data, Maybe(Rect_Rend
 		border_thickness = 100,
 	}
 	if s.contains(box.id_string, "step") {
-		data.border_thickness = 5
-		data.corner_radius = 20
-	}
-	if s.contains(box.id_string, "step") && is_active_step(box) {
-		outlining_rect := data
-		outlining_rect.border_thickness = 1.7
-		outlining_rect.tl_color = {1, 0, 0, 1}
-		outlining_rect.tr_color = {1, 0, 0, 1}
-		outlining_rect.bl_color = {1, 0, 0, 1}
-		outlining_rect.br_color = {1, 0, 0, 1}
-		data.border_thickness = 0
-		return data, outlining_rect
+		data.border_thickness = 3
+		data.corner_radius = 10
+		// if box.selected || box.signals.dragged_over {
+		if box.selected {
+			data.tl_color = {0.5, 0, 0.7, 1}
+			data.bl_color = {0.2, 0, 0.4, 1}
+			data.tr_color = {0.8, 0, 0.2, 1}
+			data.br_color = {0.9, 0, 0.7, 1}
+			data.border_thickness = 100
+		}
+		if is_active_step(box) {
+			data.border_thickness = 100
+			data.corner_radius = 0
+			outlining_rect := data
+			outlining_rect.border_thickness = 5
+			outlining_rect.tl_color = {1, 0, 0, 1}
+			outlining_rect.tr_color = {1, 0, 0, 1}
+			outlining_rect.bl_color = {1, 0, 0, 1}
+			outlining_rect.br_color = {1, 0, 0, 1}
+			return data, outlining_rect
+		}
 	}
 	return data, nil
 }

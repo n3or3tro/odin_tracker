@@ -83,6 +83,7 @@ Box_Signals :: struct {
 	right_pressed:  bool,
 	right_released: bool,
 	dragging:       bool,
+	dragged_over:   bool,
 	hovering:       bool,
 	scrolled:       bool,
 }
@@ -118,17 +119,21 @@ Box :: struct {
 
 	// Feels a little wrong having this here, but let's try
 	signals:                  Box_Signals,
+
+	// To help determine if various things in the ui are selected.
+	selected:                 bool,
 }
 
 box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
 	if id_string in ui_state.box_cache {
 		box := ui_state.box_cache[id_string]
 		box.rect = rect
-		if override_color {
-			box.color, _ = top_color()
-		}
+		// if override_color {
+		// 	box.color, _ = top_color()
+		// }
 		return box
 	} else {
+		printf("making new box: %s", id_string)
 		new_box := box_make(flags, id_string, rect)
 		ui_state.box_cache[id_string] = new_box
 		return new_box
@@ -160,12 +165,6 @@ box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
 }
 
 
-rect_from_points :: proc(a, b: Vec2) -> sdl.Rect {
-	width := cast(i32)abs(a.x - b.x)
-	height := cast(i32)abs(a.y - b.y)
-	return sdl.Rect{w = width, h = height, x = cast(i32)a.x, y = cast(i32)a.y}
-}
-
 box_signals :: proc(box: ^Box) -> Box_Signals {
 	// signals from previous frame
 	prev_signals := box.signals
@@ -175,7 +174,6 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 
 	if signals.hovering {
 		box.hot = true
-
 		signals.pressed = ui_state.mouse.left_pressed
 		if prev_signals.pressed && !ui_state.mouse.left_pressed {
 			signals.clicked = true
@@ -184,6 +182,7 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 			signals.scrolled = true
 		}
 		if signals.pressed {
+			signals.dragged_over = true
 		}
 	} else {
 		signals.box.hot = false
@@ -191,6 +190,12 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 	}
 	box.signals = signals
 	return signals
+}
+
+rect_from_points :: proc(a, b: Vec2) -> sdl.Rect {
+	width := cast(i32)abs(a.x - b.x)
+	height := cast(i32)abs(a.y - b.y)
+	return sdl.Rect{w = width, h = height, x = cast(i32)a.x, y = cast(i32)a.y}
 }
 
 cut_rect :: proc(rect: ^Rect, rect_cut: RectCut) -> Rect {
@@ -412,6 +417,22 @@ top_color :: proc() -> (Color, bool) {
 	n_colors := len(ui_state.color_stack)
 	if n_colors < 1 do return {20, 20, 20, 20}, false
 	return ui_state.color_stack[n_colors - 1], true
+}
+set_box_top_side_color :: proc(box: ^Box, colors: [2]f32) {
+	box.color[0] = colors[0]
+	box.color[3] = colors[1]
+}
+
+set_box_bottom_side_color :: proc(box: ^Box, colors: [2]f32) {
+	box.color[1] = colors[0]
+	box.color[2] = colors[1]
+}
+set_box_color :: proc(box: ^Box, color: [4]f32) {
+	box.color = color
+}
+
+set_box_single_color :: proc(box: ^Box, color: f32) {
+	box.color = {color, color, color, 1}
 }
 
 top_rect :: proc() -> ^Rect {

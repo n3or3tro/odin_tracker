@@ -40,11 +40,10 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 	override_color = false
 	pop_color()
 
-
 	push_parent_rect(&track_container)
 	push_parent_rect(&track_controller_container)
 	track_controls := track_control(
-		fmt.aprintf("track%d_controls@lol", which, allocator = context.temp_allocator),
+		aprintf("track%d_controls@lol", which, allocator = context.temp_allocator),
 		&track_controller_container,
 		slider_volumes[which],
 	)
@@ -53,15 +52,22 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 	steps := track_steps(
 		fmt.aprintf("track_steps%d@lol", which, allocator = context.temp_allocator),
 		&track_step_container,
+		which,
 	)
 	pop_parent_rect()
 
-	handle_track_steps_interactions(steps)
+	handle_track_steps_interactions(steps, which)
 	handle_track_control_interactions(&track_controls, which)
 	return steps
 }
 
-track_steps :: proc(id_string: string, rect: ^Rect) -> Track_Step_Signals {
+tracker_step :: proc(id_string: string, rect: Rect) -> Box_Signals {
+	b := box_from_cache({.Draw, .Clickable, .Active_Animation}, id_string, rect)
+	append(&ui_state.temp_boxes, b)
+	return box_signals(b)
+}
+
+track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Step_Signals {
 	step_height := rect_height(rect^) / 32
 	steps: Track_Step_Signals
 	color1: [4]f32 = {0.9, 0.5, 0.1, 1}
@@ -76,13 +82,26 @@ track_steps :: proc(id_string: string, rect: ^Rect) -> Track_Step_Signals {
 			push_color(color2)
 		}
 		step := tracker_step(
-			fmt.aprintf("step%d@%s", i, track_name, allocator = context.temp_allocator),
+			fmt.aprintf("step-%d@track%d", i, which, allocator = context.temp_allocator),
 			step_rect,
 		)
 		steps[i] = step
 	}
 	clear_dynamic_array(&ui_state.color_stack)
 	return steps
+}
+
+handle_track_steps_interactions :: proc(track: Track_Step_Signals, which: u32) {
+	for step in track {
+		if step.clicked || (step.dragged_over && !ui_state.mouse.left_pressed) {
+			step.box.selected = !step.box.selected
+			if step.box.selected {
+				step_num := step_num_from_step(step.box.id_string)
+				printf("step num: %d was set as selected\n", step_num)
+				ui_state.selected_steps[which][step_num] = true
+			}
+		}
+	}
 }
 
 // assumes 0 <= value <= 100
@@ -141,12 +160,6 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 	}
 }
 
-tracker_step :: proc(id_string: string, rect: Rect) -> Box_Signals {
-	b := box_from_cache({.Draw, .Clickable, .Active_Animation}, id_string, rect)
-	append(&ui_state.temp_boxes, b)
-	return box_signals(b)
-}
-
 handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, which: u32) {
 	if t_controls.track_signals.scrolled {
 		slider_volumes[which] = calc_slider_grip_val(slider_volumes[which], 100)
@@ -167,11 +180,6 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 	}
 }
 
-handle_track_steps_interactions :: proc(track: Track_Step_Signals) {
-	for step in track {
-
-	}
-}
 
 // Max is 0, min is pixel_height(slider), this is because the co-ord system of our layout.
 calc_slider_grip_val :: proc(current_val: f32, max: f32) -> f32 {
@@ -192,7 +200,7 @@ dropped_on_track :: proc() -> (u32, bool) {
 		l := i32(f32(wx^) * f32(i) / f32(N_TRACKS))
 		r := i32(f32(wx^) * f32(i + 1) / f32(N_TRACKS))
 
-		printf("l: %d    r: %d ", l, r)
+		// printf("l: %d    r: %d ", l, r)
 		println("mouse state:", mouse_x)
 		println("i:", i, "i/ntracks:", f32(i) / f32(N_TRACKS))
 		if mouse_x >= l && mouse_x <= r {
@@ -201,8 +209,11 @@ dropped_on_track :: proc() -> (u32, bool) {
 	}
 	return 0, false
 }
+
+// This code is fairly brittle as it relies on box id strings of steps being of a certain format.
 step_num_from_step :: proc(id_string: string) -> u16 {
 	name := get_name_from_id_string(id_string)
-	num := u16(strconv.atoi(s.split(name, "step")[1]))
+	index_of_num := s.index(name, "-")
+	num := u16(strconv.atoi(name[index_of_num + 1:]))
 	return num
 }
