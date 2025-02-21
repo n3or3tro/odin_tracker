@@ -4,7 +4,7 @@ building block of the UI; following Ryan Fleury's UI methods.
 Basic rectcut code is from here: https://halt.software/p/rectcut-for-dead-simple-ui-layouts,
 but it seems broken, so I kind of implemented my own.
 */
-package main
+package app
 import "base:intrinsics"
 import "core:crypto/hash"
 import "core:fmt"
@@ -14,10 +14,7 @@ import "core:math/rand"
 import "core:strings"
 import sdl "vendor:sdl2"
 
-// Absolute value
-abs :: proc(x: $T) -> T where intrinsics.type_is_numeric(T) {
-	return x if x >= 0 else -1 * x
-}
+
 Vec2 :: [2]f32
 Vec3 :: [3]f32
 Vec4 :: [4]f32
@@ -170,15 +167,15 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 	prev_signals := box.signals
 	signals: Box_Signals
 	signals.box = box
-	signals.hovering = mouse_inside_box(box, {ui_state.mouse.pos.x, ui_state.mouse.pos.y})
+	signals.hovering = mouse_inside_box(box, {app.mouse.pos.x, app.mouse.pos.y})
 
 	if signals.hovering {
 		box.hot = true
-		signals.pressed = ui_state.mouse.left_pressed
-		if prev_signals.pressed && !ui_state.mouse.left_pressed {
+		signals.pressed = app.mouse.left_pressed
+		if prev_signals.pressed && !app.mouse.left_pressed {
 			signals.clicked = true
 		}
-		if ui_state.mouse.wheel.x != 0 || ui_state.mouse.wheel.y != 0 {
+		if app.mouse.wheel.x != 0 || app.mouse.wheel.y != 0 {
 			signals.scrolled = true
 		}
 		if signals.pressed {

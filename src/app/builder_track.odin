@@ -1,4 +1,4 @@
-package main
+package app
 import "core:fmt"
 import "core:math"
 import "core:strconv"
@@ -27,8 +27,8 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 		RectCut{Size{.Percent, 0.25}, .Bottom},
 	)
 
-	override_color = true
-	if engine_sounds[which] != nil {
+	ui_state.override_color = true
+	if app.audio_state.engine_sounds[which] != nil {
 		push_color({0, 1, 1, 1})
 	} else {
 		push_color({1, 1, 1, 1})
@@ -37,7 +37,7 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 		aprintf("track%d_container@lol", which, allocator = context.temp_allocator),
 		track_container,
 	)
-	override_color = false
+	ui_state.override_color = false
 	pop_color()
 
 	push_parent_rect(&track_container)
@@ -45,7 +45,7 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 	track_controls := track_control(
 		aprintf("track%d_controls@lol", which, allocator = context.temp_allocator),
 		&track_controller_container,
-		slider_volumes[which],
+		app.audio_state.slider_volumes[which],
 	)
 	pop_parent_rect()
 	track_step_container := cut_rect(top_rect(), {Size{.Percent, 0.97}, .Top})
@@ -93,7 +93,7 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Step_Si
 
 handle_track_steps_interactions :: proc(track: Track_Step_Signals, which: u32) {
 	for step in track {
-		if step.clicked || (step.dragged_over && !ui_state.mouse.left_pressed) {
+		if step.clicked || (step.dragged_over && !app.mouse.left_pressed) {
 			step.box.selected = !step.box.selected
 			if step.box.selected {
 				step_num := step_num_from_step(step.box.id_string)
@@ -161,14 +161,20 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 
 handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, which: u32) {
 	if t_controls.track_signals.scrolled {
-		slider_volumes[which] = calc_slider_grip_val(slider_volumes[which], 100)
-		set_volume(engine_sounds[which], map_range(0, 100, 0, 1, slider_volumes[which]))
+		app.audio_state.slider_volumes[which] = calc_slider_grip_val(
+			app.audio_state.slider_volumes[which],
+			100,
+		)
+		set_volume(
+			app.audio_state.engine_sounds[which],
+			map_range(0, 100, 0, 1, app.audio_state.slider_volumes[which]),
+		)
 	}
 	if t_controls.button_signals.play_signals.hovering {
 	}
 
 	if t_controls.button_signals.play_signals.clicked {
-		toggle_sound_playing(engine_sounds[which])
+		toggle_sound_playing(app.audio_state.engine_sounds[which])
 	}
 	if t_controls.button_signals.file_load_signals.clicked {
 		files, fok := file_dialog(false)
@@ -180,7 +186,7 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 
 // Max is 0, min is pixel_height(slider), this is because the co-ord system of our layout.
 calc_slider_grip_val :: proc(current_val: f32, max: f32) -> f32 {
-	proposed_value := current_val + (3 * cast(f32)ui_state.mouse.wheel.y)
+	proposed_value := current_val + (3 * cast(f32)app.mouse.wheel.y)
 	if proposed_value < 0 {
 		return 0
 	} else if proposed_value > max {
@@ -194,8 +200,8 @@ dropped_on_track :: proc() -> (u32, bool) {
 	mouse_x, mouse_y: i32
 	sdl.GetMouseState(&mouse_x, &mouse_y)
 	for i in 0 ..= N_TRACKS - 1 {
-		l := i32(f32(wx^) * f32(i) / f32(N_TRACKS))
-		r := i32(f32(wx^) * f32(i + 1) / f32(N_TRACKS))
+		l := i32(f32(app.wx^) * f32(i) / f32(N_TRACKS))
+		r := i32(f32(app.wx^) * f32(i + 1) / f32(N_TRACKS))
 
 		printf("l: %d    r: %d ", l, r)
 		println("mouse state:", mouse_x)

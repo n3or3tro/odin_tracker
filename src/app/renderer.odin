@@ -1,7 +1,7 @@
 // Code associated with turning UI boxes into OpenGL quads.
 // Might be able to merge this code with buffers.odin.
 
-package main
+package app
 import "core:fmt"
 import alg "core:math/linalg"
 import "core:math/rand"
@@ -88,7 +88,7 @@ get_boxes_rendering_data :: proc(box: Box) -> (Rect_Render_Data, Maybe(Rect_Rend
 
 is_active_step :: proc(box: Box) -> bool {
 	num := step_num_from_step(box.id_string)
-	return num == audio_state.curr_step
+	return num == app.audio_state.curr_step
 }
 
 get_box_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
@@ -119,7 +119,7 @@ render_text2 :: proc() {
 
 setup_for_quads :: proc(shader_program: ^u32) {
 	//odinfmt:disable
-	gl.BindVertexArray(quad_vabuffer^)
+	gl.BindVertexArray(ui_state.quad_vabuffer^)
 	bind_shader(shader_program^)
 
 	gl.VertexAttribPointer(0, 2, gl.FLOAT, false, size_of(Rect_Render_Data), 0)
@@ -168,7 +168,7 @@ reset_renderer_data :: proc() {
 }
 
 clear_screen :: proc() {
-	gl.ClearColor(1, 1, 1, 0.5)
+	gl.ClearColor(0, 0.5, 1, 0.5)
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 }
 

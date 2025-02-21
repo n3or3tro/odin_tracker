@@ -5,9 +5,9 @@
 
 // Types in this file a little fucky, this is mostly the result of the weird types in vendore:freetype
 
-package main
+package app
+import ft "../third_party/freetype"
 import alg "core:math/linalg"
-import ft "third_party/freetype"
 // import "vendor:"
 import gl "vendor:OpenGL"
 
@@ -102,7 +102,7 @@ render_text :: proc(
 	x: f32,
 	y: f32,
 ) {
-	window_height := cast(u32)wy^
+	window_height := cast(u32)app.wy^
 	set_shader_matrix4(shader, "proj", proj)
 	set_shader_vec3(shader, "textColor", color)
 	set_shader_u32(shader, "window_height", window_height)
@@ -135,7 +135,7 @@ render_text :: proc(
 
 
 		gl.BindTexture(gl.TEXTURE_2D, char.texture_id)
-		populate_vbuffer(text_vbuffer, 0, raw_data(&vertices), size_of(vertices))
+		populate_vbuffer(ui_state.text_vbuffer, 0, raw_data(&vertices), size_of(vertices))
 		gl.DrawArrays(gl.TRIANGLES, 0, 6)
 		x += f32((char.advance >> 6))
 	}
@@ -144,16 +144,16 @@ render_text :: proc(
 
 draw_text :: proc(text: string, x, y: f32) {
 	if !ui_state.first_frame {
-		gl.BindVertexArray(text_vabuffer^)
+		gl.BindVertexArray(ui_state.text_vabuffer^)
 		enable_layout(0)
 		layout_vbuffer(0, 4, gl.FLOAT, gl.FALSE, 4 * size_of(f32), 0)
 
-		bind_shader(text_shader_program)
-		text_proj := alg.matrix_ortho3d_f32(0, cast(f32)wx^, 0, cast(f32)wy^, -1, 1)
-		set_shader_matrix4(text_shader_program, "proj", &text_proj)
-		render_text(text_shader_program, &text_proj, text, {1, 0, 0}, x, y)
+		bind_shader(ui_state.text_shader_program)
+		text_proj := alg.matrix_ortho3d_f32(0, cast(f32)app.wx^, 0, cast(f32)app.wy^, -1, 1)
+		set_shader_matrix4(ui_state.text_shader_program, "proj", &text_proj)
+		render_text(ui_state.text_shader_program, &text_proj, text, {1, 0, 0}, x, y)
 
-		setup_for_quads(&quad_shader_program)
+		setup_for_quads(&ui_state.quad_shader_program)
 	}
 }
 
