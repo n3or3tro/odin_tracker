@@ -1,6 +1,6 @@
-// Misellaneous functions that are used in the main file. As the project grows, they may find a 
-// logical home elswewhere.
-package main
+// Misellaneous functions that are used in various places. As the project grows, 
+// they may find a logical home elswewhere.
+package app
 import "base:intrinsics"
 import sdl "vendor:sdl2"
 
@@ -29,6 +29,7 @@ keep_aspect_ratio :: proc(window_width, window_height: i32) -> (i32, i32) {
 map_range :: proc(in_min, in_max, out_min, out_max, value: f32) -> f32 {
 	return ((value - in_min) * (out_max - out_min) / (in_max - in_min)) + out_min
 }
+
 calc_slider_volume :: proc(in_min, in_max, out_min, out_max, value: f32) -> f32 {
 	mapped_value := map_range(in_min, in_max, out_min, out_max, value)
 	return abs(-1 * (1 - mapped_value))
@@ -41,6 +42,7 @@ change_cursor :: proc(type: sdl.SystemCursor) {
 	}
 	sdl.SetCursor(hand_cursor)
 }
+
 rect_height :: proc(rect: Rect) -> f32 {
 	return rect.bottom_right.y - rect.top_left.y
 }
@@ -61,4 +63,9 @@ max :: proc(a, b: $T) -> T where intrinsics.type_is_numeric(T) {
 		return a
 	}
 	return b
+}
+
+// Absolute value
+abs :: proc(x: $T) -> T where intrinsics.type_is_numeric(T) {
+	return x if x >= 0 else -1 * x
 }

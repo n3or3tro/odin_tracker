@@ -1,4 +1,4 @@
-package main
+package app
 import sdl "vendor:sdl2"
 Top_Bar_Signals :: struct {
 	play:     Box_Signals,
@@ -23,7 +23,7 @@ top_bar :: proc() -> Top_Bar_Signals {
 
 	settings_button := text_button("Settings@topbar", settings_space)
 	play_button := text_button(
-		audio_state.playing ? "Pause@topbar" : "Play@topbar",
+		app.audio_state.playing ? "Pause@topbar" : "Play@topbar",
 		play_button_rect,
 	)
 	restart_button := text_button("Restart@topbar", stop_button_rect)
@@ -57,7 +57,7 @@ handle_top_bar_interactions :: proc(signals: Top_Bar_Signals) {
 		}
 	}
 	if signals.restart.clicked {
-		audio_state.curr_step = 0
+		app.audio_state.curr_step = 0
 	}
 	if signals.settings.clicked {
 		ui_state.settings_toggled = !ui_state.settings_toggled
@@ -65,7 +65,7 @@ handle_top_bar_interactions :: proc(signals: Top_Bar_Signals) {
 
 	if signals.play.clicked {
 		// toggle_all_audio_playing()
-		audio_state.playing = !audio_state.playing
+		app.audio_state.playing = !app.audio_state.playing
 		// if audio_state.playing {
 		// 	start_all_audio()
 		// } else {

@@ -1,4 +1,4 @@
-package main
+package app
 import "core:c"
 import "core:fmt"
 import s "core:strings"
@@ -7,12 +7,6 @@ import "core:sys/windows"
 import "core:unicode/utf16"
 import "core:unicode/utf8"
 import sdl "vendor:sdl2"
-
-// when ODIN_OS == .Windows {
-// 	file_dialog := file_dialog_windows
-// } else {
-// 	file_dialog := file_dialog_linux
-// }
 
 file_dialog :: proc(multiselect: bool) -> ([dynamic]cstring, bool) {
 	when ODIN_OS == .Windows {
