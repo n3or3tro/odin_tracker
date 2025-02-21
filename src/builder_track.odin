@@ -97,7 +97,6 @@ handle_track_steps_interactions :: proc(track: Track_Step_Signals, which: u32) {
 			step.box.selected = !step.box.selected
 			if step.box.selected {
 				step_num := step_num_from_step(step.box.id_string)
-				printf("step num: %d was set as selected\n", step_num)
 				ui_state.selected_steps[which][step_num] = true
 			}
 		}
@@ -172,10 +171,8 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 		toggle_sound_playing(engine_sounds[which])
 	}
 	if t_controls.button_signals.file_load_signals.clicked {
-		println("running file_dialog()")
 		files, fok := file_dialog(false)
 		assert(fok)
-		println("returned files from file_dialog()")
 		set_track_sound(files[0], which)
 	}
 }
@@ -200,7 +197,7 @@ dropped_on_track :: proc() -> (u32, bool) {
 		l := i32(f32(wx^) * f32(i) / f32(N_TRACKS))
 		r := i32(f32(wx^) * f32(i + 1) / f32(N_TRACKS))
 
-		// printf("l: %d    r: %d ", l, r)
+		printf("l: %d    r: %d ", l, r)
 		println("mouse state:", mouse_x)
 		println("i:", i, "i/ntracks:", f32(i) / f32(N_TRACKS))
 		if mouse_x >= l && mouse_x <= r {
