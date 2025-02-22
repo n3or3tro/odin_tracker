@@ -185,55 +185,20 @@ init_ui_state :: proc() -> ^UI_State {
 
 	setup_for_quads(&ui_state.quad_shader_program)
 	sdl.GetWindowSize(app.window, app.wx, app.wy)
+	ui_state.frame_num = new(u64)
+	ui_state.frame_num^ = 0
 	return ui_state
 }
 
 ui_thread :: proc() {
-	root_rect := app.ui_state.root_rect
 
-	frame_num := 0
-	app_loop: for {
-		println("running ui loop: frame_num: ", frame_num)
-		if register_resize() {
-			set_shader_vec2(
-				ui_state.quad_shader_program,
-				"screen_res",
-				{f32(app.wx^), f32(app.wy^)},
-			)
-		}
-		ui_state.root_rect.top_left = {0, 0}
-		ui_state.root_rect.bottom_right = {f32(app.wx^), f32(app.wy^)}
-		event: sdl.Event
-		reset_mouse_state()
-		for sdl.PollEvent(&event) {
-			if !handle_input(event) {
-				break app_loop
-			}
-		}
-		clear_screen()
-		create_ui()
-		render_ui()
-		render_text2()
-		reset_renderer_data()
-		sdl.GL_SwapWindow(app.window)
-		if app.audio_state.playing {
-			// at 120 fps, a 1/4 beat lasts for 30 frames. This is probably too hard coded
-			// and fragile, should be made more robust...
-			if frame_num % (30) == 0 {
-				app.audio_state.curr_step = (app.audio_state.curr_step + 1) % 32 // 32 == n_steps per track.
-				play_current_step()
-			}
-		}
-		free_all(context.temp_allocator)
-		free_all()
-		frame_num += 1
-	}
 	println("ui thread is finished")
 }
 
 load_ui :: proc() {
 }
 
+@(export)
 app_init :: proc() -> ^App_State {
 	app = new(App_State)
 	init_window()
@@ -244,10 +209,66 @@ app_init :: proc() -> ^App_State {
 	return app
 }
 
-stupid_sem: sync.Atomic_Sema
+@(export)
+app_update :: proc() -> bool {
+	root_rect := app.ui_state.root_rect
+	frame_num := app.ui_state.frame_num
+	println("running ui loop: frame_num: ", frame_num^)
+	if register_resize() {
+		set_shader_vec2(ui_state.quad_shader_program, "screen_res", {f32(app.wx^), f32(app.wy^)})
+	}
+	ui_state.root_rect.top_left = {0, 0}
+	ui_state.root_rect.bottom_right = {f32(app.wx^), f32(app.wy^)}
+	event: sdl.Event
+	reset_mouse_state()
+	for sdl.PollEvent(&event) {
+		if !handle_input(event) {
+			return false
+		}
+	}
+	clear_screen()
+	create_ui()
+	render_ui()
+	render_text2()
+	reset_renderer_data()
+	sdl.GL_SwapWindow(app.window)
+	if app.audio_state.playing {
+		// at 120 fps, a 1/4 beat lasts for 30 frames. This is probably too hard coded
+		// and fragile, should be made more robust...
+		if frame_num^ % (30) == 0 {
+			app.audio_state.curr_step = (app.audio_state.curr_step + 1) % 32 // 32 == n_steps per track.
+			play_current_step()
+		}
+	}
+	free_all(context.temp_allocator)
+	free_all()
+	frame_num^ += 1
+	return true
+}
+
+@(export)
+app_shutdown :: proc() {
+
+}
+
+@(export)
+app_memory :: proc() -> rawptr {
+	return app
+}
+
+@(export)
+app_hot_reloaded :: proc(app_state: ^App_State) {
+	app = app_state
+	ui_state = app.ui_state
+
+	track_steps_height_ratio: f32 = 0.75
+	track_steps_width_ratio: f32 = 0.04
+	n_track_steps: u32 = 32
+}
+
+// stupid_sem: sync.Atomic_Sema
 run_app :: proc() {
-	app_init()
-	ui_thread()
+
 	// The weird semaphore stuff is required because of Odin's bad thread
 	// implementation, don't exactly understand the issue, but without it t1, will join
 	// and finish before ui_thread has even started.
