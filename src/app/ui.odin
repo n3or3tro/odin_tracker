@@ -32,8 +32,8 @@ UI_State :: struct {
 	text_vbuffer:        ^u32,
 	text_vabuffer:       ^u32,
 	root_rect:           ^Rect,
+	frame_num:           ^u64,
 }
-
 
 num_column :: proc(track_height: u32, n_steps: u32) {
 	num_col_rect := cut_rect(top_rect(), {{.Percent, track_steps_width_ratio}, .Left})

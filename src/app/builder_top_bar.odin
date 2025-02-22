@@ -14,8 +14,8 @@ Settings_Menu_Signals :: struct {
 top_bar :: proc() -> Top_Bar_Signals {
 	top_bar_rect := cut_top(top_rect(), Size{kind = .Percent, value = 0.03})
 
-	play_space := get_left(top_bar_rect, Size{kind = .Percent, value = 0.45})
-	restart_space := get_right(top_bar_rect, Size{kind = .Percent, value = 0.45})
+	play_space := get_left(top_bar_rect, Size{kind = .Percent, value = 0.5})
+	restart_space := get_right(top_bar_rect, Size{kind = .Percent, value = 0.15})
 	settings_space := get_right(top_bar_rect, Size{kind = .Percent, value = 0.10})
 
 	play_button_rect := get_right(play_space, Size{kind = .Percent, value = 0.5})
@@ -23,7 +23,7 @@ top_bar :: proc() -> Top_Bar_Signals {
 
 	settings_button := text_button("Settings@topbar", settings_space)
 	play_button := text_button(
-		app.audio_state.playing ? "Pause@topbar" : "Play@topbar",
+		app.audio_state.playing ? "Yahhh@topbar" : "Play@topbar",
 		play_button_rect,
 	)
 	restart_button := text_button("Restart@topbar", stop_button_rect)
