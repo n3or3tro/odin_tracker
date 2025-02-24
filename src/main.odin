@@ -3,8 +3,10 @@ package main
 import "core:c/libc"
 import "core:dynlib"
 import "core:fmt"
-// import os "core:os/os2"
-import os "core:os"
+import "core:os"
+import "core:thread"
+import "core:time"
+import ma "vendor:miniaudio"
 
 println :: fmt.println
 printfln :: fmt.printfln
@@ -38,37 +40,14 @@ App_API :: struct {
 	api_version:  u32,
 }
 
-load_app_api :: proc(api_version: u32) -> (App_API, bool) {
-	dll_time, err := os.last_write_time_by_name(lib_name)
-	if err != os.ERROR_NONE {
-		printf("Could not fetch last write date of %s", lib_name)
-		return {}, false
-	}
-	when ODIN_OS == .Windows {
-		dll_name := aprintf("app_%d.dll", api_version)
-		cpy_cmd := fmt.caprintf("copy %s %s", lib_name, dll_name)
-	} else {
-		dll_name := aprintf("app_%d.so", api_version)
-		cpy_cmd := fmt.caprintf("cp %s %s", lib_name, dll_name)
-	}
-	if libc.system(cpy_cmd) != 0 {
-		printfln("Failed to copy %s to %s", lib_name, dll_name)
-		return {}, false
-	} else {
-		chmod_cmd := fmt.caprintf("chmod u+rwx %s", dll_name)
-		if libc.system(chmod_cmd) != 0 {
-			printfln("Failed to set rwx on %s", dll_name)
-			return {}, false
-		}
-
-	}
-
-	lib, ok := dynlib.load_library(dll_name)
+load_app_api :: proc(path: string) -> App_API {
+	lib, ok := dynlib.load_library(path)
 	if !ok {
-		printfln("Failed loading app shared library: %s", dll_name)
+		printfln("Failed loading app shared library: %s", path)
 		println(dynlib.last_error())
-		return {}, false
+		panic("^^^")
 	}
+	curr_changed_time, _ := os.last_write_time_by_name(path)
 	api := App_API {
 		init         = cast(proc())(dynlib.symbol_address(lib, "app_init") or_else nil),
 		update       = cast(proc() -> bool)(dynlib.symbol_address(lib, "app_update") or_else nil),
@@ -79,8 +58,7 @@ load_app_api :: proc(api_version: u32) -> (App_API, bool) {
 			_: rawptr,
 		))(dynlib.symbol_address(lib, "app_hot_reloaded") or_else nil),
 		lib          = lib,
-		dll_time     = dll_time,
-		api_version  = api_version,
+		dll_time     = curr_changed_time,
 	}
 	if api.init == nil ||
 	   api.update == nil ||
@@ -89,9 +67,9 @@ load_app_api :: proc(api_version: u32) -> (App_API, bool) {
 	   api.hot_reloaded == nil {
 		dynlib.unload_library(api.lib)
 		fmt.println("App DLL missing required procedure")
-		return {}, false
+		panic("^^^")
 	}
-	return api, true
+	return api
 }
 
 unload_app_api :: proc(api: App_API) {
@@ -110,13 +88,7 @@ unload_app_api :: proc(api: App_API) {
 }
 
 main :: proc() {
-	api_version: u32 = 0
-	app_api, ok := load_app_api(api_version)
-	if !ok {
-		fmt.println("Failed to load APP API")
-		return
-	}
-	api_version += 1
+	app_api := load_app_api("app.so")
 	app_api.init()
 
 	for {
@@ -128,19 +100,13 @@ main :: proc() {
 		should_reload := err == os.ERROR_NONE && app_api.dll_time != dll_time
 
 		if should_reload {
-			new_api, ok := load_app_api(api_version)
-			if ok {
-				app_memory := app_api.memory()
-				unload_app_api(app_api)
-
-				app_api = new_api
-
-				app_api.hot_reloaded(app_memory)
-				api_version += 1
-			}
+			app_memory := app_api.memory()
+			dynlib.unload_library(app_api.lib)
+			time.sleep(time.Millisecond * 500)
+			app_api := load_app_api("app.so")
+			app_api.hot_reloaded(app_memory)
+			should_reload = false
 		}
 	}
-	app_api.shutdown()
-	unload_app_api(app_api)
 
 }

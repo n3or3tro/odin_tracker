@@ -247,6 +247,13 @@ app_update :: proc() -> bool {
 }
 
 @(export)
+prepare_app_unload :: proc() {
+	// audio_device := ma.device_stop(ma.engine_get_device(app.audio_state.engine))
+	// ma.engine_uninit(app.audio_state.engine)
+	// ma.device_uninit()
+}
+
+@(export)
 app_shutdown :: proc() {
 
 }
