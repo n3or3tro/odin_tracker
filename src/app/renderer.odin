@@ -33,8 +33,10 @@ Rect_Render_Data :: struct {
 	border_thickness:     f32,
 }
 
+
 // sets circumstantial rendering data like radius, borders, etc
-get_boxes_rendering_data :: proc(box: Box) -> (Rect_Render_Data, Maybe(Rect_Render_Data)) {
+get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
+	render_data := new([dynamic]Rect_Render_Data, allocator = context.temp_allocator)
 	bl_color: Vec4 = box.color
 	br_color: Vec4 = box.color
 	// tr_color: Vec4 = box.color
@@ -58,18 +60,39 @@ get_boxes_rendering_data :: proc(box: Box) -> (Rect_Render_Data, Maybe(Rect_Rend
 		br_color         = br_color,
 		corner_radius    = 0,
 		edge_softness    = 0,
-		border_thickness = 100,
+		border_thickness = 300,
 	}
 	if s.contains(box.id_string, "step") {
 		data.border_thickness = 3
 		data.corner_radius = 10
-		// if box.selected || box.signals.dragged_over {
 		if box.selected {
 			data.tl_color = {0.5, 0, 0.7, 1}
 			data.bl_color = {0.2, 0, 0.4, 1}
 			data.tr_color = {0.8, 0, 0.2, 1}
 			data.br_color = {0.9, 0, 0.7, 1}
 			data.border_thickness = 100
+
+			// create text box to show step's pitch.
+			track_num := track_num_from_step(box.id_string)
+			step_num := step_num_from_step(box.id_string)
+			pitch := ui_state.step_pitches[track_num][step_num]
+			// Might get iffy creating this here instead of inside the builder code
+			// of the UI
+			pitch_box :=
+				text_box(tprintf("{}@track{}{}-pitch", pitch, track_num, step_num), box.rect).box_signals.box
+
+			pitch_render_data := Rect_Render_Data {
+				top_left         = pitch_box.rect.top_left,
+				bottom_right     = pitch_box.rect.bottom_right,
+				tl_color         = pitch_box.color,
+				bl_color         = pitch_box.color,
+				br_color         = pitch_box.color,
+				tr_color         = pitch_box.color,
+				corner_radius    = 0,
+				edge_softness    = 0,
+				border_thickness = 100,
+			}
+			append(render_data, data, pitch_render_data)
 		}
 		if is_active_step(box) {
 			data.border_thickness = 100
@@ -80,10 +103,15 @@ get_boxes_rendering_data :: proc(box: Box) -> (Rect_Render_Data, Maybe(Rect_Rend
 			outlining_rect.tr_color = {1, 0, 0, 1}
 			outlining_rect.bl_color = {1, 0, 0, 1}
 			outlining_rect.br_color = {1, 0, 0, 1}
-			return data, outlining_rect
+
+
+			append(render_data, data, outlining_rect)
+			return render_data
+			// return data, outlining_rect
 		}
 	}
-	return data, nil
+	append(render_data, data)
+	return render_data
 }
 
 is_active_step :: proc(box: Box) -> bool {
@@ -91,16 +119,16 @@ is_active_step :: proc(box: Box) -> bool {
 	return num == app.audio_state.curr_step
 }
 
-get_box_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
+get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 	// Deffs not efficient to keep realloc'ing and deleting this list, will fix in future.
 	rendering_data := new([dynamic]Rect_Render_Data, allocator = context.temp_allocator)
 	for box in ui_state.temp_boxes {
 		if .Draw in box.flags {
-			data, outline_box := get_boxes_rendering_data(box^)
-			append(rendering_data, data)
-			if outline_box != nil {
-				append(rendering_data, outline_box.?)
+			boxes_to_render := get_boxes_rendering_data(box^)
+			for data in boxes_to_render {
+				append(rendering_data, data)
 			}
+			delete_dynamic_array(boxes_to_render^)
 		}
 	}
 	return rendering_data
@@ -115,6 +143,10 @@ render_text2 :: proc() {
 			draw_text(box.name, x, y)
 		}
 	}
+}
+
+render_waveform :: proc(rect: Rect, pcm_frames: [dynamic]f32) {
+
 }
 
 setup_for_quads :: proc(shader_program: ^u32) {

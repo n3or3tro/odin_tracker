@@ -20,6 +20,7 @@ UI_State :: struct {
 	// color_stack:      [dynamic]^Color,
 	color_stack:         [dynamic]Color,
 	selected_steps:      [N_TRACKS][32]bool,
+	step_pitches:        [N_TRACKS][32]f32,
 	ui_scale:            f32, // between 0.0 and 1.0.
 	// Used to tell the core layer to override some value
 	// of a box that's in the cache. Useful for parts of the code
@@ -69,11 +70,12 @@ create_ui :: proc() {
 		pop_color()
 	}
 	handle_top_bar_interactions(topbar)
+	sampler("first-sampler", Rect{top_left = {100, 100}, bottom_right = {2000, 500}})
 }
 
 render_ui :: proc() {
 	if !ui_state.first_frame {
-		rect_rendering_data := get_box_rendering_data()
+		rect_rendering_data := get_all_rendering_data()
 		defer delete_dynamic_array(rect_rendering_data^)
 		n_rects := u32(len(rect_rendering_data))
 		populate_vbuffer_with_rects(

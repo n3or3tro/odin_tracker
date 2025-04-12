@@ -29,7 +29,7 @@ main :: proc() {
 	
 	// odinfmt: disable
 	instance_data:[]f32 = {
-		// p0.x, p0.y, p1.x, p1.y, r, g, b, a
+		// p0.x, p0.y, p1.x, p1.y, 	r, 	g, 	  b, 	a
 		100.0, 100.0, 200.0, 200.0, 1.0, 0.0, 0.0, 1.0, // Instance 1
 		300.0, 300.0, 400.0, 400.0, 0.0, 1.0, 0.0, 1.0, // Instance 2
 	}
@@ -70,8 +70,8 @@ main :: proc() {
 			}
 		}
 
-		gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 2)
 		clear()
+		gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 2)
 		sdl.GL_SwapWindow(window)
 	}
 }
@@ -137,7 +137,6 @@ setup_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 }
 
 clear :: proc() {
-	// gl.ClearColor(0.5, 0.7, 1.0, 1.0)
-	gl.ClearColor(1, 1, 1, 1.0)
+	gl.ClearColor(1, 0.5, 1, 1.0)
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 }

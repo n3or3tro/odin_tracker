@@ -153,8 +153,13 @@ draw_text :: proc(text: string, x, y: f32) {
 		set_shader_matrix4(ui_state.text_shader_program, "proj", &text_proj)
 		render_text(ui_state.text_shader_program, &text_proj, text, {1, 0, 0}, x, y)
 
+		// we unset shit that needs to be setup to draw quads, so we re-set them up here.
 		setup_for_quads(&ui_state.quad_shader_program)
 	}
+}
+
+draw_wave_form :: proc() {
+
 }
 
 get_font_baseline :: proc(text: string, rect: Rect) -> (x, y: f32) {

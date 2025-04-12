@@ -38,6 +38,7 @@ App_API :: struct {
 	api_version:  u32,
 }
 
+
 load_app_api :: proc(api_version: u32) -> (App_API, bool) {
 	dll_time, err := os.last_write_time_by_name(lib_name)
 	if err != os.ERROR_NONE {
@@ -142,5 +143,4 @@ main :: proc() {
 	}
 	app_api.shutdown()
 	unload_app_api(app_api)
-
 }

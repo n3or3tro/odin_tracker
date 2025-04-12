@@ -95,10 +95,16 @@ handle_track_steps_interactions :: proc(track: Track_Step_Signals, which: u32) {
 	for step in track {
 		if step.clicked || (step.dragged_over && !app.mouse.left_pressed) {
 			step.box.selected = !step.box.selected
+			step_num := step_num_from_step(step.box.id_string)
 			if step.box.selected {
-				step_num := step_num_from_step(step.box.id_string)
 				ui_state.selected_steps[which][step_num] = true
+			} else {
+				ui_state.selected_steps[which][step_num] = false
 			}
+		}
+		if step.hovering && step.scrolled {
+			step_num := step_num_from_step(step.box.id_string)
+			ui_state.step_pitches[which][step_num] += f32(app.mouse.wheel.y)
 		}
 	}
 }
@@ -218,5 +224,10 @@ step_num_from_step :: proc(id_string: string) -> u16 {
 	name := get_name_from_id_string(id_string)
 	index_of_num := s.index(name, "-")
 	num := u16(strconv.atoi(name[index_of_num + 1:]))
+	return num
+}
+track_num_from_step :: proc(id_string: string) -> u16 {
+	track_id := get_id_from_id_string(id_string)
+	num := cast(u16)strconv.atoi(track_id[len("track") + 1:])
 	return num
 }
