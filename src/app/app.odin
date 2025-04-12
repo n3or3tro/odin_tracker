@@ -17,6 +17,8 @@ import sttf "vendor:sdl2/ttf"
 println :: fmt.println
 printf :: fmt.printf
 aprintf :: fmt.aprintf
+tprintf :: fmt.tprintf
+tprintfln :: fmt.aprintfln
 
 WINDOW_WIDTH := 3000
 WINDOW_HEIGHT := 2000
@@ -65,7 +67,7 @@ setup_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	window_flags :=
 		sdl.WINDOW_OPENGL | sdl.WINDOW_RESIZABLE | sdl.WINDOW_ALLOW_HIGHDPI | sdl.WINDOW_UTILITY
 	app.window = sdl.CreateWindow(
-		"Odin SDL2 Demo",
+		"n3or3tro-tracker",
 		sdl.WINDOWPOS_UNDEFINED,
 		sdl.WINDOWPOS_UNDEFINED,
 		i32(WINDOW_WIDTH),
@@ -107,10 +109,13 @@ app: ^App_State
 ui_state: ^UI_State
 
 ui_vertex_shader_data :: #load("../shaders/vertex_shader.glsl")
-ui_pixel_shader_data :: #load("../shaders/fragment_shader.glsl")
+ui_pixel_shader_data :: #load("../shaders/pixel_shader.glsl")
 
 text_vertex_shader_data :: #load("../shaders/text_vertex_shader.glsl")
-text_pixel_shader_data :: #load("../shaders/text_fragment_shader.glsl")
+text_pixel_shader_data :: #load("../shaders/text_pixel_shader.glsl")
+
+wave_vertex_shader_data :: #load("../shaders/wave_vertex_shader.glsl")
+wave_pixel_shader_data :: #load("../shaders/wave_pixel_shader.glsl")
 
 App_API :: struct {
 	// App library, not sure how it's going to be seperated yet.
@@ -213,7 +218,6 @@ app_init :: proc() -> ^App_State {
 app_update :: proc() -> bool {
 	root_rect := app.ui_state.root_rect
 	frame_num := app.ui_state.frame_num
-	println("running ui loop: frame_num: ", frame_num^)
 	if register_resize() {
 		set_shader_vec2(ui_state.quad_shader_program, "screen_res", {f32(app.wx^), f32(app.wy^)})
 	}
@@ -260,7 +264,6 @@ app_memory :: proc() -> rawptr {
 app_hot_reloaded :: proc(app_state: ^App_State) {
 	app = app_state
 	ui_state = app.ui_state
-
 	track_steps_height_ratio: f32 = 0.75
 	track_steps_width_ratio: f32 = 0.04
 	n_track_steps: u32 = 32

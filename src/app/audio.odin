@@ -19,7 +19,7 @@ Audio_State :: struct {
 	audio_groups:   [N_AUDIO_GROUPS]^ma.sound_group,
 }
 
-SOUND_FILE_LOAD_FLAGS :: u32(ma.sound_flags.DECODE | ma.sound_flags.NO_SPATIALIZATION)
+SOUND_FILE_LOAD_FLAGS: ma.sound_flags = {.DECODE, .NO_SPATIALIZATION}
 N_AUDIO_GROUPS :: 1
 
 
@@ -90,6 +90,8 @@ play_current_step :: proc() {
 		if sound != nil {
 			if app.ui_state.selected_steps[row][app.audio_state.curr_step] {
 				ma.sound_stop(sound)
+				pitch := ui_state.step_pitches[row][app.audio_state.curr_step]
+				ma.sound_set_pitch(sound, pitch / 12)
 				ma.sound_seek_to_pcm_frame(sound, 0)
 				ma.sound_start(sound)
 			}

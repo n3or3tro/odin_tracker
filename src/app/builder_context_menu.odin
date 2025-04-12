@@ -9,8 +9,5 @@ context_menu :: proc() -> Context_Menu_Signals {
 	menu_top_left := [2]f32{f32(mouse_x), f32(mouse_y)}
 	menu_bottom_right := [2]f32{f32(mouse_x) + 200, f32(mouse_y) + 500}
 
-	// context.allocator = context.temp_allocator
-	// container(aprintf("context-menu@lol"), Rect{menu_top_left, menu_bottom_right})
-
 	return Context_Menu_Signals{}
 }
