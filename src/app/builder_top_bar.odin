@@ -13,20 +13,16 @@ Settings_Menu_Signals :: struct {
 
 top_bar :: proc() -> Top_Bar_Signals {
 	top_bar_rect := cut_top(top_rect(), Size{kind = .Percent, value = 0.03})
+	button_width := rect_width(get_left(top_bar_rect, Size{kind = .Percent, value = 0.1}))
 
-	play_space := get_left(top_bar_rect, Size{kind = .Percent, value = 0.45})
-	restart_space := get_right(top_bar_rect, Size{kind = .Percent, value = 0.45})
-	settings_space := get_right(top_bar_rect, Size{kind = .Percent, value = 0.10})
+	play_rect := cut_left(&top_bar_rect, Size{.Pixels, button_width})
+	restart_rect := cut_left(&top_bar_rect, Size{.Pixels, button_width})
+	settings_rect := get_right(top_bar_rect, Size{.Pixels, button_width})
 
-	play_button_rect := get_right(play_space, Size{kind = .Percent, value = 0.5})
-	stop_button_rect := get_left(restart_space, Size{kind = .Percent, value = 0.5})
 
-	settings_button := text_button("Settings@topbar", settings_space)
-	play_button := text_button(
-		app.audio_state.playing ? ":(@topbar" : ":)@topbar",
-		play_button_rect,
-	)
-	restart_button := text_button("Restart@topbar", stop_button_rect)
+	settings_button := text_button("Settings@topbar", settings_rect)
+	play_button := text_button(app.audio_state.playing ? ":(@topbar" : ":)@topbar", play_rect)
+	restart_button := text_button("Restart@topbar", restart_rect)
 	return Top_Bar_Signals {
 		play = play_button,
 		restart = restart_button,

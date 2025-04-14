@@ -34,6 +34,8 @@ UI_State :: struct {
 	text_vabuffer:       ^u32,
 	root_rect:           ^Rect,
 	frame_num:           ^u64,
+	hot_id:              string,
+	active_id:           string,
 }
 
 num_column :: proc(track_height: u32, n_steps: u32) {

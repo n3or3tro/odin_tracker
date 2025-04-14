@@ -145,8 +145,49 @@ render_text2 :: proc() {
 	}
 }
 
+// At the moment, assume pcm_frames is from a mono version of the .wav file.
 render_waveform :: proc(rect: Rect, pcm_frames: [dynamic]f32) {
+	render_width := rect_width(rect)
+	render_height := rect_height(rect)
+	frames_read := u64(len(pcm_frames))
+	waveform_vertices := make_dynamic_array([dynamic][2]f32)
+	for x in 0 ..< render_width {
+		start := u64((f64(x) / f64(render_width)) * f64(frames_read))
+		end := u64(f64(x + 1) / f64(render_width) * f64(frames_read))
+		if end >= frames_read {end = frames_read}
+		min: f32 = 1
+		max: f32 = -1
+		for i in start ..< end {
+			if pcm_frames[i] < min {min = pcm_frames[i]}
+			if pcm_frames[i] > max {max = pcm_frames[i]}
+		}
+		// y1 := screen_height / 2 - int(max * f32(screen_height / 2))
+		// y2 := screen_height / 2 - int(min * f32(screen_height / 2))
+		norm_x: f32 = f32(x) / render_width
+		x_pos := rect.top_left.x + norm_x * render_width
+		y_top := rect.top_left.y + (0.5 - max * 0.5) * render_height
+		y_bot := rect.top_left.y + (0.5 - min * 0.5) * render_height
 
+		append(&waveform_vertices, [2]f32{x_pos, y_top})
+		append(&waveform_vertices, [2]f32{x_pos, y_bot})
+
+		vao: u32
+		vbo: u32
+		gl.GenVertexArrays(1, &vao)
+		gl.BindVertexArray(vao)
+
+		gl.GenBuffers(1, &vbo)
+		gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
+		gl.BufferData(
+			gl.ARRAY_BUFFER,
+			len(waveform_vertices),
+			raw_data(waveform_vertices),
+			gl.DYNAMIC_DRAW,
+		)
+
+		gl.VertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, size_of(f32) * 2, 0)
+		gl.EnableVertexArrayAttrib(vao, 0)
+	}
 }
 
 setup_for_quads :: proc(shader_program: ^u32) {
