@@ -1,5 +1,6 @@
 package app
 import "core:fmt"
+import "core:mem"
 import "core:os"
 import "core:strconv"
 import "core:strings"
@@ -97,4 +98,28 @@ play_current_step :: proc() {
 			}
 		}
 	}
+}
+
+get_pcm_data :: proc(sound: ^ma.sound) -> [dynamic]f32 {
+	n_frames: u64
+	res := ma.sound_get_length_in_pcm_frames(sound, &n_frames)
+	assert(res == .SUCCESS)
+
+	buf := make([dynamic]f32, n_frames)
+	defer delete(buf)
+	frames_read: u64
+	res = ma.data_source_read_pcm_frames(sound.pDataSource, raw_data(buf), n_frames, &frames_read)
+	assert(res == .SUCCESS)
+
+	pcm_frames := make([dynamic]f32, n_frames / 2)
+
+	// gets mono (left, I think) channel of the samples.
+	j := 0
+	for i in 0 ..< n_frames {
+		if i % 2 == 0 {
+			pcm_frames[j] = buf[i]
+			j += 1
+		}
+	}
+	return pcm_frames
 }

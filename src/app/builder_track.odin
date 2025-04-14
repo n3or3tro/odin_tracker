@@ -1,6 +1,7 @@
 package app
 import "core:fmt"
 import "core:math"
+import "core:math/rand"
 import "core:strconv"
 import s "core:strings"
 import ma "vendor:miniaudio"
@@ -81,10 +82,7 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Step_Si
 			pop_color()
 			push_color(color2)
 		}
-		step := tracker_step(
-			fmt.aprintf("step-%d@track%d", i, which, allocator = context.temp_allocator),
-			step_rect,
-		)
+		step := tracker_step(fmt.aprintf("step-{}@track{}-fuckyou", i, which), step_rect)
 		steps[i] = step
 	}
 	clear_dynamic_array(&ui_state.color_stack)
@@ -95,17 +93,19 @@ handle_track_steps_interactions :: proc(track: Track_Step_Signals, which: u32) {
 	for step in track {
 		if step.clicked || (step.dragged_over && !app.mouse.left_pressed) {
 			step.box.selected = !step.box.selected
-			step_num := step_num_from_step(step.box.id_string)
-			if step.box.selected {
-				ui_state.selected_steps[which][step_num] = true
-			} else {
-				ui_state.selected_steps[which][step_num] = false
-			}
+			// step_num := step_num_from_step(step.box.id_string)
+			// printf("got step num: {}\n", step_num)
+			// // step_num := int(rand.float32_range(0, 31))
+			// if step.box.selected {
+			// 	ui_state.selected_steps[which][step_num] = true
+			// } else {
+			// 	ui_state.selected_steps[which][step_num] = false
+			// }
 		}
-		if step.hovering && step.scrolled {
-			step_num := step_num_from_step(step.box.id_string)
-			ui_state.step_pitches[which][step_num] += f32(app.mouse.wheel.y)
-		}
+		// if step.hovering && step.scrolled {
+		// 	step_num := step_num_from_step(step.box.id_string)
+		// 	ui_state.step_pitches[which][step_num] += f32(app.mouse.wheel.y)
+		// }
 	}
 }
 

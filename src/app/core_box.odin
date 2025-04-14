@@ -168,9 +168,7 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 	signals: Box_Signals
 	signals.box = box
 	signals.hovering = mouse_inside_box(box, {app.mouse.pos.x, app.mouse.pos.y})
-
 	if signals.hovering {
-		box.hot = true
 		signals.pressed = app.mouse.left_pressed
 		if prev_signals.pressed && !app.mouse.left_pressed {
 			signals.clicked = true
@@ -181,9 +179,6 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 		if signals.pressed {
 			signals.dragged_over = true
 		}
-	} else {
-		signals.box.hot = false
-		// signals.box.active = false
 	}
 	box.signals = signals
 	return signals
