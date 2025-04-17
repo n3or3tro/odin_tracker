@@ -1,7 +1,7 @@
 // Code associated with turning UI boxes into OpenGL quads.
 // Might be able to merge this code with buffers.odin.
 
-package app
+package main
 import "core:fmt"
 import alg "core:math/linalg"
 import "core:math/rand"
@@ -125,10 +125,10 @@ get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 	for box in ui_state.temp_boxes {
 		if .Draw in box.flags {
 			boxes_to_render := get_boxes_rendering_data(box^)
+			defer delete(boxes_to_render^)
 			for data in boxes_to_render {
 				append(rendering_data, data)
 			}
-			delete_dynamic_array(boxes_to_render^)
 		}
 	}
 	return rendering_data

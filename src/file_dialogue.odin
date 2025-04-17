@@ -1,4 +1,4 @@
-package app
+package main
 import "core:c"
 import "core:fmt"
 import s "core:strings"
@@ -123,7 +123,7 @@ when ODIN_OS == .Windows {
 					break
 				}
 				file_suffix := utf8.runes_to_string(child_file[:])
-				file_path := fmt.aprintf(
+				file_path := fmt.tprintf(
 					"%s\\%s",
 					parent_dir,
 					file_suffix,

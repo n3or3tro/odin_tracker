@@ -1,4 +1,4 @@
-package app
+package main
 import "core:fmt"
 import "core:math"
 import "core:math/rand"
@@ -34,10 +34,7 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 	} else {
 		push_color({1, 1, 1, 1})
 	}
-	container(
-		aprintf("track%d_container@lol", which, allocator = context.temp_allocator),
-		track_container,
-	)
+	container(tprintf("track%d_container@lol", which), track_container)
 	ui_state.override_color = false
 	pop_color()
 
@@ -82,7 +79,7 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Step_Si
 			pop_color()
 			push_color(color2)
 		}
-		step := tracker_step(fmt.aprintf("step-{}@track{}-fuckyou", i, which), step_rect)
+		step := tracker_step(fmt.tprintf("step-{}@track{}-fuckyou", i, which), step_rect)
 		steps[i] = step
 	}
 	clear_dynamic_array(&ui_state.color_stack)
@@ -123,11 +120,7 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 	)
 	file_load_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Right})
 	file_load_button := text_button(
-		fmt.aprintf(
-			"load@%s_file_load_button",
-			get_name_from_id_string(id_string),
-			allocator = context.temp_allocator,
-		),
+		fmt.tprintf("load@%s_file_load_button", get_name_from_id_string(id_string)),
 		file_load_button_rect,
 	)
 
@@ -145,12 +138,11 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 	slider_grip_rect.top_left.y -= (value / 100) * rect_height(slider_track_rect)
 	slider_grip := box_from_cache(
 		{.Clickable, .Hot_Animation, .Active_Animation, .Draggable, .Draw},
-		fmt.aprintf(
+		fmt.tprintf(
 			"%s%s@%s",
 			get_name_from_id_string(id_string),
 			"_grip",
 			get_id_from_id_string(id_string),
-			allocator = context.temp_allocator,
 		),
 		slider_grip_rect,
 	)

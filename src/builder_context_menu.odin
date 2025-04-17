@@ -1,6 +1,7 @@
-package app
+package main
 
-Context_Menu_Signals :: struct {}
+Context_Menu_Signals :: struct {
+}
 
 context_menu :: proc() -> Context_Menu_Signals {
 	mouse_x := app.mouse.pos.x

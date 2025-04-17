@@ -1,5 +1,4 @@
-package app
-import nfd "../third_party/nativefiledialog"
+package main
 import "core:fmt"
 import alg "core:math/linalg"
 import "core:sys/posix"
@@ -43,10 +42,7 @@ num_column :: proc(track_height: u32, n_steps: u32) {
 	step_height := f32(track_height) / f32(n_steps)
 	for i in 0 ..< n_steps {
 		curr_step := cut_top(&num_col_rect, {.Pixels, step_height})
-		text_container(
-			aprintf("%d:@number_column", i, allocator = context.temp_allocator),
-			curr_step,
-		)
+		text_container(tprintf("%d:@number_column", i), curr_step)
 	}
 }
 
@@ -65,10 +61,7 @@ create_ui :: proc() {
 	for i in 0 ..= 9 {
 		create_track(u32(i), track_width)
 		push_color({0, 0, 0, 1})
-		spacer(
-			aprintf("track_spacer%s@1", i, allocator = context.temp_allocator),
-			RectCut{Size{.Pixels, f32(track_padding)}, .Left},
-		)
+		spacer(tprintf("track_spacer%s@1", i), RectCut{Size{.Pixels, f32(track_padding)}, .Left})
 		pop_color()
 	}
 	handle_top_bar_interactions(topbar)
