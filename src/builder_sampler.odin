@@ -1,4 +1,4 @@
-package app
+package main
 import ma "vendor:miniaudio"
 
 sampler :: proc(name: string, rect: Rect) {

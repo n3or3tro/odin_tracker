@@ -4,7 +4,7 @@ building block of the UI; following Ryan Fleury's UI methods.
 Basic rectcut code is from here: https://halt.software/p/rectcut-for-dead-simple-ui-layouts,
 but it seems broken, so I kind of implemented my own.
 */
-package app
+package main
 import "base:intrinsics"
 import "core:crypto/hash"
 import "core:fmt"

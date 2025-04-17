@@ -9,9 +9,9 @@ if ! command -v inotifywait >/dev/null 2>&1; then
 fi
 
 # Default values
-SOURCE_DIR="./src/app"
+SOURCE_DIR="./src"
 PROJECT_DIR="."  # Directory containing the Odin package
-OUTPUT_NAME="app"
+OUTPUT_NAME="main"
 BUILD_FLAGS=""
 MAIN_BINARY="main.bin"
 MAIN_PID=""

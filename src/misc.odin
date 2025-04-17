@@ -1,6 +1,6 @@
 // Misellaneous functions that are used in various places. As the project grows, 
 // they may find a logical home elswewhere.
-package app
+package main
 import "base:intrinsics"
 import sdl "vendor:sdl2"
 

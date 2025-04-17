@@ -5,10 +5,9 @@
 
 // Types in this file a little fucky, this is mostly the result of the weird types in vendore:freetype
 
-package app
-import ft "../third_party/freetype"
+package main
 import alg "core:math/linalg"
-// import "vendor:"
+import ft "third_party/freetype"
 import gl "vendor:OpenGL"
 
 // font_path :: "/usr/share/fonts/TTF/Sauce Code Pro Medium Nerd Font Complete.ttf"
@@ -121,7 +120,6 @@ render_text :: proc(
 		xpos := x + char.bearing[0]
 		// vvv chatgpt fixed vvv
 		ypos := (f32(window_height) - y) + char.bearing[1] - h
-		
 			//odinfmt:disable
 		vertices := [6 * 4]f32 {
 			xpos, 		ypos + h, 	0, 0,

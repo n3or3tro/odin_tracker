@@ -1,6 +1,6 @@
 // Basic abstraction to make working with OpenGL shaders easier.
 
-package app
+package main
 import "core:fmt"
 import alg "core:math/linalg"
 import "core:os"
@@ -74,7 +74,7 @@ check_shader_compiled :: proc(shader: u32) -> bool {
 		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &log_size)
 		println("log size is:", log_size)
 		error_msg: string = string(make([]u8, log_size))
-		panic(fmt.aprintf("shader %u didn't compile correctly ", shader))
+		panic(fmt.tprintf("shader %u didn't compile correctly ", shader))
 		// return false
 	}
 	// println("shader compiled fine")

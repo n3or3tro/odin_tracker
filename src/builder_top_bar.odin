@@ -1,4 +1,4 @@
-package app
+package main
 import sdl "vendor:sdl2"
 Top_Bar_Signals :: struct {
 	play:     Box_Signals,

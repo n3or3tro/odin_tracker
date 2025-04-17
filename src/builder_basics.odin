@@ -1,5 +1,5 @@
 // Builder basics, buttons, containers, etc.
-package app
+package main
 
 Text_Box_Signals :: struct {
 	box_signals: Box_Signals,
