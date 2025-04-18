@@ -1,6 +1,7 @@
 package main
 import "base:runtime"
 import "core:dynlib"
+import "core:flags"
 import "core:fmt"
 import "core:io"
 import "core:math"
@@ -24,6 +25,7 @@ aprintf :: fmt.aprintf
 tprintf :: fmt.tprintf
 tprintfln :: fmt.aprintfln
 
+PROFILING :: #config(profile, false)
 
 WINDOW_WIDTH := 3000
 WINDOW_HEIGHT := 2000
@@ -66,40 +68,43 @@ text_pixel_shader_data :: #load("shaders/text_pixel_shader.glsl")
 wave_vertex_shader_data :: #load("shaders/wave_vertex_shader.glsl")
 wave_pixel_shader_data :: #load("shaders/wave_pixel_shader.glsl")
 
-spall_ctx: spall.Context
+when PROFILING {
+	spall_ctx: spall.Context
+	@(thread_local)
+	spall_buffer: spall.Buffer
 
-@(thread_local)
-spall_buffer: spall.Buffer
+	//------------------ Automatic profiling of every procedure:-----------------
+	@(instrumentation_enter)
+	spall_enter :: proc "contextless" (
+		proc_address, call_site_return_address: rawptr,
+		loc: runtime.Source_Code_Location,
+	) {
+		spall._buffer_begin(&spall_ctx, &spall_buffer, "", "", loc)
+	}
 
-//------------------ Automatic profiling of every procedure:-----------------
-@(instrumentation_enter)
-spall_enter :: proc "contextless" (
-	proc_address, call_site_return_address: rawptr,
-	loc: runtime.Source_Code_Location,
-) {
-	spall._buffer_begin(&spall_ctx, &spall_buffer, "", "", loc)
+	@(instrumentation_exit)
+	spall_exit :: proc "contextless" (
+		proc_address, call_site_return_address: rawptr,
+		loc: runtime.Source_Code_Location,
+	) {
+		spall._buffer_end(&spall_ctx, &spall_buffer)
+	}
 }
 
-@(instrumentation_exit)
-spall_exit :: proc "contextless" (
-	proc_address, call_site_return_address: rawptr,
-	loc: runtime.Source_Code_Location,
-) {
-	spall._buffer_end(&spall_ctx, &spall_buffer)
-}
-// -----------------------------------------------------------------------
 
 main :: proc() {
-	// spall_ctx = spall.context_create("trace_test.spall")
-	// defer spall.context_destroy(&spall_ctx)
+	when PROFILING {
+		spall_ctx = spall.context_create("trace_test.spall")
+		defer spall.context_destroy(&spall_ctx)
 
-	// backing_buffer := make([]u8, spall.BUFFER_DEFAULT_SIZE)
-	// defer delete(backing_buffer)
+		backing_buffer := make([]u8, spall.BUFFER_DEFAULT_SIZE)
+		defer delete(backing_buffer)
 
-	// spall_buffer = spall.buffer_create(backing_buffer, u32(sync.current_thread_id()))
-	// defer spall.buffer_destroy(&spall_ctx, &spall_buffer)
+		spall_buffer = spall.buffer_create(backing_buffer, u32(sync.current_thread_id()))
+		defer spall.buffer_destroy(&spall_ctx, &spall_buffer)
 
-	// spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
+		spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
+	}
 	app_init()
 	for {
 		if !app_update() {
@@ -170,7 +175,9 @@ init_ui_state :: proc() -> ^UI_State {
 	ui_state.color_stack = make([dynamic]Color)
 	append(&ui_state.rect_stack, ui_state.root_rect)
 	ui_state.box_cache = make(map[string]^Box)
-	ui_state.temp_boxes = make([dynamic]^Box)
+	// ui_state.temp_boxes = make([dynamic]^Box)
+	ui_state.temp_boxes.first_layer = make([dynamic]^Box)
+	ui_state.temp_boxes.second_layer = make([dynamic]^Box)
 	ui_state.first_frame = true
 
 	gl.GenVertexArrays(1, ui_state.quad_vabuffer)

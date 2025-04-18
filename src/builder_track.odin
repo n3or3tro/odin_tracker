@@ -61,7 +61,7 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 
 tracker_step :: proc(id_string: string, rect: Rect) -> Box_Signals {
 	b := box_from_cache({.Draw, .Clickable, .Active_Animation}, id_string, rect)
-	append(&ui_state.temp_boxes, b)
+	append(&ui_state.temp_boxes.first_layer, b)
 	return box_signals(b)
 }
 
@@ -128,7 +128,7 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 
 	slider_track_rect := cut_rect(rect, RectCut{Size{.Percent, 0.5}, .Left})
 	slider_track := box_from_cache({.Scrollable, .Draw}, id_string, slider_track_rect)
-	append(&ui_state.temp_boxes, slider_track)
+	append(&ui_state.temp_boxes.first_layer, slider_track)
 
 	slider_grip_rect := get_bottom(slider_track.rect, Size{.Pixels, 30})
 	slider_grip_rect = expand_x(slider_grip_rect, Size{.Percent, 0.5})
@@ -146,7 +146,7 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 		),
 		slider_grip_rect,
 	)
-	append(&ui_state.temp_boxes, slider_grip)
+	append(&ui_state.temp_boxes.first_layer, slider_grip)
 
 	return Track_Control_Signals {
 		value = value,

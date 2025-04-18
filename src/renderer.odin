@@ -122,7 +122,16 @@ is_active_step :: proc(box: Box) -> bool {
 get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 	// Deffs not efficient to keep realloc'ing and deleting this list, will fix in future.
 	rendering_data := new([dynamic]Rect_Render_Data, allocator = context.temp_allocator)
-	for box in ui_state.temp_boxes {
+	for box in ui_state.temp_boxes.first_layer {
+		if .Draw in box.flags {
+			boxes_to_render := get_boxes_rendering_data(box^)
+			defer delete(boxes_to_render^)
+			for data in boxes_to_render {
+				append(rendering_data, data)
+			}
+		}
+	}
+	for box in ui_state.temp_boxes.second_layer {
 		if .Draw in box.flags {
 			boxes_to_render := get_boxes_rendering_data(box^)
 			defer delete(boxes_to_render^)
@@ -136,11 +145,18 @@ get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 
 // Need to name this and the other text renderings functions better.
 render_text2 :: proc() {
-	for box in ui_state.temp_boxes {
+	for box in ui_state.temp_boxes.first_layer {
 		if .Draw_Text in box.flags {
 			xx, yy := get_font_baseline(box.name, box.rect)
 			x, y := f32(xx), f32(yy)
-			draw_text(box.name, x, y)
+			draw_text(box^, x, y)
+		}
+	}
+	for box in ui_state.temp_boxes.second_layer {
+		if .Draw_Text in box.flags {
+			xx, yy := get_font_baseline(box.name, box.rect)
+			x, y := f32(xx), f32(yy)
+			draw_text(box^, x, y)
 		}
 	}
 }
@@ -236,7 +252,8 @@ setup_for_quads :: proc(shader_program: ^u32) {
 }
 
 reset_renderer_data :: proc() {
-	clear_dynamic_array(&ui_state.temp_boxes)
+	clear_dynamic_array(&ui_state.temp_boxes.first_layer)
+	clear_dynamic_array(&ui_state.temp_boxes.second_layer)
 	ui_state.first_frame = false
 }
 

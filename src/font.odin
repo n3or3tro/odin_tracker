@@ -140,8 +140,9 @@ render_text :: proc(
 	gl.BindTexture(gl.TEXTURE_2D, 0)
 }
 
-draw_text :: proc(text: string, x, y: f32) {
+draw_text :: proc(box: Box, x, y: f32) {
 	if !ui_state.first_frame {
+		text := box.id_string
 		gl.BindVertexArray(ui_state.text_vabuffer^)
 		enable_layout(0)
 		layout_vbuffer(0, 4, gl.FLOAT, gl.FALSE, 4 * size_of(f32), 0)

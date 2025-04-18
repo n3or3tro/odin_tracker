@@ -45,8 +45,7 @@ handle_top_bar_interactions :: proc(signals: Top_Bar_Signals) {
 				settings_space.bottom_right.y + rect_height(settings_space) * 7,
 			},
 		}
-		settings_container := container("Options-Container@topbar", settings_window_rect)
-		settings := settings_menu(settings_container.box.rect)
+		settings := settings_menu(settings_window_rect)
 		if settings.grow_ui.clicked {
 		}
 		if settings.shrink_ui.clicked {
@@ -75,29 +74,37 @@ settings_menu :: proc(settings_menu_rect: Rect) -> Settings_Menu_Signals {
 	n_buttons: f32 = 5.0
 	padding := 0.01
 
-	resize_rect := get_top(settings_menu_rect, Size{kind = .Percent, value = 1 / n_buttons})
-	reduce_rect := get_left(resize_rect, Size{.Percent, 0.5})
-	increase_rect := get_right(resize_rect, Size{.Percent, 0.5})
+	ui_state.z_layer = .second
+
+	settings_container := container("Options-Container@topbar", settings_menu_rect)
+
+	resize_buttons_rect := get_top(
+		settings_menu_rect,
+		Size{kind = .Percent, value = 1 / n_buttons},
+	)
+	reduce_rect := get_left(resize_buttons_rect, Size{.Percent, 0.5})
+	increase_rect := get_right(resize_buttons_rect, Size{.Percent, 0.5})
 
 	reduce_button := text_button("-@topbar", reduce_rect)
 	increase_button := text_button("+@topbar", increase_rect)
 
-	scratch_rect := resize_rect
+	scratch_rect := resize_buttons_rect
 
-	scratch_rect.bottom_right.y += rect_height(resize_rect)
-	scratch_rect.top_left.y += rect_height(resize_rect)
+	scratch_rect.bottom_right.y += rect_height(resize_buttons_rect)
+	scratch_rect.top_left.y += rect_height(resize_buttons_rect)
 	b1 := text_button("test@topbar", scratch_rect)
 
-	scratch_rect.bottom_right.y += rect_height(resize_rect)
-	scratch_rect.top_left.y += rect_height(resize_rect)
+	scratch_rect.bottom_right.y += rect_height(resize_buttons_rect)
+	scratch_rect.top_left.y += rect_height(resize_buttons_rect)
 	b2 := text_button("test2@topbar", scratch_rect)
 
-	scratch_rect.bottom_right.y += rect_height(resize_rect)
-	scratch_rect.top_left.y += rect_height(resize_rect)
+	scratch_rect.bottom_right.y += rect_height(resize_buttons_rect)
+	scratch_rect.top_left.y += rect_height(resize_buttons_rect)
 	b3 := text_button("test3@topbar", scratch_rect)
 
-	scratch_rect.bottom_right.y += rect_height(resize_rect)
-	scratch_rect.top_left.y += rect_height(resize_rect)
+	scratch_rect.bottom_right.y += rect_height(resize_buttons_rect)
+	scratch_rect.top_left.y += rect_height(resize_buttons_rect)
 	b4 := text_button("test4@topbar", scratch_rect)
+	ui_state.z_layer = .default
 	return Settings_Menu_Signals{grow_ui = increase_button, shrink_ui = reduce_button}
 }
