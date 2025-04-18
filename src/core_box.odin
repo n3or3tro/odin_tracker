@@ -448,6 +448,6 @@ get_id_from_id_string :: proc(id_string: string) -> string {
 spacer :: proc(id_string: string, rect_cut: RectCut) -> ^Box {
 	rect := cut_rect(top_rect(), rect_cut)
 	s := box_from_cache({.Draw}, id_string, rect)
-	append(&ui_state.temp_boxes, s)
+	append(&ui_state.temp_boxes.first_layer, s)
 	return s
 }

@@ -7,11 +7,20 @@ import gl "vendor:OpenGL"
 import sdl "vendor:sdl2"
 
 Color :: [4]f32
+Z_Layer :: enum {
+	default,
+	first,
+	second,
+}
+
 UI_State :: struct {
 	// layout_stack:  Layout_Stack,
 	box_cache:           Box_Cache, // cross-frame cache of boxes
 	char_map:            map[rune]Character,
-	temp_boxes:          [dynamic]^Box, // store boxes so we can access them when rendering
+	temp_boxes:          struct {
+		first_layer, second_layer: [dynamic]^Box,
+	}, // store boxes so we can access them when rendering
+	z_layer:             Z_Layer,
 	first_frame:         bool, // dont want to render on the first frame
 	// used to determine the top rect which rect cuts are taken from
 	rect_stack:          [dynamic]^Rect,
@@ -69,18 +78,19 @@ create_ui :: proc() {
 }
 
 render_ui :: proc() {
-	if !ui_state.first_frame {
-		rect_rendering_data := get_all_rendering_data()
-		defer delete_dynamic_array(rect_rendering_data^)
-		n_rects := u32(len(rect_rendering_data))
-		populate_vbuffer_with_rects(
-			ui_state.quad_vabuffer,
-			0,
-			raw_data(rect_rendering_data^),
-			n_rects * size_of(Rect_Render_Data),
-		)
-		gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, i32(n_rects))
+	if ui_state.first_frame {
+		return
 	}
+	rect_rendering_data := get_all_rendering_data()
+	defer delete_dynamic_array(rect_rendering_data^)
+	n_rects := u32(len(rect_rendering_data))
+	populate_vbuffer_with_rects(
+		ui_state.quad_vabuffer,
+		0,
+		raw_data(rect_rendering_data^),
+		n_rects * size_of(Rect_Render_Data),
+	)
+	gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, i32(n_rects))
 }
 
 
