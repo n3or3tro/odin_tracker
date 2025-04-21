@@ -14,18 +14,12 @@ Z_Layer :: enum {
 }
 
 UI_State :: struct {
-	// layout_stack:  Layout_Stack,
 	box_cache:           Box_Cache, // cross-frame cache of boxes
-	char_map:            map[rune]Character,
-	temp_boxes:          struct {
-		first_layer, second_layer: [dynamic]^Box,
-	}, // store boxes so we can access them when rendering
-	z_layer:             Z_Layer,
+	atlas_metadata:      Atlas_Metadata,
+	temp_boxes:          [dynamic]^Box,
 	first_frame:         bool, // dont want to render on the first frame
-	// used to determine the top rect which rect cuts are taken from
 	rect_stack:          [dynamic]^Rect,
 	settings_toggled:    bool,
-	// color_stack:      [dynamic]^Color,
 	color_stack:         [dynamic]Color,
 	selected_steps:      [N_TRACKS][32]bool,
 	step_pitches:        [N_TRACKS][32]f32,
@@ -37,9 +31,6 @@ UI_State :: struct {
 	quad_vbuffer:        ^u32,
 	quad_vabuffer:       ^u32,
 	quad_shader_program: u32,
-	text_shader_program: u32,
-	text_vbuffer:        ^u32,
-	text_vabuffer:       ^u32,
 	root_rect:           ^Rect,
 	frame_num:           ^u64,
 	hot_id:              string,
@@ -74,7 +65,7 @@ create_ui :: proc() {
 		pop_color()
 	}
 	handle_top_bar_interactions(topbar)
-	sampler("first-sampler", Rect{top_left = {100, 100}, bottom_right = {2000, 500}})
+	// sampler("first-sampler", Rect{top_left = {100, 100}, bottom_right = {2000, 500}})
 }
 
 render_ui :: proc() {
@@ -100,11 +91,6 @@ third_color: Color = {0.5, 0.9, 0.2, 1}
 fourth_color: Color = {0.5, 0.65, 0.1, 1}
 accent_color: Color = {0.9, 0.8, 1, 1}
 
-// main_color: Color = {0.5, 0.5, 0.5, 255}
-// second_color: Color = {1, 89, 88, 255}
-// third_color: Color = {0, 143, 140, 255}
-// fourth_color: Color = {12, 171, 168, 255}
-// accent_color: Color = {15, 194, 192, 255}
 map_colors :: proc() {
 	for i in 0 ..< 4 {
 		main_color[i] = map_range(0, 255, 0, 1, main_color[i])

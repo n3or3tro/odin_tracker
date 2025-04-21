@@ -74,8 +74,6 @@ settings_menu :: proc(settings_menu_rect: Rect) -> Settings_Menu_Signals {
 	n_buttons: f32 = 5.0
 	padding := 0.01
 
-	ui_state.z_layer = .second
-
 	settings_container := container("Options-Container@topbar", settings_menu_rect)
 
 	resize_buttons_rect := get_top(
@@ -105,6 +103,5 @@ settings_menu :: proc(settings_menu_rect: Rect) -> Settings_Menu_Signals {
 	scratch_rect.bottom_right.y += rect_height(resize_buttons_rect)
 	scratch_rect.top_left.y += rect_height(resize_buttons_rect)
 	b4 := text_button("test4@topbar", scratch_rect)
-	ui_state.z_layer = .default
 	return Settings_Menu_Signals{grow_ui = increase_button, shrink_ui = reduce_button}
 }

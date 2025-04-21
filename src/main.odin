@@ -13,11 +13,10 @@ import s "core:strings"
 import "core:sync"
 import "core:thread"
 import "core:time"
-import tracy "third_party/odin-tracy"
 import gl "vendor:OpenGL"
 import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
-import sttf "vendor:sdl2/ttf"
+import "vendor:stb/image"
 
 println :: fmt.println
 printf :: fmt.printf
@@ -36,7 +35,6 @@ ASPECT_RATIO: f32 : 16.0 / 10.0
 App_State :: struct {
 	window:      ^sdl.Window,
 	ui_state:    ^UI_State,
-	ui_font:     ^sttf.Font,
 	char_map:    ^u32,
 	mouse:       struct {
 		pos:           [2]i32, // these are typed like this to follow the SDL api, else, they'd be u16
@@ -61,12 +59,8 @@ ui_state: ^UI_State
 
 ui_vertex_shader_data :: #load("shaders/box_vertex_shader.glsl")
 ui_pixel_shader_data :: #load("shaders/box_pixel_shader.glsl")
-
-text_vertex_shader_data :: #load("shaders/text_vertex_shader.glsl")
-text_pixel_shader_data :: #load("shaders/text_pixel_shader.glsl")
-
-wave_vertex_shader_data :: #load("shaders/wave_vertex_shader.glsl")
-wave_pixel_shader_data :: #load("shaders/wave_pixel_shader.glsl")
+// wave_vertex_shader_data :: #load("shaders/wave_vertex_shader.glsl")
+// wave_pixel_shader_data :: #load("shaders/wave_pixel_shader.glsl")
 
 when PROFILING {
 	spall_ctx: spall.Context
@@ -91,7 +85,6 @@ when PROFILING {
 	}
 }
 
-
 main :: proc() {
 	when PROFILING {
 		spall_ctx = spall.context_create("trace_test.spall")
@@ -111,7 +104,6 @@ main :: proc() {
 			break
 		}
 	}
-	// app_shutdown()
 }
 
 init_window :: proc() -> (^sdl.Window, sdl.GLContext) {
@@ -153,6 +145,7 @@ init_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	gl.Enable(gl.LINE_SMOOTH)
 	gl.Enable(gl.POLYGON_SMOOTH)
 	gl.Enable(gl.MULTISAMPLE)
+	// gl.Enable(gl.Depth)
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
@@ -168,21 +161,15 @@ init_ui_state :: proc() -> ^UI_State {
 	ui_state.quad_vbuffer = new(u32)
 	ui_state.quad_vabuffer = new(u32)
 
-	ui_state.text_vbuffer = new(u32)
-	ui_state.text_vabuffer = new(u32)
-
 	ui_state.rect_stack = make([dynamic]^Rect)
 	ui_state.color_stack = make([dynamic]Color)
 	append(&ui_state.rect_stack, ui_state.root_rect)
 	ui_state.box_cache = make(map[string]^Box)
-	// ui_state.temp_boxes = make([dynamic]^Box)
-	ui_state.temp_boxes.first_layer = make([dynamic]^Box)
-	ui_state.temp_boxes.second_layer = make([dynamic]^Box)
+	ui_state.temp_boxes = make([dynamic]^Box)
 	ui_state.first_frame = true
 
 	gl.GenVertexArrays(1, ui_state.quad_vabuffer)
-	gl.GenVertexArrays(1, ui_state.text_vabuffer)
-	create_vbuffer(ui_state.quad_vbuffer, nil, 500_000)
+	create_vbuffer(ui_state.quad_vbuffer, nil, 700_000)
 	program1, quad_shader_ok := gl.load_shaders_source(
 		string(ui_vertex_shader_data),
 		string(ui_pixel_shader_data),
@@ -190,12 +177,6 @@ init_ui_state :: proc() -> ^UI_State {
 	assert(quad_shader_ok)
 	ui_state.quad_shader_program = program1
 
-	program2, text_shader_ok := gl.load_shaders_source(
-		string(text_vertex_shader_data),
-		string(text_pixel_shader_data),
-	)
-	assert(text_shader_ok)
-	ui_state.text_shader_program = program2
 
 	bind_shader(ui_state.quad_shader_program)
 	set_shader_vec2(
@@ -204,13 +185,62 @@ init_ui_state :: proc() -> ^UI_State {
 		{f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)},
 	)
 
-	ui_state.char_map = create_font_map(30)
-	create_vbuffer(ui_state.text_vbuffer, nil, 100_000 * size_of(f32))
+	ui_state.atlas_metadata = parse_fnt_metadata("font-atlas/Unnamed.fnt")
+
+	set_shader_i32(
+		ui_state.quad_shader_program,
+		"texture_height",
+		i32(ui_state.atlas_metadata.texture.texture_height),
+	)
+	set_shader_i32(
+		ui_state.quad_shader_program,
+		"texture_width",
+		i32(ui_state.atlas_metadata.texture.texture_width),
+	)
+
+
+	font_texture_data := #load("../font-atlas/Unnamed.png")
+	texture_x, texture_y, texture_channels: i32
+	image.set_flip_vertically_on_load(1)
+	texture_data := image.load_from_memory(
+		raw_data(font_texture_data),
+		i32(len(font_texture_data)),
+		&texture_x,
+		&texture_y,
+		&texture_channels,
+		4,
+	)
+	defer image.image_free(texture_data)
+
+	texutre_id := new(u32)
+	gl.GenTextures(1, texutre_id)
+	gl.BindTexture(gl.TEXTURE_2D, texutre_id^)
+
+	// Set texture parameters (wrap/filter)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+
+	// Upload to GPU
+	gl.TexImage2D(
+		gl.TEXTURE_2D,
+		0,
+		gl.RGBA,
+		i32(ui_state.atlas_metadata.texture.texture_width),
+		i32(ui_state.atlas_metadata.texture.texture_height),
+		0,
+		gl.RGBA,
+		gl.UNSIGNED_BYTE,
+		texture_data,
+	)
+
 
 	setup_for_quads(&ui_state.quad_shader_program)
 	sdl.GetWindowSize(app.window, app.wx, app.wy)
 	ui_state.frame_num = new(u64)
 	ui_state.frame_num^ = 0
+
 	return ui_state
 }
 
@@ -227,10 +257,7 @@ app_init :: proc() -> ^App_State {
 
 @(export)
 app_update :: proc() -> bool {
-	defer tracy.FrameMark()
-	{
-		tracy.Zone()
-	}
+
 	root_rect := app.ui_state.root_rect
 	frame_num := app.ui_state.frame_num
 	if register_resize() {
@@ -248,7 +275,7 @@ app_update :: proc() -> bool {
 	clear_screen()
 	create_ui()
 	render_ui()
-	render_text2()
+	// render_text2()
 	reset_renderer_data()
 	sdl.GL_SwapWindow(app.window)
 	if app.audio_state.playing {
