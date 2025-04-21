@@ -7,7 +7,7 @@ Text_Box_Signals :: struct {
 }
 
 container :: proc(id_string: string, rect: Rect) -> Box_Signals {
-	b := box_from_cache({.Draw, .Draggable}, id_string, rect)
+	b := box_from_cache({}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)
 }

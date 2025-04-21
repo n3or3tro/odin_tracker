@@ -34,24 +34,20 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 	} else {
 		push_color({1, 1, 1, 1})
 	}
-	container(tprintf("track%d_container@lol", which), track_container)
+	container(tprintf("track{}_container@lol", which), track_container)
 	ui_state.override_color = false
 	pop_color()
 
 	push_parent_rect(&track_container)
 	push_parent_rect(&track_controller_container)
 	track_controls := track_control(
-		aprintf("track%d_controls@lol", which, allocator = context.temp_allocator),
+		tprintf("track{}_controls@lol", which),
 		&track_controller_container,
 		app.audio_state.slider_volumes[which],
 	)
 	pop_parent_rect()
 	track_step_container := cut_rect(top_rect(), {Size{.Percent, 0.97}, .Top})
-	steps := track_steps(
-		fmt.aprintf("track_steps%d@lol", which, allocator = context.temp_allocator),
-		&track_step_container,
-		which,
-	)
+	steps := track_steps(fmt.tprintf("track_steps{}@lol", which), &track_step_container, which)
 	pop_parent_rect()
 
 
@@ -90,11 +86,11 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Step_Si
 
 handle_track_steps_interactions :: proc(track: Track_Step_Signals, which: u32) {
 	for step in track {
-		if step.clicked || (step.dragged_over && !app.mouse.left_pressed) {
+		// if step.clicked || (step.dragged_over && !app.mouse.left_pressed) {
+		if step.clicked {
 			step.box.selected = !step.box.selected
 			step_num := step_num_from_step(step.box.id_string)
 			printf("got step num: {}\n", step_num)
-			// step_num := int(rand.float32_range(0, 31))
 			if step.box.selected {
 				ui_state.selected_steps[which][step_num] = true
 			} else {
@@ -107,7 +103,6 @@ handle_track_steps_interactions :: proc(track: Track_Step_Signals, which: u32) {
 		}
 	}
 	// for step in track {
-	// 	println(step)
 	// 	track_num := track_num_from_step(step.box.id_string)
 	// 	step_num := step_num_from_step(step.box.id_string)
 	// 	pitch := ui_state.step_pitches[track_num][step_num]
@@ -121,23 +116,19 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 	buttons_rect := cut_rect(rect, {Size{.Percent, 0.1}, .Bottom})
 	play_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Left})
 	play_button := text_button(
-		fmt.aprintf(
-			"play@%s_play_button",
-			get_name_from_id_string(id_string),
-			allocator = context.temp_allocator,
-		),
+		tprintf("play@{}_play_button", get_name_from_id_string(id_string)),
 		play_button_rect,
 	)
 	file_load_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Right})
 	file_load_button := text_button(
-		fmt.tprintf("load@%s_file_load_button", get_name_from_id_string(id_string)),
+		tprintf("load@{}_file_load_button", get_name_from_id_string(id_string)),
 		file_load_button_rect,
 	)
 
 	cut_rect(rect, {Size{.Percent, 0.33}, .Left})
 
 	slider_track_rect := cut_rect(rect, RectCut{Size{.Percent, 0.5}, .Left})
-	slider_track := box_from_cache({.Scrollable, .Draw}, id_string, slider_track_rect)
+	slider_track := box_from_cache({.Scrollable, .Draw, .Clickable}, id_string, slider_track_rect)
 	append(&ui_state.temp_boxes, slider_track)
 
 	slider_grip_rect := get_bottom(slider_track.rect, Size{.Pixels, 30})
@@ -148,8 +139,8 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 	slider_grip_rect.top_left.y -= (value / 100) * rect_height(slider_track_rect)
 	slider_grip := box_from_cache(
 		{.Clickable, .Hot_Animation, .Active_Animation, .Draggable, .Draw},
-		fmt.tprintf(
-			"%s%s@%s",
+		tprintf(
+			"{}{}@{}",
 			get_name_from_id_string(id_string),
 			"_grip",
 			get_id_from_id_string(id_string),
@@ -168,7 +159,7 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 }
 
 handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, which: u32) {
-	if t_controls.track_signals.scrolled {
+	if t_controls.track_signals.scrolled || t_controls.grip_signals.scrolled {
 		app.audio_state.slider_volumes[which] = calc_slider_grip_val(
 			app.audio_state.slider_volumes[which],
 			100,
@@ -211,7 +202,7 @@ dropped_on_track :: proc() -> (u32, bool) {
 		l := i32(f32(app.wx^) * f32(i) / f32(N_TRACKS))
 		r := i32(f32(app.wx^) * f32(i + 1) / f32(N_TRACKS))
 
-		printf("l: %d    r: %d ", l, r)
+		printf("l: {}    r: {} ", l, r)
 		println("mouse state:", mouse_x)
 		println("i:", i, "i/ntracks:", f32(i) / f32(N_TRACKS))
 		if mouse_x >= l && mouse_x <= r {

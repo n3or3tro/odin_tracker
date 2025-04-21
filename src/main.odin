@@ -272,10 +272,8 @@ app_update :: proc() -> bool {
 			return false
 		}
 	}
-	clear_screen()
 	create_ui()
 	render_ui()
-	// render_text2()
 	reset_renderer_data()
 	sdl.GL_SwapWindow(app.window)
 	if app.audio_state.playing {

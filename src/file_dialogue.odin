@@ -123,12 +123,7 @@ when ODIN_OS == .Windows {
 					break
 				}
 				file_suffix := utf8.runes_to_string(child_file[:])
-				file_path := fmt.tprintf(
-					"%s\\%s",
-					parent_dir,
-					file_suffix,
-					allocator = context.temp_allocator,
-				)
+				file_path := tprintf("{}\\{}", parent_dir, file_suffix)
 				cstring_path := s.clone_to_cstring(file_path)
 				delete(file_suffix)
 				delete(file_path)
