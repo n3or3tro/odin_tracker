@@ -8,16 +8,15 @@ layout(location = 3) in vec2 dst_half_size;
 layout(location = 4) in float corner_radius;
 layout(location = 5) in float edge_softness;
 layout(location = 6) in float border_thickness;
+layout(location = 7) in vec2 texture_uv;
+layout(location = 8) in float ui_element_type; // 0 = normal quad, 1 = text, 2 = to be decided  
 
 // At the moment, a fragment == a pixel.
 out vec4 color;
 
-float RoundedRectSDF(
-	vec2 sample_pos,
-	vec2 rect_center,
-	vec2 rect_half_size,
-	float r
-) {
+uniform sampler2D font_texture;
+
+float RoundedRectSDF(vec2 sample_pos, vec2 rect_center, vec2 rect_half_size, float r) {
 	vec2 d2 = (abs(rect_center - sample_pos) -
 		rect_half_size +
 		vec2(r, r));
@@ -47,6 +46,7 @@ float calculate_border_factor(vec2 softness_padding) {
 
 	}
 }
+
 void main() {
 	// we need to shrink the rectangle's half-size that is used for distance calculations with
 	// the edge softness - otherwise the underlying primitive will cut off the falloff too early.
@@ -60,5 +60,10 @@ void main() {
 	float sdf_factor = 1.0 - smoothstep(0.0, 2.0 * edge_softness, dist);
 
 	// use sdf_factor in final color calculation
-	color = v_color * sdf_factor * calculate_border_factor(softness_padding);
+	if(ui_element_type == 0.0) {
+		color = v_color * sdf_factor * calculate_border_factor(softness_padding);
+	} else {
+		vec4 texture_sample = texture(font_texture, texture_uv);
+		color = v_color * texture_sample;
+	}
 }

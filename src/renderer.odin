@@ -31,6 +31,7 @@ Rect_Render_Data :: struct {
 	corner_radius:        f32,
 	edge_softness:        f32,
 	border_thickness:     f32,
+	ui_element_type:      u32,
 }
 
 
@@ -73,26 +74,24 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 			data.border_thickness = 100
 
 			// create text box to show step's pitch.
-			track_num := track_num_from_step(box.id_string)
-			step_num := step_num_from_step(box.id_string)
-			pitch := ui_state.step_pitches[track_num][step_num]
-			// Might get iffy creating this here instead of inside the builder code
-			// of the UI
-			pitch_box :=
-				text_box(tprintf("{}@track{}{}-pitch", pitch, track_num, step_num), box.rect).box_signals.box
+			// track_num := track_num_from_step(box.id_string)
+			// step_num := step_num_from_step(box.id_string)
+			// pitch := ui_state.step_pitches[track_num][step_num]
+			// pitch_box :=
+			// 	text_box(tprintf("{}@track{}{}-pitch", pitch, track_num, step_num), box.rect).box_signals.box
 
-			pitch_render_data := Rect_Render_Data {
-				top_left         = pitch_box.rect.top_left,
-				bottom_right     = pitch_box.rect.bottom_right,
-				tl_color         = pitch_box.color,
-				bl_color         = pitch_box.color,
-				br_color         = pitch_box.color,
-				tr_color         = pitch_box.color,
-				corner_radius    = 0,
-				edge_softness    = 0,
-				border_thickness = 100,
-			}
-			append(render_data, data, pitch_render_data)
+			// pitch_render_data := Rect_Render_Data {
+			// 	top_left         = pitch_box.rect.top_left,
+			// 	bottom_right     = pitch_box.rect.bottom_right,
+			// 	tl_color         = pitch_box.color,
+			// 	bl_color         = pitch_box.color,
+			// 	br_color         = pitch_box.color,
+			// 	tr_color         = pitch_box.color,
+			// 	corner_radius    = 0,
+			// 	edge_softness    = 0,
+			// 	border_thickness = 100,
+			// }
+			// append(render_data, data, pitch_render_data)
 		}
 		if is_active_step(box) {
 			data.border_thickness = 100
@@ -107,7 +106,6 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 
 			append(render_data, data, outlining_rect)
 			return render_data
-			// return data, outlining_rect
 		}
 	}
 	append(render_data, data)
@@ -118,100 +116,105 @@ is_active_step :: proc(box: Box) -> bool {
 	num := step_num_from_step(box.id_string)
 	return num == app.audio_state.curr_step
 }
-
 get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 	// Deffs not efficient to keep realloc'ing and deleting this list, will fix in future.
 	rendering_data := new([dynamic]Rect_Render_Data, allocator = context.temp_allocator)
-	for box in ui_state.temp_boxes.first_layer {
+	for box in ui_state.temp_boxes {
+		boxes_to_render := get_boxes_rendering_data(box^)
+		defer delete(boxes_to_render^)
 		if .Draw in box.flags {
-			boxes_to_render := get_boxes_rendering_data(box^)
-			defer delete(boxes_to_render^)
 			for data in boxes_to_render {
 				append(rendering_data, data)
 			}
 		}
-	}
-	for box in ui_state.temp_boxes.second_layer {
-		if .Draw in box.flags {
-			boxes_to_render := get_boxes_rendering_data(box^)
-			defer delete(boxes_to_render^)
-			for data in boxes_to_render {
-				append(rendering_data, data)
+		if .Draw_Text in box.flags {
+			word_length := word_rendered_length(box.name)
+			gap := (int(rect_width(box.rect)) - word_length) / 2
+			starting_x, starting_y := get_font_baseline(box.name, box.rect)
+			parent_rect := boxes_to_render[len(boxes_to_render) - 1]
+			len_so_far: f32 = 0
+			for i in 0 ..< len(box.name) {
+				ch := rune(box.name[i])
+				char_metadata := ui_state.atlas_metadata.chars[ch]
+				new_rect := Rect_Render_Data {
+					bl_color             = {1, 1, 1, 1},
+					br_color             = {1, 1, 1, 1},
+					tl_color             = {1, 1, 1, 1},
+					tr_color             = {1, 1, 1, 1},
+					border_thickness     = 300,
+					corner_radius        = 0,
+					edge_softness        = 0,
+					ui_element_type      = 1.0,
+					top_left             = {starting_x + len_so_far, starting_y - 40},
+					bottom_right         = {
+						starting_x + len_so_far + f32(char_metadata.width),
+						starting_y,
+					},
+					texture_top_left     = {f32(char_metadata.x), f32(char_metadata.y)},
+					texture_bottom_right = {
+						f32(char_metadata.x + char_metadata.width),
+						f32(char_metadata.y + char_metadata.height),
+					},
+				}
+				len_so_far += f32(char_metadata.advance)
+				append(rendering_data, new_rect)
 			}
 		}
 	}
 	return rendering_data
 }
 
-// Need to name this and the other text renderings functions better.
-render_text2 :: proc() {
-	for box in ui_state.temp_boxes.first_layer {
-		if .Draw_Text in box.flags {
-			xx, yy := get_font_baseline(box.name, box.rect)
-			x, y := f32(xx), f32(yy)
-			draw_text(box^, x, y)
-		}
-	}
-	for box in ui_state.temp_boxes.second_layer {
-		if .Draw_Text in box.flags {
-			xx, yy := get_font_baseline(box.name, box.rect)
-			x, y := f32(xx), f32(yy)
-			draw_text(box^, x, y)
-		}
-	}
-}
-
 // At the moment, assume pcm_frames is from a mono version of the .wav file.
-render_waveform :: proc(rect: Rect, pcm_frames: [dynamic]f32) {
-	render_width := rect_width(rect)
-	render_height := rect_height(rect)
-	frames_read := u64(len(pcm_frames))
-	waveform_vertices := make_dynamic_array([dynamic][2]f32)
-	for x in 0 ..< render_width {
-		start := u64((f64(x) / f64(render_width)) * f64(frames_read))
-		end := u64(f64(x + 1) / f64(render_width) * f64(frames_read))
-		if end >= frames_read {end = frames_read}
-		min: f32 = 1
-		max: f32 = -1
-		for i in start ..< end {
-			if pcm_frames[i] < min {min = pcm_frames[i]}
-			if pcm_frames[i] > max {max = pcm_frames[i]}
-		}
-		// y1 := screen_height / 2 - int(max * f32(screen_height / 2))
-		// y2 := screen_height / 2 - int(min * f32(screen_height / 2))
-		norm_x: f32 = f32(x) / render_width
-		x_pos := rect.top_left.x + norm_x * render_width
-		y_top := rect.top_left.y + (0.5 - max * 0.5) * render_height
-		y_bot := rect.top_left.y + (0.5 - min * 0.5) * render_height
+// render_waveform :: proc(rect: Rect, pcm_frames: [dynamic]f32) {
+// 	render_width := rect_width(rect)
+// 	render_height := rect_height(rect)
+// 	frames_read := u64(len(pcm_frames))
+// 	waveform_vertices := make_dynamic_array([dynamic][2]f32)
+// 	for x in 0 ..< render_width {
+// 		start := u64((f64(x) / f64(render_width)) * f64(frames_read))
+// 		end := u64(f64(x + 1) / f64(render_width) * f64(frames_read))
+// 		if end >= frames_read {end = frames_read}
+// 		min: f32 = 1
+// 		max: f32 = -1
+// 		for i in start ..< end {
+// 			if pcm_frames[i] < min {min = pcm_frames[i]}
+// 			if pcm_frames[i] > max {max = pcm_frames[i]}
+// 		}
+// 		// y1 := screen_height / 2 - int(max * f32(screen_height / 2))
+// 		// y2 := screen_height / 2 - int(min * f32(screen_height / 2))
+// 		norm_x: f32 = f32(x) / render_width
+// 		x_pos := rect.top_left.x + norm_x * render_width
+// 		y_top := rect.top_left.y + (0.5 - max * 0.5) * render_height
+// 		y_bot := rect.top_left.y + (0.5 - min * 0.5) * render_height
 
-		append(&waveform_vertices, [2]f32{x_pos, y_top})
-		append(&waveform_vertices, [2]f32{x_pos, y_bot})
+// 		append(&waveform_vertices, [2]f32{x_pos, y_top})
+// 		append(&waveform_vertices, [2]f32{x_pos, y_bot})
 
-		vao: u32
-		vbo: u32
-		gl.GenVertexArrays(1, &vao)
-		gl.BindVertexArray(vao)
+// 		vao: u32
+// 		vbo: u32
+// 		gl.GenVertexArrays(1, &vao)
+// 		gl.BindVertexArray(vao)
 
-		gl.GenBuffers(1, &vbo)
-		gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
-		gl.BufferData(
-			gl.ARRAY_BUFFER,
-			len(waveform_vertices),
-			raw_data(waveform_vertices),
-			gl.DYNAMIC_DRAW,
-		)
+// 		gl.GenBuffers(1, &vbo)
+// 		gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
+// 		gl.BufferData(
+// 			gl.ARRAY_BUFFER,
+// 			len(waveform_vertices),
+// 			raw_data(waveform_vertices),
+// 			gl.DYNAMIC_DRAW,
+// 		)
 
-		gl.VertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, size_of(f32) * 2, 0)
-		gl.EnableVertexArrayAttrib(vao, 0)
-	}
-}
+// 		gl.VertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, size_of(f32) * 2, 0)
+// 		gl.EnableVertexArrayAttrib(vao, 0)
+// 	}
+// }
 
 setup_for_quads :: proc(shader_program: ^u32) {
 	//odinfmt:disable
 	gl.BindVertexArray(ui_state.quad_vabuffer^)
 	bind_shader(shader_program^)
 
-	gl.VertexAttribPointer(0, 2, gl.FLOAT, false, size_of(Rect_Render_Data), 0)
+	gl.VertexAttribPointer(0, 2, gl.FLOAT, false, size_of(Rect_Render_Data), offset_of(Rect_Render_Data, top_left))
 	gl.VertexAttribDivisor(0, 1)
 	enable_layout(0)
 
@@ -248,12 +251,24 @@ setup_for_quads :: proc(shader_program: ^u32) {
 	gl.VertexAttribPointer(8, 1, gl.FLOAT, false, size_of(Rect_Render_Data), offset_of(Rect_Render_Data, border_thickness))
 	enable_layout(8)
 	gl.VertexAttribDivisor(8, 1)
+
+	gl.VertexAttribPointer(9, 2, gl.FLOAT, false, size_of(Rect_Render_Data), offset_of(Rect_Render_Data, texture_top_left))
+	enable_layout(9)
+	gl.VertexAttribDivisor(9, 1)
+
+	gl.VertexAttribPointer(10, 2, gl.FLOAT, false, size_of(Rect_Render_Data), offset_of(Rect_Render_Data, texture_bottom_right))
+	enable_layout(10)
+	gl.VertexAttribDivisor(10, 1)
+
+	gl.VertexAttribPointer(11, 1, gl.INT, false, size_of(Rect_Render_Data), offset_of(Rect_Render_Data, ui_element_type))
+	enable_layout(11)
+	gl.VertexAttribDivisor(11, 1)
+
 	//odinfmt:enable
 }
 
 reset_renderer_data :: proc() {
-	clear_dynamic_array(&ui_state.temp_boxes.first_layer)
-	clear_dynamic_array(&ui_state.temp_boxes.second_layer)
+	clear_dynamic_array(&ui_state.temp_boxes)
 	ui_state.first_frame = false
 }
 

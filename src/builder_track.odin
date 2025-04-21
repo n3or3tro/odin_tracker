@@ -54,14 +54,16 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 	)
 	pop_parent_rect()
 
+
 	handle_track_steps_interactions(steps, which)
 	handle_track_control_interactions(&track_controls, which)
+
 	return steps
 }
 
 tracker_step :: proc(id_string: string, rect: Rect) -> Box_Signals {
 	b := box_from_cache({.Draw, .Clickable, .Active_Animation}, id_string, rect)
-	append(&ui_state.temp_boxes.first_layer, b)
+	append(&ui_state.temp_boxes, b)
 	return box_signals(b)
 }
 
@@ -90,20 +92,28 @@ handle_track_steps_interactions :: proc(track: Track_Step_Signals, which: u32) {
 	for step in track {
 		if step.clicked || (step.dragged_over && !app.mouse.left_pressed) {
 			step.box.selected = !step.box.selected
-			// step_num := step_num_from_step(step.box.id_string)
-			// printf("got step num: {}\n", step_num)
-			// // step_num := int(rand.float32_range(0, 31))
-			// if step.box.selected {
-			// 	ui_state.selected_steps[which][step_num] = true
-			// } else {
-			// 	ui_state.selected_steps[which][step_num] = false
-			// }
+			step_num := step_num_from_step(step.box.id_string)
+			printf("got step num: {}\n", step_num)
+			// step_num := int(rand.float32_range(0, 31))
+			if step.box.selected {
+				ui_state.selected_steps[which][step_num] = true
+			} else {
+				ui_state.selected_steps[which][step_num] = false
+			}
 		}
-		// if step.hovering && step.scrolled {
-		// 	step_num := step_num_from_step(step.box.id_string)
-		// 	ui_state.step_pitches[which][step_num] += f32(app.mouse.wheel.y)
-		// }
+		if step.hovering && step.scrolled {
+			step_num := step_num_from_step(step.box.id_string)
+			ui_state.step_pitches[which][step_num] += f32(app.mouse.wheel.y)
+		}
 	}
+	// for step in track {
+	// 	println(step)
+	// 	track_num := track_num_from_step(step.box.id_string)
+	// 	step_num := step_num_from_step(step.box.id_string)
+	// 	pitch := ui_state.step_pitches[track_num][step_num]
+	// 	pitch_box :=
+	// 		text_box(tprintf("{}@track{}{}-pitch", pitch, track_num, step_num), step.box.rect).box_signals.box
+	// }
 }
 
 // assumes 0 <= value <= 100
@@ -128,7 +138,7 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 
 	slider_track_rect := cut_rect(rect, RectCut{Size{.Percent, 0.5}, .Left})
 	slider_track := box_from_cache({.Scrollable, .Draw}, id_string, slider_track_rect)
-	append(&ui_state.temp_boxes.first_layer, slider_track)
+	append(&ui_state.temp_boxes, slider_track)
 
 	slider_grip_rect := get_bottom(slider_track.rect, Size{.Pixels, 30})
 	slider_grip_rect = expand_x(slider_grip_rect, Size{.Percent, 0.5})
@@ -146,7 +156,7 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 		),
 		slider_grip_rect,
 	)
-	append(&ui_state.temp_boxes.first_layer, slider_grip)
+	append(&ui_state.temp_boxes, slider_grip)
 
 	return Track_Control_Signals {
 		value = value,

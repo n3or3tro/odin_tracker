@@ -9,6 +9,7 @@ package main
 import alg "core:math/linalg"
 import ft "third_party/freetype"
 import gl "vendor:OpenGL"
+import stash "vendor:fontstash"
 
 // font_path :: "/usr/share/fonts/TTF/Sauce Code Pro Medium Nerd Font Complete.ttf"
 when ODIN_OS == .Windows {
@@ -17,161 +18,148 @@ when ODIN_OS == .Windows {
 	font_path :: "/usr/share/fonts/TTF/SauceCodeProNerdFontMono-Medium.ttf"
 }
 
-Character :: struct {
-	texture_id:   u32,
-	size:         [2]f32,
-	bearing:      [2]f32,
-	advance:      u32,
-	glyph_width:  f32,
-	glyph_height: f32,
+
+import "core:fmt"
+import "core:io"
+import os "core:os/os2"
+import "core:strconv"
+import "core:strings"
+
+
+Char_Atlas_Metadata :: struct {
+	x, y, width, height, xoffset, yoffset, advance: int,
 }
 
-create_font_map :: proc(font_size: u32) -> map[rune]Character {
-	char_map := make(map[rune]Character)
-	font_lib: ft.Library
-	if ft.init_free_type(&font_lib) != ft.Error.Ok {
-		panic("Failed to initialize FreeType library")
-	}
-	font_face: ft.Face
-	if ft.new_face(font_lib, font_path, 0, &font_face) != ft.Error.Ok {
-		panic("Failed to load font")
-	}
+Atlas_Metadata :: struct {
+	texture: struct {
+		texture_width, texture_height: int,
+	},
+	chars:   map[rune]Char_Atlas_Metadata,
+}
 
-	ft.set_pixel_sizes(font_face, 0, font_size)
-
-	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
-	for c := rune(0); c < 128; c += 1 {
-		// This annoying check is coz the u64/u32 cast, which differs on diff OSs.
-		when ODIN_OS == .Windows {
-			if ft.load_char(font_face, cast(u32)c, {.Render}) != ft.Error.Ok {
-				panic("Failed to load glyph")
-			}
-		} else {
-			if ft.load_char(font_face, cast(u64)c, {.Render}) != ft.Error.Ok {
-				panic("Failed to load glyph")
-			}
-		}
-		// Generate texture
-		texture: u32
-		gl.GenTextures(1, &texture)
-		gl.BindTexture(gl.TEXTURE_2D, texture)
-		gl.TexImage2D(
-			gl.TEXTURE_2D,
-			0,
-			gl.RED,
-			cast(i32)font_face.glyph.bitmap.width,
-			cast(i32)font_face.glyph.bitmap.rows,
-			0,
-			gl.RED,
-			gl.UNSIGNED_BYTE,
-			font_face.glyph.bitmap.buffer,
+parse_fnt_metadata :: proc(path: string) -> Atlas_Metadata {
+	// parse_fnt_metadata :: proc(path: string) {
+	fp, err := os.open(path)
+	if err != os.ERROR_NONE {
+		panic(tprintf("Could not open .fnt file: %s", path))
+	}
+	file_info, _ := os.stat(path, allocator = context.temp_allocator)
+	file_len := file_info.size
+	file_bytes := make([]byte, file_len)
+	bytes_read, _ := os.read(fp, file_bytes)
+	if bytes_read != int(file_len) {
+		panic(
+			tprintf(
+				"only read %d bytes from %s when we were suppoed to read %d bytes",
+				bytes_read,
+				path,
+				file_len,
+			),
 		)
-		// 	// Set texture options
-		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-		// 	// Now store character for later use
-		new_char := Character {
-			texture_id   = texture,
-			size         = [2]f32 {
-				cast(f32)font_face.glyph.bitmap.width,
-				cast(f32)font_face.glyph.bitmap.rows,
-			},
-			bearing      = [2]f32 {
-				cast(f32)font_face.glyph.bitmap_left,
-				cast(f32)font_face.glyph.bitmap_top,
-			},
-			advance      = cast(u32)font_face.glyph.advance.x,
-			glyph_width  = cast(f32)font_face.glyph.metrics.width / 64,
-			glyph_height = cast(f32)font_face.glyph.metrics.height / 64,
-		}
-		char_map[c] = new_char
 	}
-	ft.done_face(font_face)
-	ft.done_free_type(font_lib)
-	return char_map
+	file_data := strings.clone_from_bytes(file_bytes)
+	lines := strings.split(file_data, "\n", allocator = context.temp_allocator)
+	found_start := false
+	atlas_char_metadata := make(map[rune]Char_Atlas_Metadata)
+
+	// This is too hardcoded.... but assuming the second line is what we want here
+	println(lines[1])
+	tex_width_start := strings.index(lines[1], "scaleW=") + 7
+	tex_height_start := strings.index(lines[1], "scaleH=") + 7
+	texture_height := strconv.atoi(
+		lines[1][tex_height_start:strings.index(lines[1][tex_height_start:], " ") +
+		tex_height_start],
+	)
+	texture_width := strconv.atoi(
+		lines[1][tex_width_start:strings.index(lines[1][tex_width_start:], " ") + tex_width_start],
+	)
+
+	for line in lines {
+		words := strings.split(line, " ", allocator = context.temp_allocator)
+		if words[0] == "char" {
+			found_start = true
+		}
+		if found_start {
+			if len(line) == 0 {
+				continue
+			}
+			// println(line)
+			ascii_code_start := strings.index(line, "id=") + 3
+			x_start := strings.index(line, "x=") + 2
+			y_start := strings.index(line, "y=") + 2
+			width_start := strings.index(line, "width=") + 6
+			height_start := strings.index(line, "height=") + 7
+			xoffset_start := strings.index(line, "xoffset=") + 8
+			yoffset_start := strings.index(line, "yoffset=") + 8
+			xadvance_start := strings.index(line, "xadvance=") + 9
+
+			letter_code := strconv.atoi(
+				line[ascii_code_start:strings.index(line[ascii_code_start:], " ") +
+				ascii_code_start],
+			)
+			letter := rune(letter_code)
+			x := strconv.atoi(line[x_start:strings.index(line[x_start:], " ") + x_start])
+			y := strconv.atoi(line[y_start:strings.index(line[y_start:], " ") + y_start])
+			width := strconv.atoi(
+				line[width_start:strings.index(line[width_start:], " ") + width_start],
+			)
+			height := strconv.atoi(
+				line[height_start:strings.index(line[height_start:], " ") + height_start],
+			)
+			xoffset := strconv.atoi(
+				line[xoffset_start:strings.index(line[xoffset_start:], " ") + xoffset_start],
+			)
+			yoffset := strconv.atoi(
+				line[yoffset_start:strings.index(line[yoffset_start:], " ") + yoffset_start],
+			)
+			xadvance := strconv.atoi(
+				line[xadvance_start:strings.index(line[xadvance_start:], " ") + xadvance_start],
+			)
+			atlas_char_metadata[letter] = Char_Atlas_Metadata {
+				x,
+				y,
+				width,
+				height,
+				xoffset,
+				yoffset,
+				xadvance,
+			}
+		}
+	}
+	return Atlas_Metadata{texture = {texture_width, texture_height}, chars = atlas_char_metadata}
 }
 
-render_text :: proc(
-	shader: u32,
-	proj: ^alg.Matrix4x4f32,
-	text: string,
-	color: [3]f32,
-	x: f32,
-	y: f32,
-) {
-	window_height := cast(u32)app.wy^
-	set_shader_matrix4(shader, "proj", proj)
-	set_shader_vec3(shader, "textColor", color)
-	set_shader_u32(shader, "window_height", window_height)
-	gl.ActiveTexture(gl.TEXTURE0)
-	// create this because of weird non-mutable proc arg stuff
-	x := x
-	for ch in text {
-		char := ui_state.char_map[ch]
-		if char.texture_id == 0 {
-			continue
-		}
-
-		// update VBO for each character
-		w := char.size[0]
-		h := char.size[1]
-		xpos := x + char.bearing[0]
-		// vvv chatgpt fixed vvv
-		ypos := (f32(window_height) - y) + char.bearing[1] - h
-			//odinfmt:disable
-		vertices := [6 * 4]f32 {
-			xpos, 		ypos + h, 	0, 0,
-			xpos, 		ypos, 		0, 1,
-			xpos + w, 	ypos, 		1, 1,
-			xpos, 		ypos + h, 	0, 0,
-			xpos + w, 	ypos, 		1, 1,
-			xpos + w, 	ypos + h, 	1, 0,
-		}
-		//odinfmt:enable
-
-
-		gl.BindTexture(gl.TEXTURE_2D, char.texture_id)
-		populate_vbuffer(ui_state.text_vbuffer, 0, raw_data(&vertices), size_of(vertices))
-		gl.DrawArrays(gl.TRIANGLES, 0, 6)
-		x += f32((char.advance >> 6))
-	}
-	gl.BindTexture(gl.TEXTURE_2D, 0)
-}
-
-draw_text :: proc(box: Box, x, y: f32) {
-	if !ui_state.first_frame {
-		text := box.id_string
-		gl.BindVertexArray(ui_state.text_vabuffer^)
-		enable_layout(0)
-		layout_vbuffer(0, 4, gl.FLOAT, gl.FALSE, 4 * size_of(f32), 0)
-
-		bind_shader(ui_state.text_shader_program)
-		text_proj := alg.matrix_ortho3d_f32(0, cast(f32)app.wx^, 0, cast(f32)app.wy^, -1, 1)
-		set_shader_matrix4(ui_state.text_shader_program, "proj", &text_proj)
-		render_text(ui_state.text_shader_program, &text_proj, text, {1, 0, 0}, x, y)
-
-		// we unset shit that needs to be setup to draw quads, so we re-set them up here.
-		setup_for_quads(&ui_state.quad_shader_program)
-	}
-}
-
-draw_wave_form :: proc() {
-
+get_chars_box :: proc() {
 }
 
 get_font_baseline :: proc(text: string, rect: Rect) -> (x, y: f32) {
 	max_height: f32 = -1
 	str_width: f32 = 0
 	for ch in text {
-		height := ui_state.char_map[ch].glyph_height
+		height := f32(ui_state.atlas_metadata.chars[ch].height)
 		if height > max_height {
 			max_height = height
 		}
-		str_width += ui_state.char_map[ch].glyph_width
+		str_width += f32(ui_state.atlas_metadata.chars[ch].advance)
 	}
-	y = rect.bottom_right.y - (rect_height(rect) - max_height) / 2
 	x = rect.top_left.x + (rect_width(rect) - str_width) / 2
+	y = rect.bottom_right.y - (rect_height(rect) - max_height) / 2
 	return x, y
+}
+tallest_char_height :: proc(s: string) -> int {
+	hi := -1
+	for ch in s {
+		if ui_state.atlas_metadata.chars[ch].height > hi {
+			hi = ui_state.atlas_metadata.chars[ch].height
+		}
+	}
+	return hi
+}
+word_rendered_length :: proc(s: string) -> int {
+	tot := 0
+	// Make sure this isn't off by one!!
+	for ch in s[0:len(s)] {
+		tot += ui_state.atlas_metadata.chars[ch].advance
+	}
+	return tot
 }

@@ -369,17 +369,17 @@ get_amount :: proc(rect: Rect, amount: Size, side: RectCutSide) -> f32 {
 	panic("[!] get_amount: invalid kind")
 }
 
-// Doesn't account for padding or anything like that.
-calculate_text_size :: proc(char_map: map[rune]Character, text: string) -> Vec2 {
-	width, height: f32 = 0, 0
-	for c in text {
-		character := char_map[c]
-		width += character.size[0]
-		println("this char", character, "has width:", character.size[0])
-		height = max(height, character.size[1])
-	}
-	return Vec2{width, height}
-}
+// // Doesn't account for padding or anything like that.
+// calculate_text_size :: proc(char_map: map[rune]Character, text: string) -> Vec2 {
+// 	width, height: f32 = 0, 0
+// 	for c in text {
+// 		character := char_map[c]
+// 		width += character.size[0]
+// 		println("this char", character, "has width:", character.size[0])
+// 		height = max(height, character.size[1])
+// 	}
+// 	return Vec2{width, height}
+// }
 
 mouse_inside_box :: proc(box: ^Box, mouse: [2]i32) -> bool {
 	mousex := cast(f32)mouse.x
@@ -448,6 +448,6 @@ get_id_from_id_string :: proc(id_string: string) -> string {
 spacer :: proc(id_string: string, rect_cut: RectCut) -> ^Box {
 	rect := cut_rect(top_rect(), rect_cut)
 	s := box_from_cache({.Draw}, id_string, rect)
-	append(&ui_state.temp_boxes.first_layer, s)
+	append(&ui_state.temp_boxes, s)
 	return s
 }
