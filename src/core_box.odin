@@ -119,18 +119,18 @@ Box :: struct {
 
 	// To help determine if various things in the ui are selected.
 	selected:                 bool,
+
+	// Helps determine event handling when items are stacked on each other.
+	z_index:                  u8,
 }
 
 box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
 	if id_string in ui_state.box_cache {
 		box := ui_state.box_cache[id_string]
 		box.rect = rect
-		// if override_color {
-		// 	box.color, _ = top_color()
-		// }
 		return box
 	} else {
-		printf("making new box: %s", id_string)
+		printf("making new box: {}", id_string)
 		new_box := box_make(flags, id_string, rect)
 		ui_state.box_cache[id_string] = new_box
 		return new_box
@@ -146,18 +146,14 @@ box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
 	color, is_top := top_color()
 	if !is_top {
 		println("[WARNING] - There was no color assigned to this box, it's color is randomised.")
-		box.color = {
-			rand.float32_range(0, 1),
-			rand.float32_range(0, 1),
-			rand.float32_range(0, 1),
-			1,
-		}
+		box.color = {rand.float32_range(0, 1), rand.float32_range(0, 1), rand.float32_range(0, 1), 1}
 	} else {
 		println("top color was: ", color)
 		box.color = color
 	}
 	box.name = get_name_from_id_string(id_string)
 	box.rect = rect
+	box.z_index = ui_state.z_index
 	return box
 }
 
@@ -167,13 +163,17 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 	prev_signals := box.signals
 	signals: Box_Signals
 	signals.box = box
-	signals.hovering = mouse_inside_box(box, {app.mouse.pos.x, app.mouse.pos.y})
+	signals.hovering = hovering_in_box(box)
 	if signals.hovering {
+		ui_state.hot_box = box
 		signals.pressed = app.mouse.left_pressed
-		if prev_signals.pressed && !app.mouse.left_pressed {
+		if pressed_on_box(box, prev_signals) {
+			// println(box.id_string, "clicked")
+			ui_state.active_box = box
 			signals.clicked = true
 		}
 		if app.mouse.wheel.x != 0 || app.mouse.wheel.y != 0 {
+			println("scrolling on ", box.id_string)
 			signals.scrolled = true
 		}
 		if signals.pressed {
@@ -182,6 +182,37 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 	}
 	box.signals = signals
 	return signals
+}
+
+// Does expected checking, but also accounts for z-index stuff.
+hovering_in_box :: proc(box: ^Box) -> bool {
+	if ui_state.hot_box != nil {
+		if box.z_index > ui_state.hot_box.z_index {
+			if mouse_inside_box(box, {app.mouse.pos.x, app.mouse.pos.y}) && .Clickable in box.flags {
+				return true
+			}
+		}
+		return false
+	}
+	return mouse_inside_box(box, {app.mouse.pos.x, app.mouse.pos.y}) && .Clickable in box.flags
+}
+
+// Does expected checking, but also accounts for z-index stuff.
+pressed_on_box :: proc(box: ^Box, prev_signals: Box_Signals) -> bool {
+	if ui_state.active_box != nil {
+		if box.z_index > ui_state.active_box.z_index {
+			// might need to add more here
+			if prev_signals.pressed && !app.mouse.left_pressed && .Clickable in box.flags {
+				ui_state.active_box.active = false
+				ui_state.active_box.signals.clicked = false
+				ui_state.active_box.signals.pressed = false
+				ui_state.active_box.selected = false
+				return true
+			}
+		}
+		return false
+	}
+	return prev_signals.pressed && !app.mouse.left_pressed && ui_state.active_box == nil && .Clickable in box.flags
 }
 
 rect_from_points :: proc(a, b: Vec2) -> sdl.Rect {
@@ -208,10 +239,7 @@ cut_left :: proc(rect: ^Rect, amount: Size) -> Rect {
 	parent_top_left_x: f32 = rect.top_left.x
 	px_amount := math.floor(get_amount(rect^, amount, .Left))
 	rect.top_left.x = rect.top_left.x + px_amount
-	return Rect {
-		top_left = {parent_top_left_x, rect.top_left.y},
-		bottom_right = {parent_top_left_x + px_amount, rect.bottom_right.y},
-	}
+	return Rect{top_left = {parent_top_left_x, rect.top_left.y}, bottom_right = {parent_top_left_x + px_amount, rect.bottom_right.y}}
 }
 cut_right :: proc(rect: ^Rect, amount: Size) -> Rect {
 	parent_bottom_right_x: f32 = rect.bottom_right.x
@@ -226,19 +254,13 @@ cut_top :: proc(rect: ^Rect, amount: Size) -> Rect {
 	parent_top_left_y: f32 = rect.top_left.y
 	px_amount := math.floor(get_amount(rect^, amount, .Top))
 	rect.top_left.y = rect.top_left.y + px_amount
-	return Rect {
-		{rect.top_left.x, parent_top_left_y},
-		{rect.bottom_right.x, parent_top_left_y + px_amount},
-	}
+	return Rect{{rect.top_left.x, parent_top_left_y}, {rect.bottom_right.x, parent_top_left_y + px_amount}}
 }
 cut_bottom :: proc(rect: ^Rect, amount: Size) -> Rect {
 	parent_bottom_right_y: f32 = rect.bottom_right.y
 	px_amount := math.floor(get_amount(rect^, amount, .Bottom))
 	rect.bottom_right.y = rect.bottom_right.y - px_amount
-	return Rect {
-		{rect.top_left.x, parent_bottom_right_y - px_amount},
-		{rect.bottom_right.x, parent_bottom_right_y},
-	}
+	return Rect{{rect.top_left.x, parent_bottom_right_y - px_amount}, {rect.bottom_right.x, parent_bottom_right_y}}
 }
 
 // All the get_* functions, return the desired rectangle, without cutting
@@ -259,10 +281,7 @@ get_rect :: proc(rect: Rect, rect_cut: RectCut) -> Rect {
 get_left :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_top_left_x: f32 = rect.top_left.x
 	px_amount := math.floor(get_amount(rect, amount, .Left))
-	return Rect {
-		top_left = {parent_top_left_x, rect.top_left.y},
-		bottom_right = {parent_top_left_x + px_amount, rect.bottom_right.y},
-	}
+	return Rect{top_left = {parent_top_left_x, rect.top_left.y}, bottom_right = {parent_top_left_x + px_amount, rect.bottom_right.y}}
 }
 get_right :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_bottom_right_x: f32 = rect.bottom_right.x
@@ -275,18 +294,12 @@ get_right :: proc(rect: Rect, amount: Size) -> Rect {
 get_top :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_top_left_y: f32 = rect.top_left.y
 	px_amount := math.floor(get_amount(rect, amount, .Top))
-	return Rect {
-		{rect.top_left.x, parent_top_left_y},
-		{rect.bottom_right.x, parent_top_left_y + px_amount},
-	}
+	return Rect{{rect.top_left.x, parent_top_left_y}, {rect.bottom_right.x, parent_top_left_y + px_amount}}
 }
 get_bottom :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_bottom_right_y: f32 = rect.bottom_right.y
 	px_amount := math.floor(get_amount(rect, amount, .Bottom))
-	return Rect {
-		{rect.top_left.x, parent_bottom_right_y - px_amount},
-		{rect.bottom_right.x, parent_bottom_right_y},
-	}
+	return Rect{{rect.top_left.x, parent_bottom_right_y - px_amount}, {rect.bottom_right.x, parent_bottom_right_y}}
 }
 
 // add_* lets you add to a rectangle, using same sizing semantics as when cutting.

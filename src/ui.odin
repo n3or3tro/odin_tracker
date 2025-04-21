@@ -33,8 +33,11 @@ UI_State :: struct {
 	quad_shader_program: u32,
 	root_rect:           ^Rect,
 	frame_num:           ^u64,
-	hot_id:              string,
-	active_id:           string,
+	// hot_id:              string,
+	// active_id:           string,
+	hot_box:             ^Box,
+	active_box:          ^Box,
+	z_index:             u8,
 }
 
 num_column :: proc(track_height: u32, n_steps: u32) {
@@ -42,7 +45,7 @@ num_column :: proc(track_height: u32, n_steps: u32) {
 	step_height := f32(track_height) / f32(n_steps)
 	for i in 0 ..< n_steps {
 		curr_step := cut_top(&num_col_rect, {.Pixels, step_height})
-		text_container(tprintf("%d:@number_column", i), curr_step)
+		text_container(tprintf("{}:@number_column", i), curr_step)
 	}
 }
 
@@ -61,7 +64,7 @@ create_ui :: proc() {
 	for i in 0 ..= 9 {
 		create_track(u32(i), track_width)
 		push_color({0, 0, 0, 1})
-		spacer(tprintf("track_spacer%s@1", i), RectCut{Size{.Pixels, f32(track_padding)}, .Left})
+		spacer(tprintf("track_spacer_{}@1", i), RectCut{Size{.Pixels, f32(track_padding)}, .Left})
 		pop_color()
 	}
 	handle_top_bar_interactions(topbar)
@@ -69,11 +72,11 @@ create_ui :: proc() {
 }
 
 render_ui :: proc() {
+	clear_screen()
 	if ui_state.first_frame {
 		return
 	}
 	rect_rendering_data := get_all_rendering_data()
-	defer delete_dynamic_array(rect_rendering_data^)
 	n_rects := u32(len(rect_rendering_data))
 	populate_vbuffer_with_rects(
 		ui_state.quad_vabuffer,
@@ -82,8 +85,15 @@ render_ui :: proc() {
 		n_rects * size_of(Rect_Render_Data),
 	)
 	gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, i32(n_rects))
+
+	delete_dynamic_array(rect_rendering_data^)
+	reset_ui_state()
 }
 
+reset_ui_state :: proc() {
+	ui_state.active_box = nil
+	ui_state.hot_box = nil
+}
 
 main_color: Color = {0.6, 0.5, 0.9, 1}
 second_color: Color = {0.3, 0.2, 0.6, 1}

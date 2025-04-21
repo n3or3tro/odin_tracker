@@ -19,7 +19,6 @@ top_bar :: proc() -> Top_Bar_Signals {
 	restart_rect := cut_left(&top_bar_rect, Size{.Pixels, button_width})
 	settings_rect := get_right(top_bar_rect, Size{.Pixels, button_width})
 
-
 	settings_button := text_button("Settings@topbar", settings_rect)
 	play_button := text_button(app.audio_state.playing ? ":(@topbar" : ":)@topbar", play_rect)
 	restart_button := text_button("Restart@topbar", restart_rect)
@@ -74,7 +73,10 @@ settings_menu :: proc(settings_menu_rect: Rect) -> Settings_Menu_Signals {
 	n_buttons: f32 = 5.0
 	padding := 0.01
 
-	settings_container := container("Options-Container@topbar", settings_menu_rect)
+	ui_state.z_index = 1
+	defer ui_state.z_index = 0
+
+	settings_container := container("options-container@topbar", settings_menu_rect)
 
 	resize_buttons_rect := get_top(
 		settings_menu_rect,
