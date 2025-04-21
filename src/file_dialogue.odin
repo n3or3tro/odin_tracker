@@ -61,7 +61,7 @@ when ODIN_OS == .Windows {
 		config.lStructSize = size_of(config)
 
 		sdl_window_info: sdl.SysWMinfo
-		sdl.GetWindowWMInfo(window, &sdl_window_info)
+		sdl.GetWindowWMInfo(app.window, &sdl_window_info)
 		config.hwndOwner = windows.HWND(sdl_window_info.info.win.window)
 
 

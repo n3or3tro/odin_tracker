@@ -4,6 +4,7 @@ Top_Bar_Signals :: struct {
 	play:     Box_Signals,
 	restart:  Box_Signals,
 	settings: Box_Signals,
+	sampler:  Box_Signals,
 }
 
 Settings_Menu_Signals :: struct {
@@ -17,16 +18,14 @@ top_bar :: proc() -> Top_Bar_Signals {
 
 	play_rect := cut_left(&top_bar_rect, Size{.Pixels, button_width})
 	restart_rect := cut_left(&top_bar_rect, Size{.Pixels, button_width})
+	sampler_rect := cut_left(&top_bar_rect, Size{.Pixels, button_width})
 	settings_rect := get_right(top_bar_rect, Size{.Pixels, button_width})
 
-	settings_button := text_button("Settings@topbar", settings_rect)
 	play_button := text_button(app.audio_state.playing ? ":(@topbar" : ":)@topbar", play_rect)
+	settings_button := text_button("Settings@topbar", settings_rect)
+	sampler_button := text_button("Open Sampler@topbar", sampler_rect)
 	restart_button := text_button("Restart@topbar", restart_rect)
-	return Top_Bar_Signals {
-		play = play_button,
-		restart = restart_button,
-		settings = settings_button,
-	}
+	return Top_Bar_Signals{play = play_button, restart = restart_button, settings = settings_button, sampler = sampler_button}
 }
 
 handle_top_bar_interactions :: proc(signals: Top_Bar_Signals) {
@@ -35,14 +34,8 @@ handle_top_bar_interactions :: proc(signals: Top_Bar_Signals) {
 		// A litle janky, hardcoded way to figure out how big the settings
 		// box is going to be.
 		settings_window_rect := Rect {
-			top_left     = {
-				settings_space.top_left.x,
-				settings_space.top_left.y + rect_height(settings_space),
-			},
-			bottom_right = {
-				settings_space.bottom_right.x,
-				settings_space.bottom_right.y + rect_height(settings_space) * 7,
-			},
+			top_left     = {settings_space.top_left.x, settings_space.top_left.y + rect_height(settings_space)},
+			bottom_right = {settings_space.bottom_right.x, settings_space.bottom_right.y + rect_height(settings_space) * 7},
 		}
 		settings := settings_menu(settings_window_rect)
 		if settings.grow_ui.clicked {
@@ -67,6 +60,10 @@ handle_top_bar_interactions :: proc(signals: Top_Bar_Signals) {
 		// }
 	}
 
+	if signals.sampler.clicked {
+		app.sampler_open = !app.sampler_open
+	}
+
 }
 
 settings_menu :: proc(settings_menu_rect: Rect) -> Settings_Menu_Signals {
@@ -78,10 +75,7 @@ settings_menu :: proc(settings_menu_rect: Rect) -> Settings_Menu_Signals {
 
 	settings_container := container("options-container@topbar", settings_menu_rect)
 
-	resize_buttons_rect := get_top(
-		settings_menu_rect,
-		Size{kind = .Percent, value = 1 / n_buttons},
-	)
+	resize_buttons_rect := get_top(settings_menu_rect, Size{kind = .Percent, value = 1 / n_buttons})
 	reduce_rect := get_left(resize_buttons_rect, Size{.Percent, 0.5})
 	increase_rect := get_right(resize_buttons_rect, Size{.Percent, 0.5})
 
