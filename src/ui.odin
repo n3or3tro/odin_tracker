@@ -38,6 +38,8 @@ UI_State :: struct {
 	hot_box:             ^Box,
 	active_box:          ^Box,
 	z_index:             u8,
+	context_menu_pos:    Vec2,
+	context_menu_active: bool,
 }
 
 num_column :: proc(track_height: u32, n_steps: u32) {
@@ -61,11 +63,19 @@ create_ui :: proc() {
 	// This is the remaining space to the right of the number column.
 	rest_screen := f32(app.wx^) * (1 - track_steps_width_ratio)
 	track_width: f32 = f32(rest_screen / f32(N_TRACKS) - f32(track_padding))
-	for i in 0 ..= 9 {
+	for i in 0 ..< app.n_tracks {
 		create_track(u32(i), track_width)
 		push_color({0, 0, 0, 1})
 		spacer(tprintf("track_spacer_{}@1", i), RectCut{Size{.Pixels, f32(track_padding)}, .Left})
 		pop_color()
+	}
+	add_track_rect := Rect {
+		top_left     = {track_width * f32(app.n_tracks) + 100, f32(app.wy^ / 2) - 50},
+		bottom_right = {track_width * f32(app.n_tracks) + 150, f32(app.wy^ / 2)},
+	}
+	add_track := text_button("+@add_track", add_track_rect)
+	if add_track.clicked {
+		app.n_tracks += 1
 	}
 	handle_top_bar_interactions(topbar)
 	if app.sampler_open {
@@ -81,6 +91,10 @@ create_ui :: proc() {
 			app.sampler_pos.x -= f32(change_in_x)
 			app.sampler_pos.y -= f32(change_in_y)
 		}
+	}
+
+	if ui_state.context_menu_active {
+		context_menu()
 	}
 }
 
@@ -101,20 +115,4 @@ render_ui :: proc() {
 reset_ui_state :: proc() {
 	ui_state.active_box = nil
 	ui_state.hot_box = nil
-}
-
-main_color: Color = {0.6, 0.5, 0.9, 1}
-second_color: Color = {0.3, 0.2, 0.6, 1}
-third_color: Color = {0.5, 0.9, 0.2, 1}
-fourth_color: Color = {0.5, 0.65, 0.1, 1}
-accent_color: Color = {0.9, 0.8, 1, 1}
-
-map_colors :: proc() {
-	for i in 0 ..< 4 {
-		main_color[i] = map_range(0, 255, 0, 1, main_color[i])
-		second_color[i] = map_range(0, 255, 0, 1, second_color[i])
-		third_color[i] = map_range(0, 255, 0, 1, third_color[i])
-		fourth_color[i] = map_range(0, 255, 0, 1, fourth_color[i])
-		accent_color[i] = map_range(0, 255, 0, 1, accent_color[i])
-	}
 }
