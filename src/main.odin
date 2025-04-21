@@ -63,6 +63,7 @@ App_State :: struct {
 	// top left of the sampler window
 	sampler_pos:     Vec2,
 	dragging_window: bool,
+	n_tracks:        u8,
 }
 
 N_TRACKS :: 10
@@ -108,13 +109,13 @@ main :: proc() {
 	init_app()
 
 	for {
-		// desired_frame_time: int = 1000 / 120
-		// start := sdl.GetTicks()
+		desired_frame_time: int = 1000 / 120
+		start := sdl.GetTicks()
 		if !update_app() {
 			break
 		}
-		// frame_time := int(start - sdl.GetTicks())
-		// sdl.Delay(u32(desired_frame_time - frame_time))
+		frame_time := int(start - sdl.GetTicks())
+		sdl.Delay(u32(desired_frame_time - frame_time))
 	}
 }
 
@@ -248,6 +249,7 @@ init_app :: proc() -> ^App_State {
 	ui_state = app.ui_state
 	init_ui_state()
 	setup_audio()
+	app.n_tracks += 1
 	return app
 }
 
@@ -340,7 +342,15 @@ handle_input :: proc(event: sdl.Event) -> bool {
 				app.mouse.drag_done = false
 			}
 			app.mouse.left_pressed = true
-		case sdl.BUTTON_RIGHT: app.mouse.right_pressed = true
+		// ui_state.context_menu_active = false
+		case sdl.BUTTON_RIGHT:
+			app.mouse.right_pressed = true
+			if ui_state.context_menu_active {
+
+			} else {
+				ui_state.context_menu_pos = Vec2{f32(app.mouse.pos.x), f32(app.mouse.pos.y)}
+				ui_state.context_menu_active = true
+			}
 		}
 	}
 	if etype == .MOUSEBUTTONUP {
@@ -384,4 +394,9 @@ resize_window :: proc() {
 reset_mouse_state :: proc() {
 	app.mouse.wheel = {0, 0}
 	app.mouse.last_pos = app.mouse.pos
+	if app.mouse.left_pressed {
+		// do this here because events are captured before ui is created, 
+		// meaning context-menu.button1.signals.click will never be set.
+		ui_state.context_menu_active = false
+	}
 }
