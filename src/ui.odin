@@ -40,6 +40,7 @@ UI_State :: struct {
 	z_index:             u8,
 	context_menu_pos:    Vec2,
 	context_menu_active: bool,
+	right_clicked_on:    ^Box,
 }
 
 num_column :: proc(track_height: u32, n_steps: u32) {

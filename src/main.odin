@@ -52,6 +52,8 @@ App_State :: struct {
 		left_pressed:  bool,
 		right_pressed: bool,
 		wheel:         [2]i8, //-1 moved down, +1 move up
+		clicked:       bool, // whether mouse was left clicked in this frame.
+		right_clicked: bool, // whether mouse was right clicked in this frame.
 	},
 	// Actual pixel values of the window.
 	wx:              ^i32,
@@ -356,13 +358,20 @@ handle_input :: proc(event: sdl.Event) -> bool {
 	if etype == .MOUSEBUTTONUP {
 		switch event.button.button {
 		case sdl.BUTTON_LEFT:
+			if app.mouse.left_pressed {
+				app.mouse.clicked = true
+			}
 			app.mouse.left_pressed = false
 			app.mouse.drag_end = app.mouse.pos
 			app.mouse.dragging = false
 			app.mouse.drag_done = true
 			app.dragging_window = false
 			printf("mouse was dragged from {} to {}\n", app.mouse.drag_start, app.mouse.drag_end)
-		case sdl.BUTTON_RIGHT: app.mouse.right_pressed = false
+		case sdl.BUTTON_RIGHT:
+			if app.mouse.right_pressed {
+				app.mouse.right_clicked = true
+			}
+			app.mouse.right_pressed = false
 		}
 	}
 	if etype == .DROPFILE {
@@ -372,7 +381,6 @@ handle_input :: proc(event: sdl.Event) -> bool {
 			set_track_sound(event.drop.file, which)
 		}
 	}
-
 	return true
 }
 
@@ -394,9 +402,12 @@ resize_window :: proc() {
 reset_mouse_state :: proc() {
 	app.mouse.wheel = {0, 0}
 	app.mouse.last_pos = app.mouse.pos
-	if app.mouse.left_pressed {
+	if app.mouse.clicked {
+		println("mouse clicked")
 		// do this here because events are captured before ui is created, 
 		// meaning context-menu.button1.signals.click will never be set.
 		ui_state.context_menu_active = false
 	}
+	app.mouse.clicked = false
+	app.mouse.right_clicked = false
 }
