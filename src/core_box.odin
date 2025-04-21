@@ -167,18 +167,22 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 	if signals.hovering {
 		ui_state.hot_box = box
 		signals.pressed = app.mouse.left_pressed
-		if pressed_on_box(box, prev_signals) {
+		signals.right_pressed = app.mouse.right_pressed
+		if left_clicked_on_box(box, prev_signals) {
 			ui_state.active_box = box
 			signals.clicked = true
 		}
+		if right_clicked_on_box(box, prev_signals) {
+			ui_state.right_clicked_on = box
+			signals.right_clicked = true
+			println("right button clicked on: ", box.id_string)
+		}
 		if app.mouse.wheel.x != 0 || app.mouse.wheel.y != 0 {
-			println("scrolling on ", box.id_string)
 			signals.scrolled = true
 		}
 		if signals.pressed {
 			signals.dragged_over = true
 			if prev_signals.pressed {
-				// println("dragging: ", box.name)
 				signals.dragging = true
 			}
 		}
@@ -203,7 +207,7 @@ hovering_in_box :: proc(box: ^Box) -> bool {
 }
 
 // Does expected checking, but also accounts for z-index stuff.
-pressed_on_box :: proc(box: ^Box, prev_signals: Box_Signals) -> bool {
+left_clicked_on_box :: proc(box: ^Box, prev_signals: Box_Signals) -> bool {
 	if ui_state.active_box != nil {
 		if box.z_index > ui_state.active_box.z_index {
 			// might need to add more here
@@ -218,6 +222,21 @@ pressed_on_box :: proc(box: ^Box, prev_signals: Box_Signals) -> bool {
 		return false
 	}
 	return prev_signals.pressed && !app.mouse.left_pressed && ui_state.active_box == nil && .Clickable in box.flags
+}
+
+// Does expected checking, but also accounts for z-index stuff.
+right_clicked_on_box :: proc(box: ^Box, prev_signals: Box_Signals) -> bool {
+	if ui_state.active_box != nil {
+		if box.z_index > ui_state.active_box.z_index {
+			// might need to add more here
+			if prev_signals.right_pressed && !app.mouse.right_pressed && .Clickable in box.flags {
+				ui_state.active_box.active = false
+				return true
+			}
+		}
+		return false
+	}
+	return prev_signals.right_pressed && !app.mouse.right_pressed && ui_state.active_box == nil && .Clickable in box.flags
 }
 
 rect_from_points :: proc(a, b: Vec2) -> sdl.Rect {

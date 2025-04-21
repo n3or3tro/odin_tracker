@@ -62,9 +62,7 @@ set_track_sound :: proc(path: cstring, which: u32) {
 
 toggle_sound_playing :: proc(sound: ^ma.sound) {
 	if sound == nil {
-		println(
-			"Passed in a 'nil' sound.\nMost likely this track hasn't been loaded with a sound.",
-		)
+		println("Passed in a 'nil' sound.\nMost likely this track hasn't been loaded with a sound.")
 	} else {
 		if ma.sound_is_playing(sound) {
 			res := ma.sound_stop(sound)
@@ -108,7 +106,9 @@ get_pcm_data :: proc(sound: ^ma.sound) -> [dynamic]f32 {
 	buf := make([dynamic]f32, n_frames)
 	defer delete(buf)
 	frames_read: u64
+	println("before trying to read")
 	res = ma.data_source_read_pcm_frames(sound.pDataSource, raw_data(buf), n_frames, &frames_read)
+	println("after trying to read")
 	assert(res == .SUCCESS)
 
 	pcm_frames := make([dynamic]f32, n_frames / 2)

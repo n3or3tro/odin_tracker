@@ -17,6 +17,5 @@ sampler :: proc(id_string: string, rect: ^Rect) -> Sampler_Signals {
 	cut_right(&waveform_container, {.Percent, 0.1})
 	container(tprintf("{}-waveform-container@sampler", sampler_name), waveform_container)
 	pcm_data := get_pcm_data(app.audio_state.engine_sounds[0])
-	println(app.audio_state.engine_sounds[0])
 	return Sampler_Signals{container_signals = s_container}
 }
