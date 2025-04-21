@@ -168,7 +168,6 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 		ui_state.hot_box = box
 		signals.pressed = app.mouse.left_pressed
 		if pressed_on_box(box, prev_signals) {
-			// println(box.id_string, "clicked")
 			ui_state.active_box = box
 			signals.clicked = true
 		}
@@ -178,6 +177,10 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 		}
 		if signals.pressed {
 			signals.dragged_over = true
+			if prev_signals.pressed {
+				// println("dragging: ", box.name)
+				signals.dragging = true
+			}
 		}
 	}
 	box.signals = signals
@@ -189,6 +192,8 @@ hovering_in_box :: proc(box: ^Box) -> bool {
 	if ui_state.hot_box != nil {
 		if box.z_index > ui_state.hot_box.z_index {
 			if mouse_inside_box(box, {app.mouse.pos.x, app.mouse.pos.y}) && .Clickable in box.flags {
+				ui_state.hot_box.hot = false
+				ui_state.hot_box.signals.hovering = false
 				return true
 			}
 		}

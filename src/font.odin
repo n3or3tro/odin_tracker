@@ -11,14 +11,6 @@ import ft "third_party/freetype"
 import gl "vendor:OpenGL"
 import stash "vendor:fontstash"
 
-// font_path :: "/usr/share/fonts/TTF/Sauce Code Pro Medium Nerd Font Complete.ttf"
-when ODIN_OS == .Windows {
-	font_path :: "C:\\windows\\fonts\\arial.ttf"
-} else {
-	font_path :: "/usr/share/fonts/TTF/SauceCodeProNerdFontMono-Medium.ttf"
-}
-
-
 import "core:fmt"
 import "core:io"
 import os "core:os/os2"
@@ -48,14 +40,7 @@ parse_fnt_metadata :: proc(path: string) -> Atlas_Metadata {
 	file_bytes := make([]byte, file_len)
 	bytes_read, _ := os.read(fp, file_bytes)
 	if bytes_read != int(file_len) {
-		panic(
-			tprintf(
-				"only read %d bytes from %s when we were suppoed to read %d bytes",
-				bytes_read,
-				path,
-				file_len,
-			),
-		)
+		panic(tprintf("only read %d bytes from %s when we were suppoed to read %d bytes", bytes_read, path, file_len))
 	}
 	file_data := strings.clone_from_bytes(file_bytes)
 	lines := strings.split(file_data, "\n", allocator = context.temp_allocator)
@@ -66,13 +51,8 @@ parse_fnt_metadata :: proc(path: string) -> Atlas_Metadata {
 	println(lines[1])
 	tex_width_start := strings.index(lines[1], "scaleW=") + 7
 	tex_height_start := strings.index(lines[1], "scaleH=") + 7
-	texture_height := strconv.atoi(
-		lines[1][tex_height_start:strings.index(lines[1][tex_height_start:], " ") +
-		tex_height_start],
-	)
-	texture_width := strconv.atoi(
-		lines[1][tex_width_start:strings.index(lines[1][tex_width_start:], " ") + tex_width_start],
-	)
+	texture_height := strconv.atoi(lines[1][tex_height_start:strings.index(lines[1][tex_height_start:], " ") + tex_height_start])
+	texture_width := strconv.atoi(lines[1][tex_width_start:strings.index(lines[1][tex_width_start:], " ") + tex_width_start])
 
 	for line in lines {
 		words := strings.split(line, " ", allocator = context.temp_allocator)
@@ -93,37 +73,16 @@ parse_fnt_metadata :: proc(path: string) -> Atlas_Metadata {
 			yoffset_start := strings.index(line, "yoffset=") + 8
 			xadvance_start := strings.index(line, "xadvance=") + 9
 
-			letter_code := strconv.atoi(
-				line[ascii_code_start:strings.index(line[ascii_code_start:], " ") +
-				ascii_code_start],
-			)
+			letter_code := strconv.atoi(line[ascii_code_start:strings.index(line[ascii_code_start:], " ") + ascii_code_start])
 			letter := rune(letter_code)
 			x := strconv.atoi(line[x_start:strings.index(line[x_start:], " ") + x_start])
 			y := strconv.atoi(line[y_start:strings.index(line[y_start:], " ") + y_start])
-			width := strconv.atoi(
-				line[width_start:strings.index(line[width_start:], " ") + width_start],
-			)
-			height := strconv.atoi(
-				line[height_start:strings.index(line[height_start:], " ") + height_start],
-			)
-			xoffset := strconv.atoi(
-				line[xoffset_start:strings.index(line[xoffset_start:], " ") + xoffset_start],
-			)
-			yoffset := strconv.atoi(
-				line[yoffset_start:strings.index(line[yoffset_start:], " ") + yoffset_start],
-			)
-			xadvance := strconv.atoi(
-				line[xadvance_start:strings.index(line[xadvance_start:], " ") + xadvance_start],
-			)
-			atlas_char_metadata[letter] = Char_Atlas_Metadata {
-				x,
-				y,
-				width,
-				height,
-				xoffset,
-				yoffset,
-				xadvance,
-			}
+			width := strconv.atoi(line[width_start:strings.index(line[width_start:], " ") + width_start])
+			height := strconv.atoi(line[height_start:strings.index(line[height_start:], " ") + height_start])
+			xoffset := strconv.atoi(line[xoffset_start:strings.index(line[xoffset_start:], " ") + xoffset_start])
+			yoffset := strconv.atoi(line[yoffset_start:strings.index(line[yoffset_start:], " ") + yoffset_start])
+			xadvance := strconv.atoi(line[xadvance_start:strings.index(line[xadvance_start:], " ") + xadvance_start])
+			atlas_char_metadata[letter] = Char_Atlas_Metadata{x, y, width, height, xoffset, yoffset, xadvance}
 		}
 	}
 	return Atlas_Metadata{texture = {texture_width, texture_height}, chars = atlas_char_metadata}
@@ -146,6 +105,7 @@ get_font_baseline :: proc(text: string, rect: Rect) -> (x, y: f32) {
 	y = rect.bottom_right.y - (rect_height(rect) - max_height) / 2
 	return x, y
 }
+
 tallest_char_height :: proc(s: string) -> int {
 	hi := -1
 	for ch in s {
@@ -155,6 +115,7 @@ tallest_char_height :: proc(s: string) -> int {
 	}
 	return hi
 }
+
 word_rendered_length :: proc(s: string) -> int {
 	tot := 0
 	// Make sure this isn't off by one!!

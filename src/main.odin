@@ -20,38 +20,51 @@ import "vendor:stb/image"
 
 println :: fmt.println
 printf :: fmt.printf
+printfln :: fmt.printfln
 aprintf :: fmt.aprintf
 tprintf :: fmt.tprintf
 tprintfln :: fmt.aprintfln
 
 PROFILING :: #config(profile, false)
 
-WINDOW_WIDTH := 3000
-WINDOW_HEIGHT := 2000
+when ODIN_OS == .Windows {
+	WINDOW_WIDTH := 1500
+	WINDOW_HEIGHT := 1000
+} else {
+	WINDOW_WIDTH := 3000
+	WINDOW_HEIGHT := 2000
+}
 ASPECT_RATIO: f32 : 16.0 / 10.0
 
 
 // [NOTE]: Pretty sure that anything that's a pointer inside this struct needs to malloc'd.
 App_State :: struct {
-	window:      ^sdl.Window,
-	ui_state:    ^UI_State,
-	char_map:    ^u32,
-	mouse:       struct {
+	window:          ^sdl.Window,
+	ui_state:        ^UI_State,
+	char_map:        ^u32,
+	mouse:           struct {
 		pos:           [2]i32, // these are typed like this to follow the SDL api, else, they'd be u16
+		last_pos:      [2]i32, // pos of the mouse in the last frame.
 		drag_start:    [2]i32, // -1 if drag was already handled
 		drag_end:      [2]i32, // -1 if drag was already handled
 		dragging:      bool,
+		drag_done:     bool,
 		left_pressed:  bool,
 		right_pressed: bool,
 		wheel:         [2]i8, //-1 moved down, +1 move up
 	},
 	// Actual pixel values of the window.
-	wx:          ^i32,
-	wy:          ^i32,
-	audio_state: ^Audio_State,
-	hot_id:      string,
-	active_id:   string,
+	wx:              ^i32,
+	wy:              ^i32,
+	audio_state:     ^Audio_State,
+	hot_id:          string,
+	active_id:       string,
+	sampler_open:    bool,
+	// top left of the sampler window
+	sampler_pos:     Vec2,
+	dragging_window: bool,
 }
+
 N_TRACKS :: 10
 
 app: ^App_State
@@ -69,18 +82,12 @@ when PROFILING {
 
 	//------------------ Automatic profiling of every procedure:-----------------
 	@(instrumentation_enter)
-	spall_enter :: proc "contextless" (
-		proc_address, call_site_return_address: rawptr,
-		loc: runtime.Source_Code_Location,
-	) {
+	spall_enter :: proc "contextless" (proc_address, call_site_return_address: rawptr, loc: runtime.Source_Code_Location) {
 		spall._buffer_begin(&spall_ctx, &spall_buffer, "", "", loc)
 	}
 
 	@(instrumentation_exit)
-	spall_exit :: proc "contextless" (
-		proc_address, call_site_return_address: rawptr,
-		loc: runtime.Source_Code_Location,
-	) {
+	spall_exit :: proc "contextless" (proc_address, call_site_return_address: rawptr, loc: runtime.Source_Code_Location) {
 		spall._buffer_end(&spall_ctx, &spall_buffer)
 	}
 }
@@ -98,11 +105,16 @@ main :: proc() {
 
 		spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
 	}
-	app_init()
+	init_app()
+
 	for {
-		if !app_update() {
+		// desired_frame_time: int = 1000 / 120
+		// start := sdl.GetTicks()
+		if !update_app() {
 			break
 		}
+		// frame_time := int(start - sdl.GetTicks())
+		// sdl.Delay(u32(desired_frame_time - frame_time))
 	}
 }
 
@@ -110,8 +122,7 @@ init_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	// sdl.Init({.AUDIO, .EVENTS, .TIMER})
 	sdl.Init({.EVENTS})
 
-	window_flags :=
-		sdl.WINDOW_OPENGL | sdl.WINDOW_RESIZABLE | sdl.WINDOW_ALLOW_HIGHDPI | sdl.WINDOW_UTILITY
+	window_flags := sdl.WINDOW_OPENGL | sdl.WINDOW_RESIZABLE | sdl.WINDOW_ALLOW_HIGHDPI | sdl.WINDOW_UTILITY
 	app.window = sdl.CreateWindow(
 		"n3or3tro-tracker",
 		sdl.WINDOWPOS_UNDEFINED,
@@ -170,33 +181,18 @@ init_ui_state :: proc() -> ^UI_State {
 
 	gl.GenVertexArrays(1, ui_state.quad_vabuffer)
 	create_vbuffer(ui_state.quad_vbuffer, nil, 700_000)
-	program1, quad_shader_ok := gl.load_shaders_source(
-		string(ui_vertex_shader_data),
-		string(ui_pixel_shader_data),
-	)
+	program1, quad_shader_ok := gl.load_shaders_source(string(ui_vertex_shader_data), string(ui_pixel_shader_data))
 	assert(quad_shader_ok)
 	ui_state.quad_shader_program = program1
 
 
 	bind_shader(ui_state.quad_shader_program)
-	set_shader_vec2(
-		ui_state.quad_shader_program,
-		"screen_res",
-		{f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)},
-	)
+	set_shader_vec2(ui_state.quad_shader_program, "screen_res", {f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)})
 
 	ui_state.atlas_metadata = parse_fnt_metadata("font-atlas/Unnamed.fnt")
 
-	set_shader_i32(
-		ui_state.quad_shader_program,
-		"texture_height",
-		i32(ui_state.atlas_metadata.texture.texture_height),
-	)
-	set_shader_i32(
-		ui_state.quad_shader_program,
-		"texture_width",
-		i32(ui_state.atlas_metadata.texture.texture_width),
-	)
+	set_shader_i32(ui_state.quad_shader_program, "texture_height", i32(ui_state.atlas_metadata.texture.texture_height))
+	set_shader_i32(ui_state.quad_shader_program, "texture_width", i32(ui_state.atlas_metadata.texture.texture_width))
 
 
 	font_texture_data := #load("../font-atlas/Unnamed.png")
@@ -244,9 +240,9 @@ init_ui_state :: proc() -> ^UI_State {
 	return ui_state
 }
 
-@(export)
-app_init :: proc() -> ^App_State {
+init_app :: proc() -> ^App_State {
 	app = new(App_State)
+	app.sampler_pos = {100, 100}
 	init_window()
 	app.ui_state = new(UI_State)
 	ui_state = app.ui_state
@@ -255,8 +251,8 @@ app_init :: proc() -> ^App_State {
 	return app
 }
 
-@(export)
-app_update :: proc() -> bool {
+
+update_app :: proc() -> bool {
 
 	root_rect := app.ui_state.root_rect
 	frame_num := app.ui_state.frame_num
@@ -290,17 +286,6 @@ app_update :: proc() -> bool {
 	return true
 }
 
-@(export)
-app_shutdown :: proc() {
-
-}
-
-@(export)
-app_memory :: proc() -> rawptr {
-	return app
-}
-
-
 // stupid_sem: sync.Atomic_Sema
 run_app :: proc() {
 	// The weird semaphore stuff is required because of Odin's bad thread
@@ -332,14 +317,14 @@ handle_input :: proc(event: sdl.Event) -> bool {
 		return false
 	}
 	if etype == .MOUSEMOTION {
+		app.mouse.last_pos = app.mouse.pos
 		sdl.GetMouseState(&app.mouse.pos.x, &app.mouse.pos.y)
 	}
 	if etype == .KEYDOWN {
 		#partial switch event.key.keysym.sym {
 		case .ESCAPE:
 			return false
-		case .SPACE:
-			app.audio_state.playing = !app.audio_state.playing
+		case .SPACE: app.audio_state.playing = !app.audio_state.playing
 		}
 	}
 	if etype == .MOUSEWHEEL {
@@ -349,24 +334,25 @@ handle_input :: proc(event: sdl.Event) -> bool {
 	if etype == .MOUSEBUTTONDOWN {
 		switch event.button.button {
 		case sdl.BUTTON_LEFT:
-			if !app.mouse.left_pressed {
+			if !app.mouse.left_pressed { 	// i.e. if left button wasn't pressed last frame
 				app.mouse.drag_start = app.mouse.pos
 				app.mouse.dragging = true
+				app.mouse.drag_done = false
 			}
 			app.mouse.left_pressed = true
-		case sdl.BUTTON_RIGHT:
-			app.mouse.right_pressed = true
+		case sdl.BUTTON_RIGHT: app.mouse.right_pressed = true
 		}
 	}
 	if etype == .MOUSEBUTTONUP {
-		println("mouse up ")
 		switch event.button.button {
 		case sdl.BUTTON_LEFT:
 			app.mouse.left_pressed = false
 			app.mouse.drag_end = app.mouse.pos
 			app.mouse.dragging = false
-		case sdl.BUTTON_RIGHT:
-			app.mouse.right_pressed = false
+			app.mouse.drag_done = true
+			app.dragging_window = false
+			printf("mouse was dragged from {} to {}\n", app.mouse.drag_start, app.mouse.drag_end)
+		case sdl.BUTTON_RIGHT: app.mouse.right_pressed = false
 		}
 	}
 	if etype == .DROPFILE {
@@ -397,4 +383,5 @@ resize_window :: proc() {
 
 reset_mouse_state :: proc() {
 	app.mouse.wheel = {0, 0}
+	app.mouse.last_pos = app.mouse.pos
 }

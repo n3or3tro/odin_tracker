@@ -68,7 +68,20 @@ create_ui :: proc() {
 		pop_color()
 	}
 	handle_top_bar_interactions(topbar)
-	// sampler("first-sampler", Rect{top_left = {100, 100}, bottom_right = {2000, 500}})
+	if app.sampler_open {
+		sampler_top_left := app.sampler_pos
+		sampler_bottom_right := Vec2{1000 + sampler_top_left.x, 500 + sampler_top_left.y}
+		sampler_signals := sampler("first-sampler@1", &Rect{sampler_top_left, sampler_bottom_right})
+		if sampler_signals.container_signals.handle_bar.dragging {
+			app.dragging_window = true
+		}
+		if app.dragging_window {
+			change_in_x := app.mouse.last_pos.x - app.mouse.pos.x
+			change_in_y := app.mouse.last_pos.y - app.mouse.pos.y
+			app.sampler_pos.x -= f32(change_in_x)
+			app.sampler_pos.y -= f32(change_in_y)
+		}
+	}
 }
 
 render_ui :: proc() {
@@ -78,12 +91,7 @@ render_ui :: proc() {
 	}
 	rect_rendering_data := get_all_rendering_data()
 	n_rects := u32(len(rect_rendering_data))
-	populate_vbuffer_with_rects(
-		ui_state.quad_vabuffer,
-		0,
-		raw_data(rect_rendering_data^),
-		n_rects * size_of(Rect_Render_Data),
-	)
+	populate_vbuffer_with_rects(ui_state.quad_vabuffer, 0, raw_data(rect_rendering_data^), n_rects * size_of(Rect_Render_Data))
 	gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, i32(n_rects))
 
 	delete_dynamic_array(rect_rendering_data^)
