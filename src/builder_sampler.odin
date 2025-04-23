@@ -15,7 +15,11 @@ sampler :: proc(id_string: string, rect: ^Rect) -> Sampler_Signals {
 	cut_bottom(&waveform_container, {.Percent, 0.1})
 	cut_left(&waveform_container, {.Percent, 0.1})
 	cut_right(&waveform_container, {.Percent, 0.1})
-	container(tprintf("{}-waveform-container@sampler", sampler_name), waveform_container)
-	pcm_data := get_pcm_data(app.audio_state.engine_sounds[0])
+	container(tprintf("{}-waveform-container@waveform-container", sampler_name), waveform_container)
+	// At the moment we hardcode check the first track, obviously this isn't the expected behaviour long term.
+	if app.audio_state.pcm_data[0] == nil || len(app.audio_state.pcm_data[0]) == 0 {
+		store_track_pcm_data(0)
+		println("writing out pcm data")
+	}
 	return Sampler_Signals{container_signals = s_container}
 }

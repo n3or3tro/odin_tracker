@@ -13,11 +13,12 @@ Audio_State :: struct {
 	slider_volumes: [10]f32,
 	engine:         ^ma.engine,
 	engine_sounds:  [N_TRACKS]^ma.sound,
-
 	// for now there will be a fixed amount of channels, but irl this will be dynamic.
 	// channels are a miniaudio idea of basically audio processing groups. need to dive deeper into this
 	// as it probably will help in designging the audio processing stuff.
 	audio_groups:   [N_AUDIO_GROUPS]^ma.sound_group,
+	// should be able to always get this dynamically, but having issues, so I'll cache it here for now.
+	pcm_data:       [N_TRACKS][dynamic]f32,
 }
 
 SOUND_FILE_LOAD_FLAGS: ma.sound_flags = {.DECODE, .NO_SPATIALIZATION}
@@ -41,6 +42,10 @@ setup_audio :: proc() -> ^Audio_State {
 	}
 	app.audio_state = audio_state
 	audio_state.engine = engine
+	// for track in 0 ..< N_TRACKS {
+	// 	audio_state.pcm_data[track] = make([dynamic]f32)
+	// }
+	set_track_sound("/home/lucas/Music/test_sounds/the-create-vol-4/loops/01-save-the-day.wav", 0)
 	return audio_state
 }
 
@@ -98,28 +103,31 @@ play_current_step :: proc() {
 	}
 }
 
-get_pcm_data :: proc(sound: ^ma.sound) -> [dynamic]f32 {
+get_track_pcm_data :: proc(track: u32) -> [dynamic]f32 {
+	return app.audio_state.pcm_data[track]
+}
+
+store_track_pcm_data :: proc(track: u32) {
+	sound := app.audio_state.engine_sounds[track]
 	n_frames: u64
 	res := ma.sound_get_length_in_pcm_frames(sound, &n_frames)
 	assert(res == .SUCCESS)
 
-	buf := make([dynamic]f32, n_frames)
+	// code will break if you pass in a .wav file that doesn't have 2 channels.
+	buf := make([dynamic]f32, n_frames * 2, context.temp_allocator) // assuming stereo
 	defer delete(buf)
+
 	frames_read: u64
-	println("before trying to read")
-	res = ma.data_source_read_pcm_frames(sound.pDataSource, raw_data(buf), n_frames, &frames_read)
-	println("after trying to read")
-	assert(res == .SUCCESS)
 
-	pcm_frames := make([dynamic]f32, n_frames / 2)
+	data_source := ma.sound_get_data_source(sound)
+	res = ma.data_source_read_pcm_frames(data_source, raw_data(buf), n_frames, &frames_read)
+	assert(res == .SUCCESS || res == .AT_END)
 
-	// gets mono (left, I think) channel of the samples.
-	j := 0
-	for i in 0 ..< n_frames {
-		if i % 2 == 0 {
-			pcm_frames[j] = buf[i]
-			j += 1
-		}
+	// pcm_frames := make([dynamic]f32, frames_read)
+	app.audio_state.pcm_data[track] = make([dynamic]f32, frames_read)
+	pcm_frames := app.audio_state.pcm_data[track]
+	// Gets left channel (interleaved stereo: L R L R ...)
+	for i in 0 ..< frames_read {
+		pcm_frames[i] = buf[i * 2]
 	}
-	return pcm_frames
 }

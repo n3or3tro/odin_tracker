@@ -62,6 +62,8 @@ void main() {
 	// use sdf_factor in final color calculation
 	if(ui_element_type == 0.0) {
 		color = v_color * sdf_factor * calculate_border_factor(softness_padding);
+	} else if(ui_element_type == 2.0) {
+		color = v_color;
 	} else {
 		vec4 texture_sample = texture(font_texture, texture_uv);
 		color = v_color * texture_sample;
