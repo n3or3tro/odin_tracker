@@ -18,20 +18,14 @@ gl_check_error :: proc() {
 create_vbuffer :: proc(buffer: ^u32, vertex_positions: [^]f32, size: int) {
 	gl.GenBuffers(1, buffer)
 	gl.BindBuffer(gl.ARRAY_BUFFER, buffer^)
-	// gl.BufferData(gl.ARRAY_BUFFER, size, nil, gl.DYNAMIC_DRAW)
 	// for some reason this isn't working unless I provide a literal size
-	gl.BufferData(gl.ARRAY_BUFFER, 300_000, nil, gl.DYNAMIC_DRAW)
+	gl.BufferData(gl.ARRAY_BUFFER, size, nil, gl.DYNAMIC_DRAW)
 }
 
 populate_vbuffer :: proc(buffer: ^u32, offset: u32, data: [^]f32, size: u32) {
 	gl.BufferSubData(gl.ARRAY_BUFFER, cast(int)offset, cast(int)size, data)
 }
-populate_vbuffer_with_rects :: proc(
-	buffer: ^u32,
-	offset: u32,
-	data: [^]Rect_Render_Data,
-	size: u32,
-) {
+populate_vbuffer_with_rects :: proc(buffer: ^u32, offset: u32, data: [^]Rect_Render_Data, size: u32) {
 	gl.BufferSubData(gl.ARRAY_BUFFER, cast(int)offset, cast(int)size, data)
 }
 
@@ -59,14 +53,7 @@ layout_vbuffer :: proc(
 	bytes_to_next_value: i32,
 	offset_pointer: uintptr,
 ) {
-	gl.VertexAttribPointer(
-		index,
-		elements_per_vertex,
-		vertex_element_type,
-		normalize,
-		bytes_to_next_value,
-		offset_pointer,
-	)
+	gl.VertexAttribPointer(index, elements_per_vertex, vertex_element_type, normalize, bytes_to_next_value, offset_pointer)
 }
 
 unbind_vbuffer :: proc() {
@@ -76,12 +63,7 @@ unbind_vbuffer :: proc() {
 // pretty sure gl.GenBuffers must be called before you create an index buffer.
 create_ibuffer :: proc(buffer: ^u32, indices: rawptr, n_indices: u32) {
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer^)
-	gl.BufferData(
-		gl.ELEMENT_ARRAY_BUFFER,
-		cast(int)(n_indices * size_of(u32)),
-		nil,
-		gl.STATIC_DRAW,
-	)
+	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, cast(int)(n_indices * size_of(u32)), nil, gl.STATIC_DRAW)
 }
 
 populate_ibuffer :: proc(buffer: ^u32, indices: [^]u32, n_indices: u32) {

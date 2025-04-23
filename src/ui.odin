@@ -4,6 +4,7 @@ import alg "core:math/linalg"
 import "core:sys/posix"
 import thread "core:thread"
 import gl "vendor:OpenGL"
+import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
 
 Color :: [4]f32
@@ -41,6 +42,7 @@ UI_State :: struct {
 	context_menu_pos:    Vec2,
 	context_menu_active: bool,
 	right_clicked_on:    ^Box,
+	wav_rendering_data:  map[ma.sound][dynamic]Rect_Render_Data,
 }
 
 num_column :: proc(track_height: u32, n_steps: u32) {
@@ -74,7 +76,9 @@ create_ui :: proc() {
 		top_left     = {track_width * f32(app.n_tracks) + 100, f32(app.wy^ / 2) - 50},
 		bottom_right = {track_width * f32(app.n_tracks) + 150, f32(app.wy^ / 2)},
 	}
+	ui_state.z_index = 5
 	add_track := text_button("+@add_track", add_track_rect)
+	ui_state.z_index = 0
 	if add_track.clicked {
 		app.n_tracks += 1
 	}

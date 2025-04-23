@@ -7,6 +7,7 @@ import alg "core:math/linalg"
 import "core:math/rand"
 import s "core:strings"
 import gl "vendor:OpenGL"
+import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
 
 PI :: 3.14159265359
@@ -72,26 +73,6 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 			data.tr_color = {0.8, 0, 0.2, 1}
 			data.br_color = {0.9, 0, 0.7, 1}
 			data.border_thickness = 100
-
-			// create text box to show step's pitch.
-			// track_num := track_num_from_step(box.id_string)
-			// step_num := step_num_from_step(box.id_string)
-			// pitch := ui_state.step_pitches[track_num][step_num]
-			// pitch_box :=
-			// 	text_box(tprintf("{}@track{}{}-pitch", pitch, track_num, step_num), box.rect).box_signals.box
-
-			// pitch_render_data := Rect_Render_Data {
-			// 	top_left         = pitch_box.rect.top_left,
-			// 	bottom_right     = pitch_box.rect.bottom_right,
-			// 	tl_color         = pitch_box.color,
-			// 	bl_color         = pitch_box.color,
-			// 	br_color         = pitch_box.color,
-			// 	tr_color         = pitch_box.color,
-			// 	corner_radius    = 0,
-			// 	edge_softness    = 0,
-			// 	border_thickness = 100,
-			// }
-			// append(render_data, data, pitch_render_data)
 		}
 		if is_active_step(box) {
 			data.border_thickness = 100
@@ -128,42 +109,62 @@ get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 			}
 		}
 		if .Draw_Text in box.flags {
-			word_length := word_rendered_length(box.name)
-			gap := (int(rect_width(box.rect)) - word_length) / 2
-			starting_x, starting_y := get_font_baseline(box.name, box.rect)
-			parent_rect := boxes_to_render[len(boxes_to_render) - 1]
-			len_so_far: f32 = 0
-			for i in 0 ..< len(box.name) {
-				ch := rune(box.name[i])
-				char_metadata := ui_state.atlas_metadata.chars[ch]
-				new_rect := Rect_Render_Data {
-					bl_color             = {1, 1, 1, 1},
-					br_color             = {1, 1, 1, 1},
-					tl_color             = {1, 1, 1, 1},
-					tr_color             = {1, 1, 1, 1},
-					border_thickness     = 300,
-					corner_radius        = 0,
-					edge_softness        = 0,
-					ui_element_type      = 1.0,
-					top_left             = {starting_x + len_so_far, starting_y - 40},
-					bottom_right         = {starting_x + len_so_far + f32(char_metadata.width), starting_y},
-					texture_top_left     = {f32(char_metadata.x), f32(char_metadata.y)},
-					texture_bottom_right = {f32(char_metadata.x + char_metadata.width), f32(char_metadata.y + char_metadata.height)},
-				}
-				len_so_far += f32(char_metadata.advance)
-				append(rendering_data, new_rect)
-			}
+			add_word_rendering_data(box^, boxes_to_render, rendering_data)
+		}
+		if s.contains(get_id_from_id_string(box.id_string), "waveform-container") {
+			add_waveform_rendering_data(box.rect, app.audio_state.engine_sounds[0]^, get_track_pcm_data(0), rendering_data)
 		}
 	}
 	return rendering_data
 }
 
-// At the moment, assume pcm_frames is from a mono version of the .wav file.
-render_waveform :: proc(rect: Rect, pcm_frames: [dynamic]f32) {
+// creating the rendering data was taking too long, so now any waveform that's created is cached.
+get_waveform_rendering_data :: proc(sound: ^ma.sound) {
+	// if sound.
+}
+
+add_word_rendering_data :: proc(box: Box, boxes_to_render: ^[dynamic]Rect_Render_Data, rendering_data: ^[dynamic]Rect_Render_Data) {
+	word_length := word_rendered_length(box.name)
+	gap := (int(rect_width(box.rect)) - word_length) / 2
+	starting_x, starting_y := get_font_baseline(box.name, box.rect)
+	parent_rect := boxes_to_render[len(boxes_to_render) - 1]
+	len_so_far: f32 = 0
+	for i in 0 ..< len(box.name) {
+		ch := rune(box.name[i])
+		char_metadata := ui_state.atlas_metadata.chars[ch]
+		new_rect := Rect_Render_Data {
+			bl_color             = {1, 1, 1, 1},
+			br_color             = {1, 1, 1, 1},
+			tl_color             = {1, 1, 1, 1},
+			tr_color             = {1, 1, 1, 1},
+			border_thickness     = 300,
+			corner_radius        = 0,
+			edge_softness        = 0,
+			ui_element_type      = 1.0,
+			top_left             = {starting_x + len_so_far, starting_y - 40},
+			bottom_right         = {starting_x + len_so_far + f32(char_metadata.width), starting_y},
+			texture_top_left     = {f32(char_metadata.x), f32(char_metadata.y)},
+			texture_bottom_right = {f32(char_metadata.x + char_metadata.width), f32(char_metadata.y + char_metadata.height)},
+		}
+		len_so_far += f32(char_metadata.advance)
+		append(rendering_data, new_rect)
+	}
+}
+
+// the moment, assume pcm_frames is from a mono version of the .wav file.
+// need to figure out a way to cache this.
+add_waveform_rendering_data :: proc(rect: Rect, sound: ma.sound, pcm_frames: [dynamic]f32, rendering_data: ^[dynamic]Rect_Render_Data) {
+	// if sound in ui_state.wav_rendering_data {
+	// 	data := ui_state.wav_rendering_data[sound]
+	// 	for i in 0 ..< len(data) {
+	// 		append(rendering_data, data[i])
+	// 	}
+	// 	return
+	// }
 	render_width := rect_width(rect)
 	render_height := rect_height(rect)
 	frames_read := u64(len(pcm_frames))
-	waveform_vertices := make_dynamic_array([dynamic][2]f32)
+	wav_rendering_data := make([dynamic]Rect_Render_Data, u32(render_width))
 	for x in 0 ..< render_width {
 		start := u64((f64(x) / f64(render_width)) * f64(frames_read))
 		end := u64(f64(x + 1) / f64(render_width) * f64(frames_read))
@@ -178,10 +179,25 @@ render_waveform :: proc(rect: Rect, pcm_frames: [dynamic]f32) {
 		x_pos := rect.top_left.x + norm_x * render_width
 		y_top := rect.top_left.y + (0.5 - max * 0.5) * render_height
 		y_bot := rect.top_left.y + (0.5 - min * 0.5) * render_height
-
-		append(&waveform_vertices, [2]f32{x_pos, y_top})
-		append(&waveform_vertices, [2]f32{x_pos, y_bot})
+		new_data := Rect_Render_Data {
+			tl_color         = {1, 0.5, 1, 1},
+			bl_color         = {1, 0.5, 0.5, 1},
+			tr_color         = {1, 0.5, 1, 1},
+			br_color         = {0.7, 0.5, 1, 1},
+			border_thickness = 300,
+			corner_radius    = 0,
+			edge_softness    = 0,
+			top_left         = Vec2{x_pos - 0.5, y_top},
+			bottom_right     = Vec2{x_pos + 0.5, y_bot},
+			ui_element_type  = 2.0,
+		}
+		// wav_rendering_data[u32(x)] = new_data
+		append(rendering_data, new_data)
 	}
+	// for data in wav_rendering_data {
+	// append(rendering_data, data)
+	// }
+	// ui_state.wav_rendering_data[sound] = wav_rendering_data
 }
 
 setup_for_quads :: proc(shader_program: ^u32) {

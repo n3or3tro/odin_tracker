@@ -31,8 +31,8 @@ when ODIN_OS == .Windows {
 	WINDOW_WIDTH := 1500
 	WINDOW_HEIGHT := 1000
 } else {
-	WINDOW_WIDTH := 3000
-	WINDOW_HEIGHT := 2000
+	WINDOW_WIDTH := 2500
+	WINDOW_HEIGHT := 1500
 }
 ASPECT_RATIO: f32 : 16.0 / 10.0
 
@@ -75,8 +75,6 @@ ui_state: ^UI_State
 
 ui_vertex_shader_data :: #load("shaders/box_vertex_shader.glsl")
 ui_pixel_shader_data :: #load("shaders/box_pixel_shader.glsl")
-// wave_vertex_shader_data :: #load("shaders/wave_vertex_shader.glsl")
-// wave_pixel_shader_data :: #load("shaders/wave_pixel_shader.glsl")
 
 when PROFILING {
 	spall_ctx: spall.Context
@@ -159,6 +157,7 @@ init_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	gl.Enable(gl.LINE_SMOOTH)
 	gl.Enable(gl.POLYGON_SMOOTH)
 	gl.Enable(gl.MULTISAMPLE)
+	gl.Disable(gl.BLEND)
 	// gl.Enable(gl.Depth)
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
@@ -183,7 +182,7 @@ init_ui_state :: proc() -> ^UI_State {
 	ui_state.first_frame = true
 
 	gl.GenVertexArrays(1, ui_state.quad_vabuffer)
-	create_vbuffer(ui_state.quad_vbuffer, nil, 700_000)
+	create_vbuffer(ui_state.quad_vbuffer, nil, 400_000)
 	program1, quad_shader_ok := gl.load_shaders_source(string(ui_vertex_shader_data), string(ui_pixel_shader_data))
 	assert(quad_shader_ok)
 	ui_state.quad_shader_program = program1
@@ -196,7 +195,6 @@ init_ui_state :: proc() -> ^UI_State {
 
 	set_shader_i32(ui_state.quad_shader_program, "texture_height", i32(ui_state.atlas_metadata.texture.texture_height))
 	set_shader_i32(ui_state.quad_shader_program, "texture_width", i32(ui_state.atlas_metadata.texture.texture_width))
-
 
 	font_texture_data := #load("../font-atlas/Unnamed.png")
 	texture_x, texture_y, texture_channels: i32
@@ -233,7 +231,6 @@ init_ui_state :: proc() -> ^UI_State {
 		gl.UNSIGNED_BYTE,
 		texture_data,
 	)
-
 
 	setup_for_quads(&ui_state.quad_shader_program)
 	sdl.GetWindowSize(app.window, app.wx, app.wy)
