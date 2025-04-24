@@ -107,15 +107,13 @@ main :: proc() {
 		spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
 	}
 	init_app()
-
 	for {
 		desired_frame_time: int = 1000 / 120
-		start := sdl.GetTicks()
+		start := time.now()._nsec
 		if !update_app() {
 			break
 		}
-		frame_time := int(start - sdl.GetTicks())
-		sdl.Delay(u32(desired_frame_time - frame_time))
+		frame_time := f32(start - time.now()._nsec) / 1_000
 	}
 }
 

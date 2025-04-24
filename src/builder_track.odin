@@ -23,10 +23,7 @@ Track_Step_Signals :: [64]Box_Signals
 // Obviously not a complete track, but as complete-ish for now :).
 create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 	track_container := cut_rect(top_rect(), RectCut{Size{.Pixels, track_width}, .Left})
-	track_controller_container := cut_rect(
-		&track_container,
-		RectCut{Size{.Percent, 0.25}, .Bottom},
-	)
+	track_controller_container := cut_rect(&track_container, RectCut{Size{.Percent, 0.25}, .Bottom})
 
 	ui_state.override_color = true
 	if app.audio_state.engine_sounds[which] != nil {
@@ -34,20 +31,20 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 	} else {
 		push_color({1, 1, 1, 1})
 	}
-	container(tprintf("track{}_container@lol", which), track_container)
+	container(tprintf("container@track-{}-container", which), track_container)
 	ui_state.override_color = false
 	pop_color()
 
 	push_parent_rect(&track_container)
 	push_parent_rect(&track_controller_container)
 	track_controls := track_control(
-		tprintf("track{}_controls@lol", which),
+		tprintf("controls@track-{}-controls", which),
 		&track_controller_container,
 		app.audio_state.slider_volumes[which],
 	)
 	pop_parent_rect()
 	track_step_container := cut_rect(top_rect(), {Size{.Percent, 0.97}, .Top})
-	steps := track_steps(fmt.tprintf("track_steps{}@lol", which), &track_step_container, which)
+	steps := track_steps(fmt.tprintf("steps@track-{}-steps", which), &track_step_container, which)
 	pop_parent_rect()
 
 
@@ -77,7 +74,7 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Step_Si
 			pop_color()
 			push_color(color2)
 		}
-		step := tracker_step(fmt.tprintf("step-{}@track{}-fuckyou", i, which), step_rect)
+		step := tracker_step(fmt.tprintf("step-{}@step-{}-track{}", i, i, which), step_rect)
 		steps[i] = step
 	}
 	clear_dynamic_array(&ui_state.color_stack)
@@ -115,15 +112,9 @@ handle_track_steps_interactions :: proc(track: Track_Step_Signals, which: u32) {
 track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Control_Signals {
 	buttons_rect := cut_rect(rect, {Size{.Percent, 0.1}, .Bottom})
 	play_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Left})
-	play_button := text_button(
-		tprintf("play@{}_play_button", get_name_from_id_string(id_string)),
-		play_button_rect,
-	)
+	play_button := text_button(tprintf("play@{}_play_button", get_id_from_id_string(id_string)), play_button_rect)
 	file_load_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Right})
-	file_load_button := text_button(
-		tprintf("load@{}_file_load_button", get_name_from_id_string(id_string)),
-		file_load_button_rect,
-	)
+	file_load_button := text_button(tprintf("load@{}_file_load_button", get_id_from_id_string(id_string)), file_load_button_rect)
 
 	cut_rect(rect, {Size{.Percent, 0.33}, .Left})
 
@@ -139,12 +130,7 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 	slider_grip_rect.top_left.y -= (value / 100) * rect_height(slider_track_rect)
 	slider_grip := box_from_cache(
 		{.Clickable, .Hot_Animation, .Active_Animation, .Draggable, .Draw},
-		tprintf(
-			"{}{}@{}",
-			get_name_from_id_string(id_string),
-			"_grip",
-			get_id_from_id_string(id_string),
-		),
+		tprintf("{}{}@{}", get_name_from_id_string(id_string), "_grip", get_id_from_id_string(id_string)),
 		slider_grip_rect,
 	)
 	append(&ui_state.temp_boxes, slider_grip)
@@ -160,14 +146,8 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 
 handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, which: u32) {
 	if t_controls.track_signals.scrolled || t_controls.grip_signals.scrolled {
-		app.audio_state.slider_volumes[which] = calc_slider_grip_val(
-			app.audio_state.slider_volumes[which],
-			100,
-		)
-		set_volume(
-			app.audio_state.engine_sounds[which],
-			map_range(0, 100, 0, 1, app.audio_state.slider_volumes[which]),
-		)
+		app.audio_state.slider_volumes[which] = calc_slider_grip_val(app.audio_state.slider_volumes[which], 100)
+		set_volume(app.audio_state.engine_sounds[which], map_range(0, 100, 0, 1, app.audio_state.slider_volumes[which]))
 	}
 	if t_controls.button_signals.play_signals.hovering {
 	}

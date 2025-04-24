@@ -25,7 +25,7 @@ draggable_container :: proc(id_string: string, rect: ^Rect) -> Draggable_Contain
 }
 
 text_container :: proc(id_string: string, rect: Rect) -> Box_Signals {
-	b := box_from_cache({.Draw, .Draw_Text}, id_string, rect)
+	b := box_from_cache({.Draw_Text}, id_string, rect)
 	b.color = {1, 1, 1, 1}
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)

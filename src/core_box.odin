@@ -125,14 +125,16 @@ Box :: struct {
 }
 
 box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
-	if id_string in ui_state.box_cache {
-		box := ui_state.box_cache[id_string]
+	id := get_id_from_id_string(id_string)
+	if id in ui_state.box_cache {
+		box := ui_state.box_cache[id]
 		box.rect = rect
 		return box
 	} else {
-		printf("making new box: {}", id_string)
+		printfln("making new box: {}", id_string, "with id: {}", id)
 		new_box := box_make(flags, id_string, rect)
-		ui_state.box_cache[id_string] = new_box
+		// ui_state.box_cache[id_string] = new_box
+		ui_state.box_cache[id] = new_box
 		return new_box
 	}
 }
@@ -484,7 +486,7 @@ get_id_from_id_string :: proc(id_string: string) -> string {
 
 spacer :: proc(id_string: string, rect_cut: RectCut) -> ^Box {
 	rect := cut_rect(top_rect(), rect_cut)
-	s := box_from_cache({.Draw}, id_string, rect)
+	s := box_from_cache({}, id_string, rect)
 	append(&ui_state.temp_boxes, s)
 	return s
 }

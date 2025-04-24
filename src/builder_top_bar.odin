@@ -21,10 +21,10 @@ top_bar :: proc() -> Top_Bar_Signals {
 	sampler_rect := cut_left(&top_bar_rect, Size{.Pixels, button_width})
 	settings_rect := get_right(top_bar_rect, Size{.Pixels, button_width})
 
-	play_button := text_button(app.audio_state.playing ? ":(@topbar" : ":)@topbar", play_rect)
-	settings_button := text_button("Settings@topbar", settings_rect)
-	sampler_button := text_button("Open Sampler@topbar", sampler_rect)
-	restart_button := text_button("Restart@topbar", restart_rect)
+	play_button := text_button(app.audio_state.playing ? ":)@topbar_play" : ":(@topbar_pause", play_rect)
+	settings_button := text_button("Settings@settings-button-topbar", settings_rect)
+	sampler_button := text_button("Open Sampler@sampler-button-topbar", sampler_rect)
+	restart_button := text_button("Restart@restart-button-topbar", restart_rect)
 	return Top_Bar_Signals{play = play_button, restart = restart_button, settings = settings_button, sampler = sampler_button}
 }
 
@@ -73,31 +73,31 @@ settings_menu :: proc(settings_menu_rect: Rect) -> Settings_Menu_Signals {
 	ui_state.z_index = 1
 	defer ui_state.z_index = 0
 
-	settings_container := container("options-container@topbar", settings_menu_rect)
+	settings_container := container("options-container@settings-container-topbar", settings_menu_rect)
 
 	resize_buttons_rect := get_top(settings_menu_rect, Size{kind = .Percent, value = 1 / n_buttons})
 	reduce_rect := get_left(resize_buttons_rect, Size{.Percent, 0.5})
 	increase_rect := get_right(resize_buttons_rect, Size{.Percent, 0.5})
 
-	reduce_button := text_button("-@topbar", reduce_rect)
-	increase_button := text_button("+@topbar", increase_rect)
+	reduce_button := text_button("-@zoomout-button-topbar", reduce_rect)
+	increase_button := text_button("+@zoomein-button-topbar", increase_rect)
 
 	scratch_rect := resize_buttons_rect
 
 	scratch_rect.bottom_right.y += rect_height(resize_buttons_rect)
 	scratch_rect.top_left.y += rect_height(resize_buttons_rect)
-	b1 := text_button("test@topbar", scratch_rect)
+	b1 := text_button("test@setting-button-1", scratch_rect)
 
 	scratch_rect.bottom_right.y += rect_height(resize_buttons_rect)
 	scratch_rect.top_left.y += rect_height(resize_buttons_rect)
-	b2 := text_button("test2@topbar", scratch_rect)
+	b2 := text_button("test2@settings-button-2", scratch_rect)
 
 	scratch_rect.bottom_right.y += rect_height(resize_buttons_rect)
 	scratch_rect.top_left.y += rect_height(resize_buttons_rect)
-	b3 := text_button("test3@topbar", scratch_rect)
+	b3 := text_button("test3@settings-button-3", scratch_rect)
 
 	scratch_rect.bottom_right.y += rect_height(resize_buttons_rect)
 	scratch_rect.top_left.y += rect_height(resize_buttons_rect)
-	b4 := text_button("test4@topbar", scratch_rect)
+	b4 := text_button("test4@settings-button-4", scratch_rect)
 	return Settings_Menu_Signals{grow_ui = increase_button, shrink_ui = reduce_button}
 }

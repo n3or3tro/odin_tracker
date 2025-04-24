@@ -23,23 +23,23 @@ context_menu :: proc() -> Context_Menu_Signals {
 	button_height: f32 = 70
 	button_width: f32 = 300
 	text_container(
-		tprintf("heading :)@context_menu"),
+		tprintf("heading :)@context-menu-heading"),
 		Rect{top_left = {mouse_x, mouse_y}, bottom_right = {mouse_x, mouse_y + button_height}},
 	)
 	first_button_tl := Vec2{mouse_x, mouse_y + button_height}
 	first_button_br := Vec2{mouse_x + button_width, mouse_y + button_height * 2}
-	b1 := text_button("context1@context_menu", Rect{first_button_tl, first_button_br})
+	b1 := text_button("context1@context-menu-button-1", Rect{first_button_tl, first_button_br})
 	b2 := text_button(
-		"context2@context_menu",
+		"context2@context-menu-button-2",
 		Rect{top_left = b1.box.rect.top_left + Vec2{0, button_height}, bottom_right = b1.box.rect.bottom_right + [2]f32{0, button_height}},
 	)
 	b3 := text_button(
-		"context3@context_menu",
+		"context3@context-menu-button-3",
 		Rect{top_left = b2.box.rect.top_left + Vec2{0, button_height}, bottom_right = b2.box.rect.bottom_right + [2]f32{0, button_height}},
 	)
 
 	b4 := text_button(
-		"context4@context_menu",
+		"context4@context-menu-button-4",
 		Rect{top_left = b3.box.rect.top_left + Vec2{0, button_height}, bottom_right = b3.box.rect.bottom_right + [2]f32{0, button_height}},
 	)
 	if b1.clicked {

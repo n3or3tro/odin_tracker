@@ -50,7 +50,7 @@ num_column :: proc(track_height: u32, n_steps: u32) {
 	step_height := f32(track_height) / f32(n_steps)
 	for i in 0 ..< n_steps {
 		curr_step := cut_top(&num_col_rect, {.Pixels, step_height})
-		text_container(tprintf("{}:@number_column", i), curr_step)
+		text_container(tprintf("{}:@number-column-row-{}", i, i), curr_step)
 	}
 }
 
@@ -69,7 +69,8 @@ create_ui :: proc() {
 	for i in 0 ..< app.n_tracks {
 		create_track(u32(i), track_width)
 		push_color({0, 0, 0, 1})
-		spacer(tprintf("track_spacer_{}@1", i), RectCut{Size{.Pixels, f32(track_padding)}, .Left})
+		// need to be careful with spacer ID strings.
+		spacer(tprintf("spacer@{}{}{}-sapcer", i, i, i), RectCut{Size{.Pixels, f32(track_padding)}, .Left})
 		pop_color()
 	}
 	add_track_rect := Rect {
@@ -77,7 +78,7 @@ create_ui :: proc() {
 		bottom_right = {track_width * f32(app.n_tracks) + 150, f32(app.wy^ / 2)},
 	}
 	ui_state.z_index = 5
-	add_track := text_button("+@add_track", add_track_rect)
+	add_track := text_button("+@add-track-button", add_track_rect)
 	ui_state.z_index = 0
 	if add_track.clicked {
 		app.n_tracks += 1
@@ -86,13 +87,14 @@ create_ui :: proc() {
 	if app.sampler_open {
 		sampler_top_left := app.sampler_pos
 		sampler_bottom_right := Vec2{1000 + sampler_top_left.x, 500 + sampler_top_left.y}
-		sampler_signals := sampler("first-sampler@1", &Rect{sampler_top_left, sampler_bottom_right})
+		sampler_signals := sampler("sampler@first-sampler", &Rect{sampler_top_left, sampler_bottom_right})
 		if sampler_signals.container_signals.handle_bar.dragging {
 			app.dragging_window = true
 		}
 		if app.dragging_window {
 			change_in_x := app.mouse.last_pos.x - app.mouse.pos.x
 			change_in_y := app.mouse.last_pos.y - app.mouse.pos.y
+			printfln("delta x: {}    delta y: {}", change_in_x, change_in_y)
 			app.sampler_pos.x -= f32(change_in_x)
 			app.sampler_pos.y -= f32(change_in_y)
 		}
