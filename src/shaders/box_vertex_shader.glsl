@@ -19,6 +19,7 @@ layout(location = 8) in float border_thickness;  // Used for shadows and shit I 
 layout(location = 9) in vec2 texture_top_left;
 layout(location = 10) in vec2 texture_bottom_right;
 layout(location = 11) in float ui_element_type; // 0 = normal quad, 1 = text, 2 = to be decided    
+layout(location = 12) in float circle_radius; // set to 0 if you want a normal quad.
 
 // layout(location = 9) in float tl_texture;
 // layout(location = 10) in float br_texture;

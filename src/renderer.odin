@@ -36,6 +36,22 @@ Rect_Render_Data :: struct {
 }
 
 
+get_standard_rendering_data :: proc(box: Box) -> Rect_Render_Data {
+	data: Rect_Render_Data = {
+		top_left         = box.rect.top_left,
+		bottom_right     = box.rect.bottom_right,
+		// idrk the winding order for colors, this works tho.
+		tl_color         = box.color,
+		tr_color         = box.color,
+		bl_color         = box.color,
+		br_color         = box.color,
+		corner_radius    = 0,
+		edge_softness    = 0,
+		border_thickness = 300,
+	}
+	return data
+}
+
 // sets circumstantial rendering data like radius, borders, etc
 get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 	render_data := new([dynamic]Rect_Render_Data, allocator = context.temp_allocator)
@@ -52,6 +68,7 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 		br_color.a = 0.1
 	}
 
+	// data := get_standard_rendering_data(box)
 	data: Rect_Render_Data = {
 		top_left         = box.rect.top_left,
 		bottom_right     = box.rect.bottom_right,
@@ -103,7 +120,10 @@ get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 	for box in ui_state.temp_boxes {
 		boxes_to_render := get_boxes_rendering_data(box^)
 		defer delete(boxes_to_render^)
-		if .Draw in box.flags {
+		if s.contains(get_id_from_id_string(box.id_string), "knob-body") {
+			println("found knob")
+			add_knob_rendering_data(box^, rendering_data)
+		} else if .Draw in box.flags {
 			for data in boxes_to_render {
 				append(rendering_data, data)
 			}
@@ -114,13 +134,20 @@ get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 		if s.contains(get_id_from_id_string(box.id_string), "waveform-container") {
 			add_waveform_rendering_data(box.rect, app.audio_state.engine_sounds[0]^, get_track_pcm_data(0), rendering_data)
 		}
+
 	}
 	return rendering_data
 }
 
-// creating the rendering data was taking too long, so now any waveform that's created is cached.
-get_waveform_rendering_data :: proc(sound: ^ma.sound) {
-	// if sound.
+add_knob_rendering_data :: proc(box: Box, rendering_data: ^[dynamic]Rect_Render_Data) {
+	data := get_standard_rendering_data(box)
+	data.corner_radius = 0
+	data.ui_element_type = 3.0
+	append(rendering_data, data)
+
+	// data := get_standard_rendering_data(box)
+	// data.corner_radius = 130
+	// append(rendering_data, data)
 }
 
 add_word_rendering_data :: proc(box: Box, boxes_to_render: ^[dynamic]Rect_Render_Data, rendering_data: ^[dynamic]Rect_Render_Data) {
@@ -151,20 +178,13 @@ add_word_rendering_data :: proc(box: Box, boxes_to_render: ^[dynamic]Rect_Render
 	}
 }
 
-// the moment, assume pcm_frames is from a mono version of the .wav file.
-// need to figure out a way to cache this.
+// Assumes pcm_frames is from a mono version of the .wav file, BOLD assumption.
+// Might need to cache calls to this function since it's pretty costly.
 add_waveform_rendering_data :: proc(rect: Rect, sound: ma.sound, pcm_frames: [dynamic]f32, rendering_data: ^[dynamic]Rect_Render_Data) {
-	// if sound in ui_state.wav_rendering_data {
-	// 	data := ui_state.wav_rendering_data[sound]
-	// 	for i in 0 ..< len(data) {
-	// 		append(rendering_data, data[i])
-	// 	}
-	// 	return
-	// }
 	render_width := rect_width(rect)
 	render_height := rect_height(rect)
 	frames_read := u64(len(pcm_frames))
-	wav_rendering_data := make([dynamic]Rect_Render_Data, u32(render_width))
+	wav_rendering_data := make([dynamic]Rect_Render_Data, u32(render_width), allocator = context.temp_allocator)
 	for x in 0 ..< render_width {
 		start := u64((f64(x) / f64(render_width)) * f64(frames_read))
 		end := u64(f64(x + 1) / f64(render_width) * f64(frames_read))
@@ -191,13 +211,8 @@ add_waveform_rendering_data :: proc(rect: Rect, sound: ma.sound, pcm_frames: [dy
 			bottom_right     = Vec2{x_pos + 0.5, y_bot},
 			ui_element_type  = 2.0,
 		}
-		// wav_rendering_data[u32(x)] = new_data
 		append(rendering_data, new_data)
 	}
-	// for data in wav_rendering_data {
-	// append(rendering_data, data)
-	// }
-	// ui_state.wav_rendering_data[sound] = wav_rendering_data
 }
 
 setup_for_quads :: proc(shader_program: ^u32) {

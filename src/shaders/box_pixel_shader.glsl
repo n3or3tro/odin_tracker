@@ -9,7 +9,7 @@ layout(location = 4) in float corner_radius;
 layout(location = 5) in float edge_softness;
 layout(location = 6) in float border_thickness;
 layout(location = 7) in vec2 texture_uv;
-layout(location = 8) in float ui_element_type; // 0 = normal quad, 1 = text, 2 = to be decided  
+layout(location = 8) in float ui_element_type; // 0 = normal quad, 1 = text, 2 = waveform data, 3 = circle.
 
 // At the moment, a fragment == a pixel.
 out vec4 color;
@@ -47,6 +47,10 @@ float calculate_border_factor(vec2 softness_padding) {
 	}
 }
 
+float CircleSDF(vec2 sample_pos, vec2 center, float radius) {
+	return length(sample_pos - center) - radius;
+}
+
 void main() {
 	// we need to shrink the rectangle's half-size that is used for distance calculations with
 	// the edge softness - otherwise the underlying primitive will cut off the falloff too early.
@@ -54,7 +58,12 @@ void main() {
 	vec2 softness_padding = max(max(softness * 2.0 - 1.0, 0.0), max(softness * 2.0 - 1.0, 0.0));
 
 	// sample distance
-	float dist = RoundedRectSDF(dst_pos, dst_center, dst_half_size - softness_padding, corner_radius);
+	float dist;
+	if(ui_element_type == 3.0) { // 3.0 -> circle.
+		dist = CircleSDF(dst_pos, dst_center, dst_half_size.x - softness_padding.x);
+	} else {
+		dist = RoundedRectSDF(dst_pos, dst_center, dst_half_size - softness_padding, corner_radius);
+	}
 
 	// map distance => a blend factor
 	float sdf_factor = 1.0 - smoothstep(0.0, 2.0 * edge_softness, dist);

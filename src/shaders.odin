@@ -31,9 +31,7 @@ create_shader :: proc(vshader_path: string, fshader_path: string) -> u32 {
 	vs, verr := gl.compile_shader_from_source(vertex_shader, .VERTEX_SHADER)
 	fs, ferr := gl.compile_shader_from_source(fragment_shader, .FRAGMENT_SHADER)
 	if !verr || !ferr {
-		panic(
-			"Failed to compile vertex or fragment shader. Probably break up this check to give more information.",
-		)
+		panic("Failed to compile vertex or fragment shader. Probably break up this check to give more information.")
 	}
 	check_shader_compiled(vs)
 	check_shader_compiled(fs)

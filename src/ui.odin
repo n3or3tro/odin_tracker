@@ -94,7 +94,7 @@ create_ui :: proc() {
 		if app.dragging_window {
 			change_in_x := app.mouse.last_pos.x - app.mouse.pos.x
 			change_in_y := app.mouse.last_pos.y - app.mouse.pos.y
-			printfln("delta x: {}    delta y: {}", change_in_x, change_in_y)
+			// printfln("delta x: {}    delta y: {}", change_in_x, change_in_y)
 			app.sampler_pos.x -= f32(change_in_x)
 			app.sampler_pos.y -= f32(change_in_y)
 		}
