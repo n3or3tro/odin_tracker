@@ -36,6 +36,7 @@ Rect_Render_Data :: struct {
 }
 
 
+// Kind of the default data when turning an abstract box into an opengl rect.
 get_standard_rendering_data :: proc(box: Box) -> Rect_Render_Data {
 	data: Rect_Render_Data = {
 		top_left         = box.rect.top_left,
@@ -52,7 +53,7 @@ get_standard_rendering_data :: proc(box: Box) -> Rect_Render_Data {
 	return data
 }
 
-// sets circumstantial rendering data like radius, borders, etc
+// sets circumstantial (hovering, clicked, etc) rendering data like radius, borders, etc
 get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 	render_data := new([dynamic]Rect_Render_Data, allocator = context.temp_allocator)
 	bl_color: Vec4 = box.color

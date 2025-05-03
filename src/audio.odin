@@ -103,6 +103,9 @@ play_current_step :: proc() {
 	}
 }
 
+
+// this is here coz I was thinking about cachine the pcm wav rendering data, 
+// since it's a little expensive to re-calc every frame.
 get_track_pcm_data :: proc(track: u32) -> [dynamic]f32 {
 	return app.audio_state.pcm_data[track]
 }

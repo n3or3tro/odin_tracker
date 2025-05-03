@@ -22,9 +22,13 @@ sampler :: proc(id_string: string, rect: ^Rect) -> Sampler_Signals {
 		println("writing out pcm data")
 	}
 
-	knob(
-		"sampler_knob",
-		Rect{sampler_controls_rect.top_left.xy, {sampler_controls_rect.bottom_right.x / 4, sampler_controls_rect.bottom_right.y}},
-	)
+	first_knob_rect := Rect{sampler_controls_rect.top_left.xy, sampler_controls_rect.top_left.xy + {50, 50}}
+	k1 := knob("sampler_knob", first_knob_rect)
+	if k1.scrolled {
+		println("scrolled the knob")
+	}
+	if k1.clicked {
+		println("clicked the knob")
+	}
 	return Sampler_Signals{container_signals = s_container}
 }
