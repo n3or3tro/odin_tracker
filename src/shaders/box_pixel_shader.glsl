@@ -15,6 +15,7 @@ layout(location = 8) in float ui_element_type; // 0 = normal quad, 1 = text, 2 =
 out vec4 color;
 
 uniform sampler2D font_texture;
+uniform sampler2D knob_texture;
 
 float RoundedRectSDF(vec2 sample_pos, vec2 rect_center, vec2 rect_half_size, float r) {
 	vec2 d2 = (abs(rect_center - sample_pos) -
@@ -69,10 +70,14 @@ void main() {
 	float sdf_factor = 1.0 - smoothstep(0.0, 2.0 * edge_softness, dist);
 
 	// use sdf_factor in final color calculation
-	if(ui_element_type == 0.0 || ui_element_type == 3.0) { // normal rect or circle
+	if(ui_element_type == 0.0) { // normal rect
 		color = v_color * sdf_factor * calculate_border_factor(softness_padding);
-	} else if(ui_element_type == 2.0) { // circles (knobs and stuff)
+	} else if(ui_element_type == 2.0) { // 2 -> waveform data.
 		color = v_color;
+	} else if (ui_element_type == 3.0) { 
+		vec4 texture_sample = texture(knob_texture, texture_uv);
+		color = texture_sample;
+		// color = v_color * sdf_factor * calculate_border_factor(softness_padding);
 	} else {
 		vec4 texture_sample = texture(font_texture, texture_uv);
 		color = v_color * texture_sample;

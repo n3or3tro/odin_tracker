@@ -29,7 +29,7 @@ Atlas_Metadata :: struct {
 	chars:   map[rune]Char_Atlas_Metadata,
 }
 
-parse_fnt_metadata :: proc(path: string) -> Atlas_Metadata {
+parse_font_metadata :: proc(path: string) -> Atlas_Metadata {
 	// parse_fnt_metadata :: proc(path: string) {
 	fp, err := os.open(path)
 	if err != os.ERROR_NONE {

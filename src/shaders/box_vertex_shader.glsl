@@ -35,8 +35,12 @@ layout(location = 7) out vec2 out_texture_uv;
 layout(location = 8) out float out_ui_element_type; // 0 = normal quad, 1 = text, 2 = to be decided    
 
 uniform vec2 screen_res = vec2(3000, 2000);
-uniform int texture_width;
-uniform int texture_height;
+
+uniform int font_texture_width;
+uniform int font_texture_height;
+
+uniform int knob_texture_width;
+uniform int knob_texture_height;
 
 void main() {
 	vec4[4] colors;
@@ -57,7 +61,13 @@ void main() {
 	vec2 tex_center = (texture_bottom_right + texture_top_left) / 2;
 	vec2 tex_pos = (vertices[gl_VertexID] * tex_half_size + tex_center);
 
-	out_texture_uv = vec2(tex_pos.x / texture_width, 1.0 - tex_pos.y / texture_height);
+	// out_texture_uv = vec2(tex_pos.x / font_texture_width, 1.0 - tex_pos.y / font_texture_height);
+	if (ui_element_type != 3.0) { // i.e. not a circle / knob 
+		out_texture_uv = vec2(tex_pos.x / font_texture_width, 1.0 - tex_pos.y / font_texture_height);
+	} else { 
+		out_texture_uv = (vertices[gl_VertexID] + 1.0) * 0.5;
+		out_texture_uv.y = 1.0 - out_texture_uv.y; // Flip Y if needed
+	}
 
     // Map to screen coordinates (-1 to 1 NDC)
 	// vec2 ndc_pos = 2.0 * dst_pos / screen_res - vec2(1.0);

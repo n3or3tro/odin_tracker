@@ -3,6 +3,7 @@
 
 package main
 import "core:fmt"
+import "core:math"
 import alg "core:math/linalg"
 import "core:math/rand"
 import s "core:strings"
@@ -10,8 +11,7 @@ import gl "vendor:OpenGL"
 import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
 
-PI :: 3.14159265359
-
+PI :: math.PI
 
 MyRect :: struct #packed {
 	x: f32,
@@ -34,7 +34,6 @@ Rect_Render_Data :: struct {
 	border_thickness:     f32,
 	ui_element_type:      u32,
 }
-
 
 // Kind of the default data when turning an abstract box into an opengl rect.
 get_standard_rendering_data :: proc(box: Box) -> Rect_Render_Data {
@@ -115,6 +114,7 @@ is_active_step :: proc(box: Box) -> bool {
 	num := step_num_from_step(box.id_string)
 	return num == app.audio_state.curr_step
 }
+
 get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 	// Deffs not efficient to keep realloc'ing and deleting this list, will fix in future.
 	rendering_data := new([dynamic]Rect_Render_Data, allocator = context.temp_allocator)
@@ -144,6 +144,8 @@ add_knob_rendering_data :: proc(box: Box, rendering_data: ^[dynamic]Rect_Render_
 	data := get_standard_rendering_data(box)
 	data.corner_radius = 0
 	data.ui_element_type = 3.0
+	data.texture_top_left = {0.0, 0.0}
+	data.texture_bottom_right = {1.0, 1.0}
 	append(rendering_data, data)
 
 	// data := get_standard_rendering_data(box)
@@ -283,7 +285,6 @@ clear_screen :: proc() {
 	gl.ClearColor(0, 0.5, 1, 0.5)
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 }
-
 
 draw :: proc(n_vertices: i32, indices: [^]u32) {
 	gl.DrawElements(gl.TRIANGLES, n_vertices, gl.UNSIGNED_INT, indices)
