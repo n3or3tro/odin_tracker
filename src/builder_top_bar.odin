@@ -5,6 +5,7 @@ Top_Bar_Signals :: struct {
 	restart:  Box_Signals,
 	settings: Box_Signals,
 	sampler:  Box_Signals,
+	tabs:     [3]Box_Signals,
 }
 
 Settings_Menu_Signals :: struct {
@@ -19,13 +20,28 @@ top_bar :: proc() -> Top_Bar_Signals {
 	play_rect := cut_left(&top_bar_rect, Size{.Pixels, button_width})
 	restart_rect := cut_left(&top_bar_rect, Size{.Pixels, button_width})
 	sampler_rect := cut_left(&top_bar_rect, Size{.Pixels, button_width})
-	settings_rect := get_right(top_bar_rect, Size{.Pixels, button_width})
+	settings_rect := cut_right(&top_bar_rect, Size{.Pixels, button_width})
+	tabs_rect := shrink_x(top_bar_rect, Size{kind = .Percent, value = 0.05})
+	tab0_rect := cut_left(&tabs_rect, {.Percent, 0.33})
+	tab1_rect := get_left(tabs_rect, {.Percent, 0.50})
+	tab2_rect := get_right(tabs_rect, {.Percent, 0.50})
 
 	play_button := text_button(app.audio_state.playing ? ":)@topbar_play" : ":(@topbar_pause", play_rect)
 	settings_button := text_button("Settings@settings-button-topbar", settings_rect)
 	sampler_button := text_button("Open Sampler@sampler-button-topbar", sampler_rect)
 	restart_button := text_button("Restart@restart-button-topbar", restart_rect)
-	return Top_Bar_Signals{play = play_button, restart = restart_button, settings = settings_button, sampler = sampler_button}
+
+	tab0_button := text_button("Tab 0 @tab0-button-top-bar", tab0_rect)
+	tab1_button := text_button("Tab 1 @tab1-button-top-bar", tab1_rect)
+	tab2_button := text_button("Tab 2 @tab2-button-top-bar", tab2_rect)
+
+	return Top_Bar_Signals {
+		play = play_button,
+		restart = restart_button,
+		settings = settings_button,
+		sampler = sampler_button,
+		tabs = {tab0_button, tab1_button, tab2_button},
+	}
 }
 
 handle_top_bar_interactions :: proc(signals: Top_Bar_Signals) {
@@ -49,21 +65,21 @@ handle_top_bar_interactions :: proc(signals: Top_Bar_Signals) {
 	if signals.settings.clicked {
 		ui_state.settings_toggled = !ui_state.settings_toggled
 	}
-
 	if signals.play.clicked {
-		// toggle_all_audio_playing()
 		app.audio_state.playing = !app.audio_state.playing
-		// if audio_state.playing {
-		// 	start_all_audio()
-		// } else {
-		// 	stop_all_audio()
-		// }
 	}
-
 	if signals.sampler.clicked {
 		app.sampler_open = !app.sampler_open
 	}
-
+	if signals.tabs[0].clicked {
+		app.acitve_tab = 0
+	}
+	if signals.tabs[1].clicked {
+		app.acitve_tab = 1
+	}
+	if signals.tabs[2].clicked {
+		app.acitve_tab = 2
+	}
 }
 
 settings_menu :: proc(settings_menu_rect: Rect) -> Settings_Menu_Signals {

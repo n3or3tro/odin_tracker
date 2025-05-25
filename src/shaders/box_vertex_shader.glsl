@@ -21,6 +21,7 @@ layout(location = 10) in vec2 texture_bottom_right;
 layout(location = 11) in float ui_element_type; // 0 = normal quad, 1 = text, 2 = to be decided    
 layout(location = 12) in float circle_radius; // set to 0 if you want a normal quad.
 
+
 layout(location = 0) out vec4 v_color;
 layout(location = 1) out vec2 out_dst_pos;
 layout(location = 2) out vec2 out_dst_center;

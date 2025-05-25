@@ -66,6 +66,7 @@ App_State :: struct {
 	sampler_pos:     Vec2,
 	dragging_window: bool,
 	n_tracks:        u8,
+	acitve_tab:      u8,
 }
 
 N_TRACKS :: 10

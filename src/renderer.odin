@@ -83,7 +83,7 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 	}
 	if s.contains(box.id_string, "step") {
 		data.border_thickness = 3
-		data.corner_radius = 10
+		data.corner_radius = 3
 		if box.selected {
 			data.tl_color = {0.5, 0, 0.7, 1}
 			data.bl_color = {0.2, 0, 0.4, 1}
@@ -100,11 +100,13 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 			outlining_rect.tr_color = {1, 0, 0, 1}
 			outlining_rect.bl_color = {1, 0, 0, 1}
 			outlining_rect.br_color = {1, 0, 0, 1}
-
-
 			append(render_data, data, outlining_rect)
 			return render_data
 		}
+	}
+
+	if s.contains(box.id_string, "button") {
+		data.corner_radius = 10
 	}
 	append(render_data, data)
 	return render_data

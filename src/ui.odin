@@ -8,6 +8,7 @@ import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
 
 Color :: [4]f32
+
 Z_Layer :: enum {
 	default,
 	first,
@@ -58,8 +59,7 @@ track_steps_height_ratio: f32 = 0.75
 track_steps_width_ratio: f32 = 0.04
 n_track_steps: u32 = 32
 
-create_ui :: proc() {
-	topbar := top_bar()
+main_tracker_panel :: proc() {
 	col_height := cast(u32)(rect_height(top_rect()^) * track_steps_height_ratio)
 	num_column(col_height, n_track_steps)
 	track_padding: u32 = 3
@@ -83,7 +83,6 @@ create_ui :: proc() {
 	if add_track.clicked {
 		app.n_tracks += 1
 	}
-	handle_top_bar_interactions(topbar)
 	if app.sampler_open {
 		sampler_top_left := app.sampler_pos
 		sampler_bottom_right := Vec2{1000 + sampler_top_left.x, 500 + sampler_top_left.y}
@@ -99,10 +98,24 @@ create_ui :: proc() {
 			app.sampler_pos.y -= f32(change_in_y)
 		}
 	}
+}
+create_ui :: proc() {
+	topbar := top_bar()
+	handle_top_bar_interactions(topbar)
+	switch app.acitve_tab {
+	case 0:
+		main_tracker_panel()
+	case 1:
+		println("tab2 :)")
+	case 2:
+		println("tab3 :)")
+	}
+
 
 	if ui_state.context_menu_active {
 		context_menu()
 	}
+
 }
 
 render_ui :: proc() {
