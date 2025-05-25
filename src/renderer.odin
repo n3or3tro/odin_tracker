@@ -115,15 +115,34 @@ is_active_step :: proc(box: Box) -> bool {
 	return num == app.audio_state.curr_step
 }
 
+get_background_rendering_data :: proc() -> Rect_Render_Data {
+	background_box := Box {
+		rect = Rect{top_left = {0.0, 0.0}, bottom_right = {f32(app.wx^), f32(app.wy^)}},
+		id_string = "background@background",
+		visible = true,
+	}
+	rendering_data := Rect_Render_Data {
+		ui_element_type      = 15.0,
+		texture_top_left     = {0, 0},
+		texture_bottom_right = {1, 1},
+		top_left             = {0, 0},
+		bottom_right         = {f32(app.wx^), f32(app.wy^)},
+	}
+	return rendering_data
+}
+
 get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 	// Deffs not efficient to keep realloc'ing and deleting this list, will fix in future.
 	rendering_data := new([dynamic]Rect_Render_Data, allocator = context.temp_allocator)
+	append(rendering_data, get_background_rendering_data())
 	for box in ui_state.temp_boxes {
 		boxes_to_render := get_boxes_rendering_data(box^)
 		defer delete(boxes_to_render^)
 		if s.contains(get_id_from_id_string(box.id_string), "knob-body") {
-			println("found knob")
 			add_knob_rendering_data(box^, rendering_data)
+		} else if s.contains(box.id_string, "_grip") {
+			println("found grip: ", box.id_string)
+			add_fader_knob_rendering_data(box^, rendering_data)
 		} else if .Draw in box.flags {
 			for data in boxes_to_render {
 				append(rendering_data, data)
@@ -147,10 +166,15 @@ add_knob_rendering_data :: proc(box: Box, rendering_data: ^[dynamic]Rect_Render_
 	data.texture_top_left = {0.0, 0.0}
 	data.texture_bottom_right = {1.0, 1.0}
 	append(rendering_data, data)
+}
 
-	// data := get_standard_rendering_data(box)
-	// data.corner_radius = 130
-	// append(rendering_data, data)
+add_fader_knob_rendering_data :: proc(box: Box, rendering_data: ^[dynamic]Rect_Render_Data) {
+	data := get_standard_rendering_data(box)
+	data.corner_radius = 0
+	data.ui_element_type = 4.0
+	data.texture_top_left = {0.0, 0.0}
+	data.texture_bottom_right = {1.0, 1.0}
+	append(rendering_data, data)
 }
 
 add_word_rendering_data :: proc(box: Box, boxes_to_render: ^[dynamic]Rect_Render_Data, rendering_data: ^[dynamic]Rect_Render_Data) {

@@ -21,9 +21,6 @@ layout(location = 10) in vec2 texture_bottom_right;
 layout(location = 11) in float ui_element_type; // 0 = normal quad, 1 = text, 2 = to be decided    
 layout(location = 12) in float circle_radius; // set to 0 if you want a normal quad.
 
-// layout(location = 9) in float tl_texture;
-// layout(location = 10) in float br_texture;
-
 layout(location = 0) out vec4 v_color;
 layout(location = 1) out vec2 out_dst_pos;
 layout(location = 2) out vec2 out_dst_center;
@@ -38,9 +35,6 @@ uniform vec2 screen_res = vec2(3000, 2000);
 
 uniform int font_texture_width;
 uniform int font_texture_height;
-
-uniform int knob_texture_width;
-uniform int knob_texture_height;
 
 void main() {
 	vec4[4] colors;
@@ -61,12 +55,12 @@ void main() {
 	vec2 tex_center = (texture_bottom_right + texture_top_left) / 2;
 	vec2 tex_pos = (vertices[gl_VertexID] * tex_half_size + tex_center);
 
-	// out_texture_uv = vec2(tex_pos.x / font_texture_width, 1.0 - tex_pos.y / font_texture_height);
-	if (ui_element_type != 3.0) { // i.e. not a circle / knob 
+	if (ui_element_type == 1.0) { // i.e. text - need to do math to figure out atlas stuff
 		out_texture_uv = vec2(tex_pos.x / font_texture_width, 1.0 - tex_pos.y / font_texture_height);
-	} else { 
+	} else { // rest of textures you just paste the whole texture ontop of the quad.
 		out_texture_uv = (vertices[gl_VertexID] + 1.0) * 0.5;
-		out_texture_uv.y = 1.0 - out_texture_uv.y; // Flip Y if needed
+		out_texture_uv.y = 1.0 - out_texture_uv.y; 
+		// Flip Y if needed
 	}
 
     // Map to screen coordinates (-1 to 1 NDC)

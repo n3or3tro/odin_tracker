@@ -14,8 +14,11 @@ layout(location = 8) in float ui_element_type; // 0 = normal quad, 1 = text, 2 =
 // At the moment, a fragment == a pixel.
 out vec4 color;
 
+// This indicates which texture unit holds the relevant texture data.
 uniform sampler2D font_texture;
-uniform sampler2D knob_texture;
+uniform sampler2D circle_knob_texture;
+uniform sampler2D fader_knob_texture;
+uniform sampler2D background_texture;
 
 float RoundedRectSDF(vec2 sample_pos, vec2 rect_center, vec2 rect_half_size, float r) {
 	vec2 d2 = (abs(rect_center - sample_pos) -
@@ -75,9 +78,14 @@ void main() {
 	} else if(ui_element_type == 2.0) { // 2 -> waveform data.
 		color = v_color;
 	} else if (ui_element_type == 3.0) { 
-		vec4 texture_sample = texture(knob_texture, texture_uv);
+		vec4 texture_sample = texture(circle_knob_texture, texture_uv);
 		color = texture_sample;
-		// color = v_color * sdf_factor * calculate_border_factor(softness_padding);
+	} else if (ui_element_type == 4.0) { // i.e. fader knob
+		vec4 texture_sample = texture(fader_knob_texture, texture_uv);
+		color = texture_sample;
+	} else if (ui_element_type == 15.0) { // i.e. background
+		vec4 texture_sample = texture(background_texture, texture_uv);
+		color = texture_sample;
 	} else {
 		vec4 texture_sample = texture(font_texture, texture_uv);
 		color = v_color * texture_sample;

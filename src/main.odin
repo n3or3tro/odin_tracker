@@ -233,6 +233,9 @@ init_ui_state :: proc() -> ^UI_State {
 	)
 	set_shader_i32(program1, "font_texture", 0)
 
+	/*
+	---------------- Circle knob texture stuff -----------------------------------------------------
+	*/
 	// load knob texture image 
 	knob_width, knob_height, channels: i32
 	raw_image_data := #load("../textures/knob.png")
@@ -251,12 +254,78 @@ init_ui_state :: proc() -> ^UI_State {
 	// // Set texture parameters
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-	gl.Uniform1i(gl.GetUniformLocation(program1, "knob_texture"), 1)
+	gl.Uniform1i(gl.GetUniformLocation(program1, "circle_knob_texture"), 1)
 
-	set_shader_i32(program1, "knob_texture_width", knob_width)
-	set_shader_i32(program1, "knob_texture_height", knob_height)
-	// // Free image data after uploading to OpenGL
 	// stbi_image_free(data)
+
+	/*
+	---------------- Fader knob texture stuff -----------------------------------------------------
+	*/
+	fader_knob_width, fader_knob_height: i32
+	channels = 0
+	fader_knob_raw_image_data := #load("../textures/fader-knob.png")
+	fader_knob_image_data := image.load_from_memory(
+		raw_data(fader_knob_raw_image_data),
+		i32(len(fader_knob_raw_image_data)),
+		&fader_knob_width,
+		&fader_knob_height,
+		&channels,
+		4,
+	)
+
+	fader_knob_texture_id := new(u32)
+	gl.ActiveTexture(gl.TEXTURE2)
+	gl.GenTextures(1, fader_knob_texture_id)
+	gl.BindTexture(gl.TEXTURE_2D, fader_knob_texture_id^)
+
+	// Upload texture data to OpenGL
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, fader_knob_width, fader_knob_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, fader_knob_image_data)
+	// glGenerateMipmap(GL_TEXTURE_2D)
+
+	// // Set texture parameters
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+	gl.Uniform1i(gl.GetUniformLocation(program1, "fader_knob_texture"), 2)
+
+	/*
+	---------------- Background texture stuff -----------------------------------------------------
+	*/
+	background_img_width, background_img_height: i32
+	channels = 0
+	background_img_raw_image_data := #load("../textures/metal-background.jpeg")
+	background_image_data := image.load_from_memory(
+		raw_data(background_img_raw_image_data),
+		i32(len(background_img_raw_image_data)),
+		&background_img_width,
+		&background_img_height,
+		&channels,
+		4,
+	)
+
+	background_texture_id := new(u32)
+	gl.ActiveTexture(gl.TEXTURE3)
+	gl.GenTextures(1, background_texture_id)
+	gl.BindTexture(gl.TEXTURE_2D, background_texture_id^)
+
+	// Upload texture data to OpenGL
+	gl.TexImage2D(
+		gl.TEXTURE_2D,
+		0,
+		gl.RGBA,
+		background_img_width,
+		background_img_height,
+		0,
+		gl.RGBA,
+		gl.UNSIGNED_BYTE,
+		background_image_data,
+	)
+	// glGenerateMipmap(GL_TEXTURE_2D)
+
+	// // Set texture parameters
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+	gl.Uniform1i(gl.GetUniformLocation(program1, "background_texture"), 3)
+
 
 	setup_for_quads(&ui_state.quad_shader_program)
 	sdl.GetWindowSize(app.window, app.wx, app.wy)
