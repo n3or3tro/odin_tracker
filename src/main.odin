@@ -84,12 +84,18 @@ when PROFILING {
 
 	//------------------ Automatic profiling of every procedure:-----------------
 	@(instrumentation_enter)
-	spall_enter :: proc "contextless" (proc_address, call_site_return_address: rawptr, loc: runtime.Source_Code_Location) {
+	spall_enter :: proc "contextless" (
+		proc_address, call_site_return_address: rawptr,
+		loc: runtime.Source_Code_Location,
+	) {
 		spall._buffer_begin(&spall_ctx, &spall_buffer, "", "", loc)
 	}
 
 	@(instrumentation_exit)
-	spall_exit :: proc "contextless" (proc_address, call_site_return_address: rawptr, loc: runtime.Source_Code_Location) {
+	spall_exit :: proc "contextless" (
+		proc_address, call_site_return_address: rawptr,
+		loc: runtime.Source_Code_Location,
+	) {
 		spall._buffer_end(&spall_ctx, &spall_buffer)
 	}
 }
@@ -122,7 +128,8 @@ init_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	// sdl.Init({.AUDIO, .EVENTS, .TIMER})
 	sdl.Init({.EVENTS})
 
-	window_flags := sdl.WINDOW_OPENGL | sdl.WINDOW_RESIZABLE | sdl.WINDOW_ALLOW_HIGHDPI | sdl.WINDOW_UTILITY
+	window_flags :=
+		sdl.WINDOW_OPENGL | sdl.WINDOW_RESIZABLE | sdl.WINDOW_ALLOW_HIGHDPI | sdl.WINDOW_UTILITY
 	app.window = sdl.CreateWindow(
 		"n3or3tro-tracker",
 		sdl.WINDOWPOS_UNDEFINED,
@@ -183,18 +190,33 @@ init_ui_state :: proc() -> ^UI_State {
 	gl.GenVertexArrays(1, ui_state.quad_vabuffer)
 	create_vbuffer(ui_state.quad_vbuffer, nil, 400_000)
 
-	program1, quad_shader_ok := gl.load_shaders_source(string(ui_vertex_shader_data), string(ui_pixel_shader_data))
+	program1, quad_shader_ok := gl.load_shaders_source(
+		string(ui_vertex_shader_data),
+		string(ui_pixel_shader_data),
+	)
 	assert(quad_shader_ok)
 	ui_state.quad_shader_program = program1
 
 
 	bind_shader(ui_state.quad_shader_program)
-	set_shader_vec2(ui_state.quad_shader_program, "screen_res", {f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)})
+	set_shader_vec2(
+		ui_state.quad_shader_program,
+		"screen_res",
+		{f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)},
+	)
 
 	ui_state.atlas_metadata = parse_font_metadata("font-atlas/Unnamed.fnt")
 
-	set_shader_i32(ui_state.quad_shader_program, "font_texture_height", i32(ui_state.atlas_metadata.texture.texture_height))
-	set_shader_i32(ui_state.quad_shader_program, "font_texture_width", i32(ui_state.atlas_metadata.texture.texture_width))
+	set_shader_i32(
+		ui_state.quad_shader_program,
+		"font_texture_height",
+		i32(ui_state.atlas_metadata.texture.texture_height),
+	)
+	set_shader_i32(
+		ui_state.quad_shader_program,
+		"font_texture_width",
+		i32(ui_state.atlas_metadata.texture.texture_width),
+	)
 
 	font_texture_data := #load("../font-atlas/Unnamed.png")
 	texture_x, texture_y, texture_channels: i32
@@ -240,7 +262,14 @@ init_ui_state :: proc() -> ^UI_State {
 	// load knob texture image 
 	knob_width, knob_height, channels: i32
 	raw_image_data := #load("../textures/knob.png")
-	knob_image_data := image.load_from_memory(raw_data(raw_image_data), i32(len(raw_image_data)), &knob_width, &knob_height, &channels, 4)
+	knob_image_data := image.load_from_memory(
+		raw_data(raw_image_data),
+		i32(len(raw_image_data)),
+		&knob_width,
+		&knob_height,
+		&channels,
+		4,
+	)
 	printfln("image data: {}x{}  - {}", knob_width, knob_height, channels)
 
 	knob_texture_id := new(u32)
@@ -249,7 +278,17 @@ init_ui_state :: proc() -> ^UI_State {
 	gl.BindTexture(gl.TEXTURE_2D, knob_texture_id^)
 
 	// Upload texture data to OpenGL
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, knob_width, knob_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, knob_image_data)
+	gl.TexImage2D(
+		gl.TEXTURE_2D,
+		0,
+		gl.RGBA,
+		knob_width,
+		knob_height,
+		0,
+		gl.RGBA,
+		gl.UNSIGNED_BYTE,
+		knob_image_data,
+	)
 	// glGenerateMipmap(GL_TEXTURE_2D)
 
 	// // Set texture parameters
@@ -280,7 +319,17 @@ init_ui_state :: proc() -> ^UI_State {
 	gl.BindTexture(gl.TEXTURE_2D, fader_knob_texture_id^)
 
 	// Upload texture data to OpenGL
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, fader_knob_width, fader_knob_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, fader_knob_image_data)
+	gl.TexImage2D(
+		gl.TEXTURE_2D,
+		0,
+		gl.RGBA,
+		fader_knob_width,
+		fader_knob_height,
+		0,
+		gl.RGBA,
+		gl.UNSIGNED_BYTE,
+		fader_knob_image_data,
+	)
 	// glGenerateMipmap(GL_TEXTURE_2D)
 
 	// // Set texture parameters
@@ -350,7 +399,6 @@ init_app :: proc() -> ^App_State {
 
 
 update_app :: proc() -> bool {
-
 	root_rect := app.ui_state.root_rect
 	frame_num := app.ui_state.frame_num
 	if register_resize() {
@@ -365,18 +413,22 @@ update_app :: proc() -> bool {
 			return false
 		}
 	}
+
+	if app.audio_state.playing {
+		if frame_num^ % (30) == 0 {
+			for &track in app.audio_state.tracks {
+				if track.armed {
+					track.curr_step = (track.curr_step + 1) % 32
+				}
+			}
+		}
+	}
+
 	create_ui()
 	render_ui()
 	reset_renderer_data()
 	sdl.GL_SwapWindow(app.window)
-	if app.audio_state.playing {
-		// at 120 fps, a 1/4 beat lasts for 30 frames. This is probably too hard coded
-		// and fragile, should be made more robust...
-		if frame_num^ % (30) == 0 {
-			app.audio_state.curr_step = (app.audio_state.curr_step + 1) % u16(n_track_steps) // 32 == n_steps per track.
-			play_current_step()
-		}
-	}
+
 	free_all(context.temp_allocator)
 	free_all()
 	frame_num^ += 1

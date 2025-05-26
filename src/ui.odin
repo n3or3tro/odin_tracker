@@ -70,7 +70,10 @@ main_tracker_panel :: proc() {
 		create_track(u32(i), track_width)
 		push_color({0, 0, 0, 1})
 		// need to be careful with spacer ID strings.
-		spacer(tprintf("spacer@{}{}{}-sapcer", i, i, i), RectCut{Size{.Pixels, f32(track_padding)}, .Left})
+		spacer(
+			tprintf("spacer@{}{}{}-sapcer", i, i, i),
+			RectCut{Size{.Pixels, f32(track_padding)}, .Left},
+		)
 		pop_color()
 	}
 	add_track_rect := Rect {
@@ -86,7 +89,10 @@ main_tracker_panel :: proc() {
 	if app.sampler_open {
 		sampler_top_left := app.sampler_pos
 		sampler_bottom_right := Vec2{1000 + sampler_top_left.x, 500 + sampler_top_left.y}
-		sampler_signals := sampler("sampler@first-sampler", &Rect{sampler_top_left, sampler_bottom_right})
+		sampler_signals := sampler(
+			"sampler@first-sampler",
+			&Rect{sampler_top_left, sampler_bottom_right},
+		)
 		if sampler_signals.container_signals.handle_bar.dragging {
 			app.dragging_window = true
 		}
@@ -125,7 +131,12 @@ render_ui :: proc() {
 	}
 	rect_rendering_data := get_all_rendering_data()
 	n_rects := u32(len(rect_rendering_data))
-	populate_vbuffer_with_rects(ui_state.quad_vabuffer, 0, raw_data(rect_rendering_data^), n_rects * size_of(Rect_Render_Data))
+	populate_vbuffer_with_rects(
+		ui_state.quad_vabuffer,
+		0,
+		raw_data(rect_rendering_data^),
+		n_rects * size_of(Rect_Render_Data),
+	)
 	gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, i32(n_rects))
 
 	delete_dynamic_array(rect_rendering_data^)
@@ -135,4 +146,28 @@ render_ui :: proc() {
 reset_ui_state :: proc() {
 	ui_state.active_box = nil
 	ui_state.hot_box = nil
+}
+
+
+/* ------- stuff for a theme / color system -------------- */
+
+
+Color_Theme :: struct {
+	primary:       Color,
+	primary_var:   Color,
+	secondary:     Color,
+	secondary_var: Color,
+	tertiary:      Color,
+	tertiary_var:  Color,
+	error:         Color,
+	success:       Color,
+}
+
+// A mapping between color themes and actual ui elements.
+// This level of indirection should provide some flexibility.
+Element_Theme :: struct {
+}
+
+map_colors :: proc() {
+
 }

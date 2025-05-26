@@ -131,9 +131,8 @@ box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box 
 		box.rect = rect
 		return box
 	} else {
-		printfln("making new box: {}", id_string, "with id: {}", id)
+		printfln("making new box: {} with id: {}", id_string, id)
 		new_box := box_make(flags, id_string, rect)
-		// ui_state.box_cache[id_string] = new_box
 		ui_state.box_cache[id] = new_box
 		return new_box
 	}
@@ -148,7 +147,12 @@ box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
 	color, is_top := top_color()
 	if !is_top {
 		println("[WARNING] - There was no color assigned to this box, it's color is randomised.")
-		box.color = {rand.float32_range(0, 1), rand.float32_range(0, 1), rand.float32_range(0, 1), 1}
+		box.color = {
+			rand.float32_range(0, 1),
+			rand.float32_range(0, 1),
+			rand.float32_range(0, 1),
+			1,
+		}
 	} else {
 		println("top color was: ", color)
 		box.color = color
@@ -197,7 +201,8 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 hovering_in_box :: proc(box: ^Box) -> bool {
 	if ui_state.hot_box != nil {
 		if box.z_index > ui_state.hot_box.z_index {
-			if mouse_inside_box(box, {app.mouse.pos.x, app.mouse.pos.y}) && .Clickable in box.flags {
+			if mouse_inside_box(box, {app.mouse.pos.x, app.mouse.pos.y}) &&
+			   .Clickable in box.flags {
 				ui_state.hot_box.hot = false
 				ui_state.hot_box.signals.hovering = false
 				return true
@@ -223,7 +228,12 @@ left_clicked_on_box :: proc(box: ^Box, prev_signals: Box_Signals) -> bool {
 		}
 		return false
 	}
-	return prev_signals.pressed && !app.mouse.left_pressed && ui_state.active_box == nil && .Clickable in box.flags
+	return(
+		prev_signals.pressed &&
+		!app.mouse.left_pressed &&
+		ui_state.active_box == nil &&
+		.Clickable in box.flags \
+	)
 }
 
 // Does expected checking, but also accounts for z-index stuff.
@@ -238,7 +248,12 @@ right_clicked_on_box :: proc(box: ^Box, prev_signals: Box_Signals) -> bool {
 		}
 		return false
 	}
-	return prev_signals.right_pressed && !app.mouse.right_pressed && ui_state.active_box == nil && .Clickable in box.flags
+	return(
+		prev_signals.right_pressed &&
+		!app.mouse.right_pressed &&
+		ui_state.active_box == nil &&
+		.Clickable in box.flags \
+	)
 }
 
 rect_from_points :: proc(a, b: Vec2) -> sdl.Rect {
@@ -265,7 +280,10 @@ cut_left :: proc(rect: ^Rect, amount: Size) -> Rect {
 	parent_top_left_x: f32 = rect.top_left.x
 	px_amount := math.floor(get_amount(rect^, amount, .Left))
 	rect.top_left.x = rect.top_left.x + px_amount
-	return Rect{top_left = {parent_top_left_x, rect.top_left.y}, bottom_right = {parent_top_left_x + px_amount, rect.bottom_right.y}}
+	return Rect {
+		top_left = {parent_top_left_x, rect.top_left.y},
+		bottom_right = {parent_top_left_x + px_amount, rect.bottom_right.y},
+	}
 }
 cut_right :: proc(rect: ^Rect, amount: Size) -> Rect {
 	parent_bottom_right_x: f32 = rect.bottom_right.x
@@ -280,13 +298,19 @@ cut_top :: proc(rect: ^Rect, amount: Size) -> Rect {
 	parent_top_left_y: f32 = rect.top_left.y
 	px_amount := math.floor(get_amount(rect^, amount, .Top))
 	rect.top_left.y = rect.top_left.y + px_amount
-	return Rect{{rect.top_left.x, parent_top_left_y}, {rect.bottom_right.x, parent_top_left_y + px_amount}}
+	return Rect {
+		{rect.top_left.x, parent_top_left_y},
+		{rect.bottom_right.x, parent_top_left_y + px_amount},
+	}
 }
 cut_bottom :: proc(rect: ^Rect, amount: Size) -> Rect {
 	parent_bottom_right_y: f32 = rect.bottom_right.y
 	px_amount := math.floor(get_amount(rect^, amount, .Bottom))
 	rect.bottom_right.y = rect.bottom_right.y - px_amount
-	return Rect{{rect.top_left.x, parent_bottom_right_y - px_amount}, {rect.bottom_right.x, parent_bottom_right_y}}
+	return Rect {
+		{rect.top_left.x, parent_bottom_right_y - px_amount},
+		{rect.bottom_right.x, parent_bottom_right_y},
+	}
 }
 
 // All the get_* functions, return the desired rectangle, without cutting
@@ -307,7 +331,10 @@ get_rect :: proc(rect: Rect, rect_cut: RectCut) -> Rect {
 get_left :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_top_left_x: f32 = rect.top_left.x
 	px_amount := math.floor(get_amount(rect, amount, .Left))
-	return Rect{top_left = {parent_top_left_x, rect.top_left.y}, bottom_right = {parent_top_left_x + px_amount, rect.bottom_right.y}}
+	return Rect {
+		top_left = {parent_top_left_x, rect.top_left.y},
+		bottom_right = {parent_top_left_x + px_amount, rect.bottom_right.y},
+	}
 }
 get_right :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_bottom_right_x: f32 = rect.bottom_right.x
@@ -320,12 +347,18 @@ get_right :: proc(rect: Rect, amount: Size) -> Rect {
 get_top :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_top_left_y: f32 = rect.top_left.y
 	px_amount := math.floor(get_amount(rect, amount, .Top))
-	return Rect{{rect.top_left.x, parent_top_left_y}, {rect.bottom_right.x, parent_top_left_y + px_amount}}
+	return Rect {
+		{rect.top_left.x, parent_top_left_y},
+		{rect.bottom_right.x, parent_top_left_y + px_amount},
+	}
 }
 get_bottom :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_bottom_right_y: f32 = rect.bottom_right.y
 	px_amount := math.floor(get_amount(rect, amount, .Bottom))
-	return Rect{{rect.top_left.x, parent_bottom_right_y - px_amount}, {rect.bottom_right.x, parent_bottom_right_y}}
+	return Rect {
+		{rect.top_left.x, parent_bottom_right_y - px_amount},
+		{rect.bottom_right.x, parent_bottom_right_y},
+	}
 }
 
 // add_* lets you add to a rectangle, using same sizing semantics as when cutting.
@@ -408,18 +441,6 @@ get_amount :: proc(rect: Rect, amount: Size, side: RectCutSide) -> f32 {
 	panic("[!] get_amount: invalid kind")
 }
 
-// // Doesn't account for padding or anything like that.
-// calculate_text_size :: proc(char_map: map[rune]Character, text: string) -> Vec2 {
-// 	width, height: f32 = 0, 0
-// 	for c in text {
-// 		character := char_map[c]
-// 		width += character.size[0]
-// 		println("this char", character, "has width:", character.size[0])
-// 		height = max(height, character.size[1])
-// 	}
-// 	return Vec2{width, height}
-// }
-
 mouse_inside_box :: proc(box: ^Box, mouse: [2]i32) -> bool {
 	mousex := cast(f32)mouse.x
 	mousey := cast(f32)mouse.y
@@ -431,16 +452,16 @@ mouse_inside_box :: proc(box: ^Box, mouse: [2]i32) -> bool {
 	)
 }
 
-
 push_color :: proc(color: Color) {
-	// println("pushign color:", color)
 	append(&ui_state.color_stack, color)
+	ui_state.override_color = true
 }
 
 pop_color :: proc() -> Color {
 	if len(ui_state.color_stack) < 1 {
 		panic("Tried to pop off empty color stack")
 	}
+	ui_state.override_color = false
 	return pop(&ui_state.color_stack)
 }
 

@@ -36,7 +36,7 @@ Rect_Render_Data :: struct {
 }
 
 // Kind of the default data when turning an abstract box into an opengl rect.
-get_standard_rendering_data :: proc(box: Box) -> Rect_Render_Data {
+get_default_rendering_data :: proc(box: Box) -> Rect_Render_Data {
 	data: Rect_Render_Data = {
 		top_left         = box.rect.top_left,
 		bottom_right     = box.rect.bottom_right,
@@ -92,6 +92,7 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 			data.border_thickness = 100
 		}
 		if is_active_step(box) {
+			printfln("{} is in the active step", box.id_string)
 			data.border_thickness = 100
 			data.corner_radius = 0
 			outlining_rect := data
@@ -104,7 +105,6 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 			return render_data
 		}
 	}
-
 	if s.contains(box.id_string, "button") {
 		data.corner_radius = 10
 	}
@@ -113,8 +113,10 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 }
 
 is_active_step :: proc(box: Box) -> bool {
-	num := step_num_from_step(box.id_string)
-	return num == app.audio_state.curr_step
+	println(box.id_string)
+	track_num := track_num_from_step(box.id_string)
+	step_num := step_num_from_step(box.id_string)
+	return step_num == app.audio_state.tracks[track_num].curr_step
 }
 
 get_background_rendering_data :: proc() -> Rect_Render_Data {
@@ -143,7 +145,6 @@ get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 		if s.contains(get_id_from_id_string(box.id_string), "knob-body") {
 			add_knob_rendering_data(box^, rendering_data)
 		} else if s.contains(box.id_string, "_grip") {
-			println("found grip: ", box.id_string)
 			add_fader_knob_rendering_data(box^, rendering_data)
 		} else if .Draw in box.flags {
 			for data in boxes_to_render {
@@ -154,7 +155,12 @@ get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 			add_word_rendering_data(box^, boxes_to_render, rendering_data)
 		}
 		if s.contains(get_id_from_id_string(box.id_string), "waveform-container") {
-			add_waveform_rendering_data(box.rect, app.audio_state.engine_sounds[0]^, get_track_pcm_data(0), rendering_data)
+			add_waveform_rendering_data(
+				box.rect,
+				app.audio_state.tracks[0].sound^,
+				get_track_pcm_data(0),
+				rendering_data,
+			)
 		}
 
 	}
@@ -162,7 +168,7 @@ get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 }
 
 add_knob_rendering_data :: proc(box: Box, rendering_data: ^[dynamic]Rect_Render_Data) {
-	data := get_standard_rendering_data(box)
+	data := get_default_rendering_data(box)
 	data.corner_radius = 0
 	data.ui_element_type = 3.0
 	data.texture_top_left = {0.0, 0.0}
@@ -171,7 +177,7 @@ add_knob_rendering_data :: proc(box: Box, rendering_data: ^[dynamic]Rect_Render_
 }
 
 add_fader_knob_rendering_data :: proc(box: Box, rendering_data: ^[dynamic]Rect_Render_Data) {
-	data := get_standard_rendering_data(box)
+	data := get_default_rendering_data(box)
 	data.corner_radius = 0
 	data.ui_element_type = 4.0
 	data.texture_top_left = {0.0, 0.0}
@@ -179,7 +185,11 @@ add_fader_knob_rendering_data :: proc(box: Box, rendering_data: ^[dynamic]Rect_R
 	append(rendering_data, data)
 }
 
-add_word_rendering_data :: proc(box: Box, boxes_to_render: ^[dynamic]Rect_Render_Data, rendering_data: ^[dynamic]Rect_Render_Data) {
+add_word_rendering_data :: proc(
+	box: Box,
+	boxes_to_render: ^[dynamic]Rect_Render_Data,
+	rendering_data: ^[dynamic]Rect_Render_Data,
+) {
 	word_length := word_rendered_length(box.name)
 	gap := (int(rect_width(box.rect)) - word_length) / 2
 	starting_x, starting_y := get_font_baseline(box.name, box.rect)
@@ -198,9 +208,15 @@ add_word_rendering_data :: proc(box: Box, boxes_to_render: ^[dynamic]Rect_Render
 			edge_softness        = 0,
 			ui_element_type      = 1.0,
 			top_left             = {starting_x + len_so_far, starting_y - 40},
-			bottom_right         = {starting_x + len_so_far + f32(char_metadata.width), starting_y},
+			bottom_right         = {
+				starting_x + len_so_far + f32(char_metadata.width),
+				starting_y,
+			},
 			texture_top_left     = {f32(char_metadata.x), f32(char_metadata.y)},
-			texture_bottom_right = {f32(char_metadata.x + char_metadata.width), f32(char_metadata.y + char_metadata.height)},
+			texture_bottom_right = {
+				f32(char_metadata.x + char_metadata.width),
+				f32(char_metadata.y + char_metadata.height),
+			},
 		}
 		len_so_far += f32(char_metadata.advance)
 		append(rendering_data, new_rect)
@@ -209,11 +225,20 @@ add_word_rendering_data :: proc(box: Box, boxes_to_render: ^[dynamic]Rect_Render
 
 // Assumes pcm_frames is from a mono version of the .wav file, BOLD assumption.
 // Might need to cache calls to this function since it's pretty costly.
-add_waveform_rendering_data :: proc(rect: Rect, sound: ma.sound, pcm_frames: [dynamic]f32, rendering_data: ^[dynamic]Rect_Render_Data) {
+add_waveform_rendering_data :: proc(
+	rect: Rect,
+	sound: ma.sound,
+	pcm_frames: [dynamic]f32,
+	rendering_data: ^[dynamic]Rect_Render_Data,
+) {
 	render_width := rect_width(rect)
 	render_height := rect_height(rect)
 	frames_read := u64(len(pcm_frames))
-	wav_rendering_data := make([dynamic]Rect_Render_Data, u32(render_width), allocator = context.temp_allocator)
+	wav_rendering_data := make(
+		[dynamic]Rect_Render_Data,
+		u32(render_width),
+		allocator = context.temp_allocator,
+	)
 	for x in 0 ..< render_width {
 		start := u64((f64(x) / f64(render_width)) * f64(frames_read))
 		end := u64(f64(x + 1) / f64(render_width) * f64(frames_read))

@@ -26,7 +26,10 @@ top_bar :: proc() -> Top_Bar_Signals {
 	tab1_rect := get_left(tabs_rect, {.Percent, 0.50})
 	tab2_rect := get_right(tabs_rect, {.Percent, 0.50})
 
-	play_button := text_button(app.audio_state.playing ? ":)@topbar_play" : ":(@topbar_pause", play_rect)
+	play_button := text_button(
+		app.audio_state.playing ? ":)@topbar_play" : ":(@topbar_pause",
+		play_rect,
+	)
 	settings_button := text_button("Settings@settings-button-topbar", settings_rect)
 	sampler_button := text_button("Open Sampler@sampler-button-topbar", sampler_rect)
 	restart_button := text_button("Restart@restart-button-topbar", restart_rect)
@@ -50,8 +53,14 @@ handle_top_bar_interactions :: proc(signals: Top_Bar_Signals) {
 		// A litle janky, hardcoded way to figure out how big the settings
 		// box is going to be.
 		settings_window_rect := Rect {
-			top_left     = {settings_space.top_left.x, settings_space.top_left.y + rect_height(settings_space)},
-			bottom_right = {settings_space.bottom_right.x, settings_space.bottom_right.y + rect_height(settings_space) * 7},
+			top_left     = {
+				settings_space.top_left.x,
+				settings_space.top_left.y + rect_height(settings_space),
+			},
+			bottom_right = {
+				settings_space.bottom_right.x,
+				settings_space.bottom_right.y + rect_height(settings_space) * 7,
+			},
 		}
 		settings := settings_menu(settings_window_rect)
 		if settings.grow_ui.clicked {
@@ -60,7 +69,9 @@ handle_top_bar_interactions :: proc(signals: Top_Bar_Signals) {
 		}
 	}
 	if signals.restart.clicked {
-		app.audio_state.curr_step = 0
+		for &track in app.audio_state.tracks {
+			track.curr_step = 0
+		}
 	}
 	if signals.settings.clicked {
 		ui_state.settings_toggled = !ui_state.settings_toggled
@@ -89,9 +100,15 @@ settings_menu :: proc(settings_menu_rect: Rect) -> Settings_Menu_Signals {
 	ui_state.z_index = 1
 	defer ui_state.z_index = 0
 
-	settings_container := container("options-container@settings-container-topbar", settings_menu_rect)
+	settings_container := container(
+		"options-container@settings-container-topbar",
+		settings_menu_rect,
+	)
 
-	resize_buttons_rect := get_top(settings_menu_rect, Size{kind = .Percent, value = 1 / n_buttons})
+	resize_buttons_rect := get_top(
+		settings_menu_rect,
+		Size{kind = .Percent, value = 1 / n_buttons},
+	)
 	reduce_rect := get_left(resize_buttons_rect, Size{.Percent, 0.5})
 	increase_rect := get_right(resize_buttons_rect, Size{.Percent, 0.5})
 

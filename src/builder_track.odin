@@ -8,9 +8,10 @@ import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
 
 Track_Button_Signals :: struct {
-	play_signals:      Box_Signals,
+	enable_signals:    Box_Signals,
 	file_load_signals: Box_Signals,
 }
+
 Track_Control_Signals :: struct {
 	value:          f32,
 	max:            f32,
@@ -18,29 +19,29 @@ Track_Control_Signals :: struct {
 	track_signals:  Box_Signals,
 	button_signals: Track_Button_Signals,
 }
+
 Track_Step_Signals :: [64]Box_Signals
 
 // Obviously not a complete track, but as complete-ish for now :).
 create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
-	track_container := cut_rect(top_rect(), RectCut{Size{.Pixels, track_width}, .Left})
-	track_controller_container := cut_rect(&track_container, RectCut{Size{.Percent, 0.25}, .Bottom})
 
-	ui_state.override_color = true
-	if app.audio_state.engine_sounds[which] != nil {
-		push_color({0, 1, 1, 1})
-	} else {
-		push_color({1, 1, 1, 1})
-	}
-	container(tprintf("container@track-{}-container", which), track_container)
-	ui_state.override_color = false
-	pop_color()
+	track_container_rect := cut_rect(top_rect(), RectCut{Size{.Pixels, track_width}, .Left})
+	track_controller_container := cut_rect(
+		&track_container_rect,
+		RectCut{Size{.Percent, 0.25}, .Bottom},
+	)
+	track_container := container(
+		tprintf("container@track-{}-container", which),
+		track_container_rect,
+	)
 
-	push_parent_rect(&track_container)
+	push_parent_rect(&track_container_rect)
 	push_parent_rect(&track_controller_container)
 	track_controls := track_control(
 		tprintf("controls@track-{}-controls", which),
 		&track_controller_container,
-		app.audio_state.slider_volumes[which],
+		app.audio_state.tracks[which].volume,
+		which,
 	)
 	pop_parent_rect()
 	track_step_container := cut_rect(top_rect(), {Size{.Percent, 0.97}, .Top})
@@ -51,6 +52,10 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Step_Signals {
 	handle_track_steps_interactions(steps, which)
 	handle_track_control_interactions(&track_controls, which)
 
+	// grey out track if inactive
+	if !app.audio_state.tracks[which].armed {
+		track_container.box.color = {0.4, 0.4, 0.4, 1}
+	}
 	return steps
 }
 
@@ -64,20 +69,16 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Step_Si
 	step_height := rect_height(rect^) / 32
 	steps: Track_Step_Signals
 	color1: [4]f32 = {0.9, 0.5, 0.1, 1}
-	color2: [4]f32 = {0.1, 0.2, 0.9, 1}
+	// color2: [4]f32 = {0.1, 0.2, 0.9, 1}
+	push_color(color1)
 	for i in 0 ..< 32 {
 		step_rect := cut_rect(rect, {Size{.Pixels, step_height}, .Top})
 		track_name := get_name_from_id_string(id_string)
-		if i % 2 == 0 {
-			push_color(color1)
-		} else {
-			pop_color()
-			push_color(color2)
-		}
 		step := tracker_step(fmt.tprintf("step-{}@step-{}-track{}", i, i, which), step_rect)
 		steps[i] = step
 	}
-	clear_dynamic_array(&ui_state.color_stack)
+	pop_color()
+	// clear_dynamic_array(&ui_state.color_stack)
 	return steps
 }
 
@@ -109,12 +110,25 @@ handle_track_steps_interactions :: proc(track: Track_Step_Signals, which: u32) {
 }
 
 // assumes 0 <= value <= 100
-track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Control_Signals {
+track_control :: proc(
+	id_string: string,
+	rect: ^Rect,
+	value: f32,
+	which: u32,
+) -> Track_Control_Signals {
 	buttons_rect := cut_rect(rect, {Size{.Percent, 0.1}, .Bottom})
-	play_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Left})
-	play_button := text_button(tprintf("play@{}_play_button", get_id_from_id_string(id_string)), play_button_rect)
+	enable_track_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Left})
+	enable_button_id := tprintf(
+		"{}@{}_button",
+		app.audio_state.tracks[which].armed ? "unarm" : "arm",
+		get_id_from_id_string(id_string),
+	)
+	enable_track_button := text_button(enable_button_id, enable_track_button_rect)
 	file_load_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Right})
-	file_load_button := text_button(tprintf("load@{}_file_load_button", get_id_from_id_string(id_string)), file_load_button_rect)
+	file_load_button := text_button(
+		tprintf("load@{}_file_load_button", get_id_from_id_string(id_string)),
+		file_load_button_rect,
+	)
 
 	cut_rect(rect, {Size{.Percent, 0.33}, .Left})
 
@@ -130,7 +144,12 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 	slider_grip_rect.top_left.y -= (value / 100) * rect_height(slider_track_rect)
 	slider_grip := box_from_cache(
 		{.Clickable, .Hot_Animation, .Active_Animation, .Draggable, .Draw},
-		tprintf("{}{}@{}", get_name_from_id_string(id_string), "_grip", get_id_from_id_string(id_string)),
+		tprintf(
+			"{}{}@{}",
+			get_name_from_id_string(id_string),
+			"_grip",
+			get_id_from_id_string(id_string),
+		),
 		slider_grip_rect,
 	)
 	append(&ui_state.temp_boxes, slider_grip)
@@ -140,20 +159,24 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32) -> Track_Contr
 		max = 100,
 		grip_signals = box_signals(slider_grip),
 		track_signals = box_signals(slider_track),
-		button_signals = {play_button, file_load_button},
+		button_signals = {enable_track_button, file_load_button},
 	}
 }
 
 handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, which: u32) {
 	if t_controls.track_signals.scrolled || t_controls.grip_signals.scrolled {
-		app.audio_state.slider_volumes[which] = calc_slider_grip_val(app.audio_state.slider_volumes[which], 100)
-		set_volume(app.audio_state.engine_sounds[which], map_range(0, 100, 0, 1, app.audio_state.slider_volumes[which]))
+		app.audio_state.tracks[which].volume = calc_slider_grip_val(
+			app.audio_state.tracks[which].volume,
+			100,
+		)
+		set_volume(
+			app.audio_state.tracks[which].sound,
+			map_range(0, 100, 0, 1, app.audio_state.tracks[which].volume),
+		)
 	}
-	if t_controls.button_signals.play_signals.hovering {
-	}
-
-	if t_controls.button_signals.play_signals.clicked {
-		toggle_sound_playing(app.audio_state.engine_sounds[which])
+	if t_controls.button_signals.enable_signals.clicked {
+		armed_state := app.audio_state.tracks[which].armed
+		app.audio_state.tracks[which].armed = !armed_state
 	}
 	if t_controls.button_signals.file_load_signals.clicked {
 		files, fok := file_dialog(false)
@@ -161,7 +184,6 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 		set_track_sound(files[0], which)
 	}
 }
-
 
 // Max is 0, min is pixel_height(slider), this is because the co-ord system of our layout.
 calc_slider_grip_val :: proc(current_val: f32, max: f32) -> f32 {
@@ -201,6 +223,7 @@ step_num_from_step :: proc(id_string: string) -> u16 {
 }
 track_num_from_step :: proc(id_string: string) -> u16 {
 	track_id := get_id_from_id_string(id_string)
-	num := cast(u16)strconv.atoi(track_id[len("track") + 1:])
+	start := s.index(track_id, "track") + len("track")
+	num := cast(u16)strconv.atoi(track_id[start:])
 	return num
 }
