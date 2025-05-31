@@ -406,6 +406,7 @@ update_app :: proc() -> bool {
 	}
 	ui_state.root_rect.top_left = {0, 0}
 	ui_state.root_rect.bottom_right = {f32(app.wx^), f32(app.wy^)}
+
 	event: sdl.Event
 	reset_mouse_state()
 	for sdl.PollEvent(&event) {
@@ -415,10 +416,11 @@ update_app :: proc() -> bool {
 	}
 
 	if app.audio_state.playing {
-		if frame_num^ % (30) == 0 {
-			for &track in app.audio_state.tracks {
+		if frame_num^ % (30) == 0 { 	// moves at 120BPM if fps is 120 FPS.
+			for &track, track_num in app.audio_state.tracks {
 				if track.armed {
 					track.curr_step = (track.curr_step + 1) % 32
+					play_track_step(u32(track_num))
 				}
 			}
 		}

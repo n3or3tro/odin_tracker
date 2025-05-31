@@ -11,6 +11,7 @@ import "core:fmt"
 import "core:math"
 import "core:math/fixed"
 import "core:math/rand"
+import "core:mem"
 import "core:strings"
 import sdl "vendor:sdl2"
 
@@ -126,7 +127,7 @@ Box :: struct {
 
 box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
 	id := get_id_from_id_string(id_string)
-	if id in ui_state.box_cache {
+	if id in ui_state.box_cache && id_string != "spacer@spacer" {
 		box := ui_state.box_cache[id]
 		box.rect = rect
 		return box
@@ -154,7 +155,6 @@ box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
 			1,
 		}
 	} else {
-		println("top color was: ", color)
 		box.color = color
 	}
 	box.name = get_name_from_id_string(id_string)
@@ -278,7 +278,7 @@ cut_rect :: proc(rect: ^Rect, rect_cut: RectCut) -> Rect {
 
 cut_left :: proc(rect: ^Rect, amount: Size) -> Rect {
 	parent_top_left_x: f32 = rect.top_left.x
-	px_amount := math.floor(get_amount(rect^, amount, .Left))
+	px_amount := math.floor(get_pixel_change_amount(rect^, amount, "x"))
 	rect.top_left.x = rect.top_left.x + px_amount
 	return Rect {
 		top_left = {parent_top_left_x, rect.top_left.y},
@@ -287,7 +287,7 @@ cut_left :: proc(rect: ^Rect, amount: Size) -> Rect {
 }
 cut_right :: proc(rect: ^Rect, amount: Size) -> Rect {
 	parent_bottom_right_x: f32 = rect.bottom_right.x
-	px_amount := math.floor(get_amount(rect^, amount, .Right))
+	px_amount := math.floor(get_pixel_change_amount(rect^, amount, "x"))
 	rect.bottom_right.x = rect.bottom_right.x - px_amount
 	return Rect {
 		top_left = {parent_bottom_right_x - px_amount, rect.top_left.y},
@@ -296,7 +296,7 @@ cut_right :: proc(rect: ^Rect, amount: Size) -> Rect {
 }
 cut_top :: proc(rect: ^Rect, amount: Size) -> Rect {
 	parent_top_left_y: f32 = rect.top_left.y
-	px_amount := math.floor(get_amount(rect^, amount, .Top))
+	px_amount := math.floor(get_pixel_change_amount(rect^, amount, "y"))
 	rect.top_left.y = rect.top_left.y + px_amount
 	return Rect {
 		{rect.top_left.x, parent_top_left_y},
@@ -305,7 +305,7 @@ cut_top :: proc(rect: ^Rect, amount: Size) -> Rect {
 }
 cut_bottom :: proc(rect: ^Rect, amount: Size) -> Rect {
 	parent_bottom_right_y: f32 = rect.bottom_right.y
-	px_amount := math.floor(get_amount(rect^, amount, .Bottom))
+	px_amount := math.floor(get_pixel_change_amount(rect^, amount, "y"))
 	rect.bottom_right.y = rect.bottom_right.y - px_amount
 	return Rect {
 		{rect.top_left.x, parent_bottom_right_y - px_amount},
@@ -330,7 +330,7 @@ get_rect :: proc(rect: Rect, rect_cut: RectCut) -> Rect {
 }
 get_left :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_top_left_x: f32 = rect.top_left.x
-	px_amount := math.floor(get_amount(rect, amount, .Left))
+	px_amount := math.floor(get_pixel_change_amount(rect, amount, "x"))
 	return Rect {
 		top_left = {parent_top_left_x, rect.top_left.y},
 		bottom_right = {parent_top_left_x + px_amount, rect.bottom_right.y},
@@ -338,7 +338,7 @@ get_left :: proc(rect: Rect, amount: Size) -> Rect {
 }
 get_right :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_bottom_right_x: f32 = rect.bottom_right.x
-	px_amount := math.floor(get_amount(rect, amount, .Right))
+	px_amount := math.floor(get_pixel_change_amount(rect, amount, "x"))
 	return Rect {
 		top_left = {parent_bottom_right_x - px_amount, rect.top_left.y},
 		bottom_right = {parent_bottom_right_x, rect.bottom_right.y},
@@ -346,7 +346,7 @@ get_right :: proc(rect: Rect, amount: Size) -> Rect {
 }
 get_top :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_top_left_y: f32 = rect.top_left.y
-	px_amount := math.floor(get_amount(rect, amount, .Top))
+	px_amount := math.floor(get_pixel_change_amount(rect, amount, "y"))
 	return Rect {
 		{rect.top_left.x, parent_top_left_y},
 		{rect.bottom_right.x, parent_top_left_y + px_amount},
@@ -354,7 +354,7 @@ get_top :: proc(rect: Rect, amount: Size) -> Rect {
 }
 get_bottom :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_bottom_right_y: f32 = rect.bottom_right.y
-	px_amount := math.floor(get_amount(rect, amount, .Bottom))
+	px_amount := math.floor(get_pixel_change_amount(rect, amount, "y"))
 	return Rect {
 		{rect.top_left.x, parent_bottom_right_y - px_amount},
 		{rect.bottom_right.x, parent_bottom_right_y},
@@ -363,25 +363,25 @@ get_bottom :: proc(rect: Rect, amount: Size) -> Rect {
 
 // add_* lets you add to a rectangle, using same sizing semantics as when cutting.
 add_left :: proc(rect: Rect, amount: Size) -> Rect {
-	px_amount := math.floor(get_amount(rect, amount, .Left))
+	px_amount := math.floor(get_pixel_change_amount(rect, amount, "x"))
 	new_rect := rect
 	new_rect.top_left.x = rect.top_left.x - px_amount
 	return new_rect
 }
 add_right :: proc(rect: Rect, amount: Size) -> Rect {
-	px_amount := math.floor(get_amount(rect, amount, .Right))
+	px_amount := math.floor(get_pixel_change_amount(rect, amount, "x"))
 	new_rect := rect
 	new_rect.bottom_right.x = rect.bottom_right.x + px_amount
 	return new_rect
 }
 add_top :: proc(rect: Rect, amount: Size) -> Rect {
-	px_amount := math.floor(get_amount(rect, amount, .Top))
+	px_amount := math.floor(get_pixel_change_amount(rect, amount, "y"))
 	new_rect := rect
 	new_rect.top_left.y = rect.top_left.y - px_amount
 	return new_rect
 }
 add_bottom :: proc(rect: Rect, amount: Size) -> Rect {
-	px_amount := math.floor(get_amount(rect, amount, .Bottom))
+	px_amount := math.floor(get_pixel_change_amount(rect, amount, "y"))
 	new_rect := rect
 	new_rect.bottom_right.y = rect.bottom_right.y + px_amount
 	return new_rect
@@ -389,14 +389,14 @@ add_bottom :: proc(rect: Rect, amount: Size) -> Rect {
 
 // Let's you add pixels in a specific direction.
 expand_x :: proc(rect: Rect, amount: Size) -> Rect {
-	px_amount := math.floor(get_amount(rect, amount, .Left))
+	px_amount := math.floor(get_pixel_change_amount(rect, amount, "x"))
 	new_rect := rect
 	new_rect.top_left.x = rect.top_left.x - px_amount
 	new_rect.bottom_right.x = rect.bottom_right.x + px_amount
 	return new_rect
 }
 expand_y :: proc(rect: Rect, amount: Size) -> Rect {
-	px_amount := math.floor(get_amount(rect, amount, .Top))
+	px_amount := math.floor(get_pixel_change_amount(rect, amount, "y"))
 	new_rect := rect
 	new_rect.top_left.y = rect.top_left.y - px_amount
 	new_rect.bottom_right.y = rect.bottom_right.y + px_amount
@@ -408,37 +408,38 @@ expand :: proc(rect: Rect, amount: Size) -> Rect {
 
 // Let's you remove pixels in a specific direction
 shrink_x :: proc(rect: Rect, amount: Size) -> Rect {
-	px_amount := math.floor(get_amount(rect, amount, .Left))
+	px_amount := math.floor(get_pixel_change_amount(rect, amount, "x")) / 2
 	new_rect := rect
 	new_rect.top_left.x = rect.top_left.x + px_amount
 	new_rect.bottom_right.x = rect.bottom_right.x - px_amount
 	return new_rect
 }
+
 shrink_y :: proc(rect: Rect, amount: Size) -> Rect {
-	px_amount := math.floor(get_amount(rect, amount, .Left))
+	px_amount := math.floor(get_pixel_change_amount(rect, amount, "y"))
 	new_rect := rect
 	new_rect.top_left.y = rect.top_left.y - px_amount
 	new_rect.bottom_right.y = rect.bottom_right.y + px_amount
 	return new_rect
 }
+
 shrink :: proc(rect: Rect, amount: Size) -> Rect {
 	return shrink_x(shrink_y(rect, amount), amount)
 }
 
 // Calulcates actual pixel amount based on abstract size.
-get_amount :: proc(rect: Rect, amount: Size, side: RectCutSide) -> f32 {
+get_pixel_change_amount :: proc(rect: Rect, amount: Size, direction: string) -> f32 {
 	switch amount.kind {
 	case .Percent:
-		switch side {
-		case .Left, .Right:
-			return amount.value * (rect.bottom_right.x - rect.top_left.x)
-		case .Top, .Bottom:
-			return amount.value * (rect.bottom_right.y - rect.top_left.y)
+		if direction == "x" {
+			return rect_width(rect) * amount.value
+		} else {
+			return rect_height(rect) * amount.value
 		}
 	case .Pixels:
 		return amount.value
 	}
-	panic("[!] get_amount: invalid kind")
+	panic("somethings gone wrong in trying to get shrink amount :(")
 }
 
 mouse_inside_box :: proc(box: ^Box, mouse: [2]i32) -> bool {
@@ -465,11 +466,16 @@ pop_color :: proc() -> Color {
 	return pop(&ui_state.color_stack)
 }
 
+clear_color_stack :: proc() {
+	clear_dynamic_array(&app.ui_state.color_stack)
+}
+
 top_color :: proc() -> (Color, bool) {
 	n_colors := len(ui_state.color_stack)
 	if n_colors < 1 do return {20, 20, 20, 20}, false
 	return ui_state.color_stack[n_colors - 1], true
 }
+
 set_box_top_side_color :: proc(box: ^Box, colors: [2]f32) {
 	box.color[0] = colors[0]
 	box.color[3] = colors[1]
@@ -505,9 +511,38 @@ get_id_from_id_string :: proc(id_string: string) -> string {
 	return id_string[from:]
 }
 
+
 spacer :: proc(id_string: string, rect_cut: RectCut) -> ^Box {
 	rect := cut_rect(top_rect(), rect_cut)
 	s := box_from_cache({}, id_string, rect)
 	append(&ui_state.temp_boxes, s)
 	return s
 }
+
+
+// Slices along x axis - like slicing vegetables. 
+cut_rect_into_n_horizontally :: proc(
+	rect: ^Rect,
+	n: u32,
+	allocator: mem.Allocator = context.temp_allocator,
+) -> [dynamic]Rect {
+	assert(n > 0)
+	tl := rect.top_left
+	br := rect.bottom_right
+	piece_width := rect_width(rect^) / f32(n)
+	piece_height := rect_height(rect^)
+	bl := rect.top_left.xy + {0, piece_height}
+	slices := make([dynamic]Rect, allocator = allocator)
+	for i in 0 ..< n {
+		new_rect := Rect {
+			tl.xy + {(f32(i) * piece_width), 0},
+			bl.xy + {f32(i + 1) * piece_width, 0},
+		}
+		append(&slices, new_rect)
+	}
+	return slices
+}
+
+// Slices along y axis - like collapsing a tower. 
+// cut_rect_into_n_vertically :: proc(box: ^Rect, n: u32) -> [2]Rect {
+// }

@@ -55,14 +55,20 @@ get_default_rendering_data :: proc(box: Box) -> Rect_Render_Data {
 // sets circumstantial (hovering, clicked, etc) rendering data like radius, borders, etc
 get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 	render_data := new([dynamic]Rect_Render_Data, allocator = context.temp_allocator)
+	tl_color: Vec4 = box.color
 	bl_color: Vec4 = box.color
+	tr_color: Vec4 = box.color
 	br_color: Vec4 = box.color
-	// tr_color: Vec4 = box.color
-	// tl_color: Vec4 = box.color
 
-	if box.signals.pressed && .Active_Animation in box.flags {
-		bl_color = {0.0, 0.0, 0.0, 1}
-		br_color = {0.0, 0.0, 0.0, 1}
+	// shade buttons
+	if s.contains(box.id_string, "button") {
+		bl_color = {0.2, 0.2, 0.2, 1}
+		br_color = {0.2, 0.2, 0.2, 1}
+	}
+
+	if box.signals.hovering && .Active_Animation in box.flags {
+		bl_color += {0.3, 0.3, 0.3, 0}
+		br_color += {0.3, 0.3, 0.3, 0}
 	} else if box.signals.hovering && .Hot_Animation in box.flags {
 		bl_color.a = 0.1
 		br_color.a = 0.1
@@ -73,17 +79,21 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 		top_left         = box.rect.top_left,
 		bottom_right     = box.rect.bottom_right,
 		// idrk the winding order for colors, this works tho.
-		tl_color         = box.color,
-		tr_color         = bl_color,
+		tl_color         = bl_color,
+		tr_color         = br_color,
 		bl_color         = box.color,
-		br_color         = br_color,
+		br_color         = box.color,
 		corner_radius    = 0,
 		edge_softness    = 0,
 		border_thickness = 300,
 	}
 	if s.contains(box.id_string, "step") {
-		data.border_thickness = 3
-		data.corner_radius = 3
+		data.border_thickness = 100
+		data.corner_radius = 0
+		// data.tl_color = {0.5, 0.5, 0.5, 1}
+		// data.bl_color = {0.5, 0.5, 0.5, 1}
+		// data.tr_color = {0.5, 0.5, 0.5, 1}
+		// data.br_color = {0.5, 0.5, 0.5, 1}
 		if box.selected {
 			data.tl_color = {0.5, 0, 0.7, 1}
 			data.bl_color = {0.2, 0, 0.4, 1}
@@ -92,15 +102,28 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 			data.border_thickness = 100
 		}
 		if is_active_step(box) {
-			printfln("{} is in the active step", box.id_string)
-			data.border_thickness = 100
 			data.corner_radius = 0
+			// data.tl_color += {0.2, 0.2, 0.2, 1}
+			// data.tr_color += {0.2, 0.2, 0.2, 1}
+			// data.bl_color += {0.2, 0.2, 0.2, 1}
+			// data.br_color += {0.2, 0.2, 0.2, 1}
 			outlining_rect := data
-			outlining_rect.border_thickness = 5
-			outlining_rect.tl_color = {1, 0, 0, 1}
-			outlining_rect.tr_color = {1, 0, 0, 1}
-			outlining_rect.bl_color = {1, 0, 0, 1}
-			outlining_rect.br_color = {1, 0, 0, 1}
+			outlining_rect.border_thickness = 0.7
+			normal_color: Color = {1, 0, 0, 1}
+			outline_color: Color = {0.5, 0.5, 0.5, 1}
+			// if s.contains(box.id_string, "pitch") {
+			outlining_rect.tl_color = normal_color
+			outlining_rect.tr_color = normal_color
+			outlining_rect.bl_color = normal_color
+			outlining_rect.br_color = normal_color
+			// outlining_rect.bottom_right.x -= 30
+			// } else if s.contains(box.id_string, "send2") {
+			// 	outlining_rect.tl_color = normal_color
+			// 	outlining_rect.tr_color = normal_color
+			// 	outlining_rect.bl_color = normal_color
+			// 	outlining_rect.br_color = normal_color
+			// 	// outlining_rect.top_left.x += 30
+			// }
 			append(render_data, data, outlining_rect)
 			return render_data
 		}
@@ -113,7 +136,6 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 }
 
 is_active_step :: proc(box: Box) -> bool {
-	println(box.id_string)
 	track_num := track_num_from_step(box.id_string)
 	step_num := step_num_from_step(box.id_string)
 	return step_num == app.audio_state.tracks[track_num].curr_step

@@ -18,7 +18,6 @@ Track :: struct {
 	pcm_data:  [dynamic]f32,
 	curr_step: u16,
 }
-
 Audio_State :: struct {
 	tracks:       [dynamic]Track,
 	engine:       ^ma.engine,
@@ -27,6 +26,9 @@ Audio_State :: struct {
 	// as it probably will help in designging the audio processing stuff.
 	audio_groups: [N_AUDIO_GROUPS]^ma.sound_group,
 	playing:      bool,
+	// For some reason this thing needs to be globally accessible (at least according to the docs),
+	// Perhaps we can localize it later.
+	delay:        ma.delay_node,
 }
 
 SOUND_FILE_LOAD_FLAGS: ma.sound_flags = {.DECODE, .NO_SPATIALIZATION}
@@ -58,6 +60,7 @@ setup_audio :: proc() -> ^Audio_State {
 	app.audio_state = audio_state
 	audio_state.engine = engine
 
+	init_delay(0.5, 0.3)
 	set_track_sound("/home/lucas/Music/test_sounds/the-create-vol-4/loops/01-save-the-day.wav", 0)
 	return audio_state
 }
@@ -67,6 +70,9 @@ set_track_sound :: proc(path: cstring, which: u32) {
 		ma.sound_uninit(app.audio_state.tracks[which].sound)
 	}
 	new_sound := new(ma.sound)
+
+	// need to connect sound into node graph
+
 	res := ma.sound_init_from_file(
 		app.audio_state.engine,
 		path,
@@ -76,7 +82,45 @@ set_track_sound :: proc(path: cstring, which: u32) {
 		nil,
 		new_sound,
 	)
+	assert(res == .SUCCESS)
+
+	ma.node_attach_output_bus(cast(^ma.node)new_sound, 0, cast(^ma.node)&app.audio_state.delay, 0)
+
 	app.audio_state.tracks[which].sound = new_sound
+}
+
+init_delay :: proc(delay_time: f32, decay_time: f32) {
+	channels := ma.engine_get_channels(app.audio_state.engine)
+	sample_rate := ma.engine_get_sample_rate(app.audio_state.engine)
+	config := ma.delay_node_config_init(
+		channels,
+		sample_rate,
+		u32(f32(sample_rate) * delay_time),
+		decay_time,
+	)
+	println(config)
+	res := ma.delay_node_init(
+		ma.engine_get_node_graph(app.audio_state.engine),
+		&config,
+		nil,
+		&app.audio_state.delay,
+	)
+	if res != .SUCCESS {
+		println(res)
+		panic("")
+	}
+	// assert(res == .SUCCESS)
+
+	res = ma.node_attach_output_bus(
+		cast(^ma.node)(&app.audio_state.delay),
+		0,
+		ma.engine_get_endpoint(app.audio_state.engine),
+		0,
+	)
+	assert(res == .SUCCESS)
+}
+
+turn_on_delay :: proc() {
 }
 
 toggle_sound_playing :: proc(sound: ^ma.sound) {

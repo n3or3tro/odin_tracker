@@ -39,10 +39,15 @@ uniform int font_texture_height;
 
 void main() {
 	vec4[4] colors;
-	colors[0] = tl_color;
+	// colors[0] = tl_color;
+	// colors[1] = tr_color;
+	// colors[2] = bl_color;
+	// colors[3] = br_color;
+
+	colors[0] = br_color;
 	colors[1] = tr_color;
 	colors[2] = bl_color;
-	colors[3] = br_color;
+	colors[3] = tl_color;
 
     // Static vertex array mapped to gl_VertexID
 	vec2 vertices[4] = vec2[](vec2(-1.0, -1.0), vec2(-1.0, 1.0), vec2(1.0, -1.0), vec2(1.0, 1.0));

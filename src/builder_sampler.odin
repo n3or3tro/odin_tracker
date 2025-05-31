@@ -38,10 +38,8 @@ sampler :: proc(id_string: string, rect: ^Rect) -> Sampler_Signals {
 	}
 	k1 := knob("sampler_knob", first_knob_rect)
 	if k1.scrolled {
-		println("scrolled the knob")
 	}
 	if k1.clicked {
-		println("clicked the knob")
 	}
 	return Sampler_Signals{container_signals = s_container}
 }

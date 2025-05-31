@@ -1,5 +1,6 @@
 package main
 import "core:fmt"
+import "core:math"
 import alg "core:math/linalg"
 import "core:sys/posix"
 import thread "core:thread"
@@ -8,6 +9,7 @@ import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
 
 Color :: [4]f32
+HSLA_Color :: [4]f32
 
 Z_Layer :: enum {
 	default,
@@ -62,19 +64,18 @@ n_track_steps: u32 = 32
 main_tracker_panel :: proc() {
 	col_height := cast(u32)(rect_height(top_rect()^) * track_steps_height_ratio)
 	num_column(col_height, n_track_steps)
-	track_padding: u32 = 3
+	track_padding: u32 = 10
 	// This is the remaining space to the right of the number column.
 	rest_screen := f32(app.wx^) * (1 - track_steps_width_ratio)
-	track_width: f32 = f32(rest_screen / f32(N_TRACKS) - f32(track_padding))
+	// track_width: f32 = f32(rest_screen / f32(N_TRACKS) - f32(track_padding))
+	/*
+		Need some computational way to figure out the track_width, as it can't really 
+		be a ratio of the screen since we don't want it to shrink in proportion to the window 
+	*/
+	track_width: f32 = 200
 	for i in 0 ..< app.n_tracks {
 		create_track(u32(i), track_width)
-		push_color({0, 0, 0, 1})
-		// need to be careful with spacer ID strings.
-		spacer(
-			tprintf("spacer@{}{}{}-sapcer", i, i, i),
-			RectCut{Size{.Pixels, f32(track_padding)}, .Left},
-		)
-		pop_color()
+		spacer("spacer@spacer", RectCut{Size{.Pixels, f32(track_padding)}, .Left})
 	}
 	add_track_rect := Rect {
 		top_left     = {track_width * f32(app.n_tracks) + 100, f32(app.wy^ / 2) - 50},
@@ -105,6 +106,7 @@ main_tracker_panel :: proc() {
 		}
 	}
 }
+
 create_ui :: proc() {
 	topbar := top_bar()
 	handle_top_bar_interactions(topbar)
@@ -112,16 +114,17 @@ create_ui :: proc() {
 	case 0:
 		main_tracker_panel()
 	case 1:
-		println("tab2 :)")
+		text_container_absolute(
+			"heyyyyyyyyyyyyyy\nwhat the fuck is oging on man :)@lolol",
+			100,
+			500,
+		)
 	case 2:
-		println("tab3 :)")
+		text_button_absolute("this is the conent of tab 3@whatalksj", 100, 100)
 	}
-
-
 	if ui_state.context_menu_active {
 		context_menu()
 	}
-
 }
 
 render_ui :: proc() {
@@ -168,6 +171,82 @@ Color_Theme :: struct {
 Element_Theme :: struct {
 }
 
-map_colors :: proc() {
+Palette_Entry :: struct {
+	s_300: Color,
+	s_400: Color,
+	s_500: Color,
+	s_600: Color,
+	s_700: Color,
+	s_800: Color,
+	s_900: Color,
+}
 
+Palette :: struct {
+	primary:   Palette_Entry,
+	secondary: Palette_Entry,
+	tertiary:  Palette_Entry,
+	// quarternary: Palette_Entry,
+	grey:      Palette_Entry, // ranges from nearly white to nearly black
+}
+
+palette := Palette {
+	primary = Palette_Entry {
+		s_300 = Color{0.88, 0.94, 0.99, 1.0}, // #E0E2FC
+		s_400 = Color{0.70, 0.75, 0.97, 1.0}, // #B2B7F7
+		s_500 = Color{0.51, 0.56, 0.95, 1.0}, // #828DF2
+		s_600 = Color{0.30, 0.38, 0.92, 1.0}, // #4D62EB
+		s_700 = Color{0.14, 0.25, 0.99, 1.0}, // #243FBD
+		s_800 = Color{0.07, 0.15, 0.46, 1.0}, // #132476
+		s_900 = Color{0.02, 0.05, 0.20, 1.0}, // #040B34
+	},
+	secondary = Palette_Entry {
+		s_300 = Color{0.95, 1.00, 0.98, 1.0}, // #F2EFFB
+		s_400 = Color{0.84, 0.79, 0.95, 1.0}, // #D6CBF3
+		s_500 = Color{0.72, 0.61, 0.91, 1.0}, // #B699E9
+		s_600 = Color{0.59, 0.43, 0.93, 1.0}, // #976EDE
+		s_700 = Color{0.48, 0.25, 0.78, 1.0}, // #793FC8
+		s_800 = Color{0.31, 0.15, 0.53, 1.0}, // #502787
+		s_900 = Color{0.16, 0.08, 0.29, 1.0}, // #2A124B
+	},
+	tertiary = Palette_Entry {
+		s_300 = Color{0.99, 0.86, 0.88, 1.0}, // #F3DBE1
+		s_400 = Color{0.90, 0.67, 0.73, 1.0}, // #E6A9B9
+		s_500 = Color{0.86, 0.45, 0.57, 1.0}, // #DB7292
+		s_600 = Color{0.72, 0.38, 0.53, 1.0}, // #B6486D
+		s_700 = Color{0.50, 0.19, 0.29, 1.0}, // #80304B
+		s_800 = Color{0.31, 0.09, 0.17, 1.0}, // #4E1A2C
+		s_900 = Color{0.14, 0.03, 0.07, 1.0}, // #230811
+	},
+	grey = Palette_Entry {
+		s_300 = Color{0.94, 0.94, 0.95, 1.0}, // #F0F0F1
+		s_400 = Color{0.78, 0.78, 0.80, 1.0}, // #C7C8CB
+		s_500 = Color{0.62, 0.61, 0.65, 1.0}, // #9FA1A6
+		s_600 = Color{0.48, 0.49, 0.51, 1.0}, // #7A7C82
+		s_700 = Color{0.34, 0.35, 0.36, 1.0}, // #57595D
+		s_800 = Color{0.22, 0.22, 0.23, 1.0}, // #37383B
+		s_900 = Color{0.10, 0.10, 0.11, 1.0}, // #191A1C
+	},
+}
+
+hsla_to_rgba :: proc(h, s, l, a: f32) -> Color {
+	h_norm: f32 = (math.mod_f32(h, 360)) / 60.0
+	c: f32 = (1.0 - abs(2.0 * l - 1.0)) * s
+	x: f32 = c * (1.0 - abs(math.mod(h_norm, 2.0) - 1.0))
+	m: f32 = l - c / 2.0
+	r, g, b: f32
+	if h_norm < 1.0 {
+		r = c;g = x;b = 0.0
+	} else if h_norm < 2.0 {
+		r = x;g = c;b = 0.0
+	} else if h_norm < 3.0 {
+		r = 0.0;g = c;b = x
+	} else if h_norm < 4.0 {
+		r = 0.0;g = x;b = c
+	} else if h_norm < 5.0 {
+		r = x;g = 0.0;b = c
+	} else {
+		r = c;g = 0.0;b = x
+	}
+	result := Color{r + m, g + m, b + m, a}
+	return result
 }

@@ -26,17 +26,23 @@ top_bar :: proc() -> Top_Bar_Signals {
 	tab1_rect := get_left(tabs_rect, {.Percent, 0.50})
 	tab2_rect := get_right(tabs_rect, {.Percent, 0.50})
 
+	push_color(palette.secondary.s_800)
 	play_button := text_button(
 		app.audio_state.playing ? ":)@topbar_play" : ":(@topbar_pause",
 		play_rect,
 	)
+	push_color(palette.secondary.s_600)
 	settings_button := text_button("Settings@settings-button-topbar", settings_rect)
+	push_color(palette.secondary.s_400)
 	sampler_button := text_button("Open Sampler@sampler-button-topbar", sampler_rect)
+	push_color(palette.secondary.s_300)
 	restart_button := text_button("Restart@restart-button-topbar", restart_rect)
 
+	push_color(palette.tertiary.s_700)
 	tab0_button := text_button("Tab 0 @tab0-button-top-bar", tab0_rect)
 	tab1_button := text_button("Tab 1 @tab1-button-top-bar", tab1_rect)
 	tab2_button := text_button("Tab 2 @tab2-button-top-bar", tab2_rect)
+	clear_color_stack()
 
 	return Top_Bar_Signals {
 		play = play_button,
