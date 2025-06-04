@@ -21,10 +21,10 @@ Track_Control_Signals :: struct {
 }
 
 Individual_Step_Signals :: struct {
-	pitch:  Box_Signals,
-	volume: Box_Signals,
-	send1:  Box_Signals,
-	sedn2:  Box_Signals,
+	pitch:  Text_Input_Signals,
+	volume: Text_Input_Signals,
+	send1:  Text_Input_Signals,
+	send2:  Text_Input_Signals,
 }
 
 Track_Steps_Signals :: [32]Individual_Step_Signals
@@ -60,10 +60,10 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Steps_Signals {
 	return steps
 }
 
-tracker_step :: proc(id_string: string, rect: Rect) -> Box_Signals {
-	b := box_from_cache({.Draw, .Clickable, .Active_Animation}, id_string, rect)
-	append(&ui_state.temp_boxes, b)
-	return box_signals(b)
+tracker_step :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
+	// b := box_from_cache({.Draw, .Clickable, .Active_Animation, .Draw_Border}, id_string, rect)
+	signals := text_input(id_string, rect, "")
+	return signals
 }
 
 track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_Signals {
@@ -83,7 +83,7 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 		)
 		push_color(palette.secondary.s_500)
 		step1 := tracker_step(
-			fmt.tprintf("step-{}-volume@step-{}-volume-track{}", i, i, 1, which),
+			fmt.tprintf("step-{}-volume@step-{}-volume-track{}", i, i, which),
 			each_steps_rect[1],
 		)
 
@@ -102,7 +102,7 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 			pitch  = step0,
 			volume = step1,
 			send1  = step2,
-			sedn2  = step3,
+			send2  = step3,
 		}
 		clear_color_stack()
 
@@ -113,17 +113,17 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 
 handle_track_steps_interactions :: proc(track: Track_Steps_Signals, which: u32) {
 	for step in track {
-		if step.pitch.clicked {
-			step.pitch.box.selected = !step.pitch.box.selected
-			step_num := step_num_from_step(step.pitch.box.id_string)
-			if step.pitch.box.selected {
+		if step.pitch.box_signals.clicked {
+			step.pitch.box_signals.box.selected = !step.pitch.box_signals.box.selected
+			step_num := step_num_from_step(step.pitch.box_signals.box.id_string)
+			if step.pitch.box_signals.box.selected {
 				ui_state.selected_steps[which][step_num] = true
 			} else {
 				ui_state.selected_steps[which][step_num] = false
 			}
 		}
-		if step.pitch.hovering && step.pitch.scrolled {
-			step_num := step_num_from_step(step.pitch.box.id_string)
+		if step.pitch.box_signals.hovering && step.pitch.box_signals.scrolled {
+			step_num := step_num_from_step(step.pitch.box_signals.box.id_string)
 			ui_state.step_pitches[which][step_num] += f32(app.mouse.wheel.y)
 		}
 	}
@@ -143,7 +143,6 @@ track_control :: proc(
 	value: f32,
 	which: u32,
 ) -> Track_Control_Signals {
-	defer clear_color_stack()
 	buttons_rect := cut_rect(rect, {Size{.Percent, 0.1}, .Bottom})
 	enable_track_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Left})
 	enable_button_id := tprintf(
@@ -182,7 +181,7 @@ track_control :: proc(
 		slider_grip_rect,
 	)
 	append(&ui_state.temp_boxes, slider_grip)
-
+	clear_color_stack()
 	return Track_Control_Signals {
 		value = value,
 		max = 100,

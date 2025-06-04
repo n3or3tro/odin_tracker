@@ -1,5 +1,6 @@
 package main
 import "base:runtime"
+import "core:container/queue"
 import "core:dynlib"
 import "core:flags"
 import "core:fmt"
@@ -36,13 +37,12 @@ when ODIN_OS == .Windows {
 }
 ASPECT_RATIO: f32 : 16.0 / 10.0
 
-
 // [NOTE]: Pretty sure that anything that's a pointer inside this struct needs to malloc'd.
 App_State :: struct {
-	window:          ^sdl.Window,
-	ui_state:        ^UI_State,
-	char_map:        ^u32,
-	mouse:           struct {
+	window:            ^sdl.Window,
+	ui_state:          ^UI_State,
+	char_map:          ^u32,
+	mouse:             struct {
 		pos:           [2]i32, // these are typed like this to follow the SDL api, else, they'd be u16
 		last_pos:      [2]i32, // pos of the mouse in the last frame.
 		drag_start:    [2]i32, // -1 if drag was already handled
@@ -51,22 +51,25 @@ App_State :: struct {
 		drag_done:     bool,
 		left_pressed:  bool,
 		right_pressed: bool,
-		wheel:         [2]i8, //-1 moved down, +1 move up
+		wheel:         [2]i8, // -1 moved down, +1 move up
 		clicked:       bool, // whether mouse was left clicked in this frame.
 		right_clicked: bool, // whether mouse was right clicked in this frame.
 	},
 	// Actual pixel values of the window.
-	wx:              ^i32,
-	wy:              ^i32,
-	audio_state:     ^Audio_State,
-	hot_id:          string,
-	active_id:       string,
-	sampler_open:    bool,
+	wx:                ^i32,
+	wy:                ^i32,
+	audio_state:       ^Audio_State,
+	hot_id:            string,
+	active_id:         string,
+	sampler_open:      bool,
 	// top left of the sampler window
-	sampler_pos:     Vec2,
-	dragging_window: bool,
-	n_tracks:        u8,
-	acitve_tab:      u8,
+	sampler_pos:       Vec2,
+	dragging_window:   bool,
+	n_tracks:          u8,
+	acitve_tab:        u8,
+	// Doesn't actually need to be dynamic, just doing this coz the dynamic array API works well as a stack.
+	char_queue:        [32]sdl.Keycode,
+	curr_chars_stored: u32,
 }
 
 N_TRACKS :: 10
@@ -101,6 +104,20 @@ when PROFILING {
 }
 
 main :: proc() {
+	when ODIN_DEBUG {
+		track: mem.Tracking_Allocator
+		mem.tracking_allocator_init(&track, context.allocator)
+		context.allocator = mem.tracking_allocator(&track)
+
+		defer {
+			if len(track.allocation_map) > 0 {
+				for _, entry in track.allocation_map {
+					fmt.eprintf("%v leaked %v bytes\n", entry.location, entry.size)
+				}
+			}
+			mem.tracking_allocator_destroy(&track)
+		}
+	}
 	when PROFILING {
 		spall_ctx = spall.context_create("trace_test.spall")
 		defer spall.context_destroy(&spall_ctx)
@@ -122,12 +139,15 @@ main :: proc() {
 		}
 		frame_time := f32(start - time.now()._nsec) / 1_000
 	}
+	cleanup_app_state()
+	// println("press enter to fully close the app")
+	// buffer: [2]u8
+	// os.read(os.stdin, buffer[:])
 }
 
 init_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	// sdl.Init({.AUDIO, .EVENTS, .TIMER})
 	sdl.Init({.EVENTS})
-
 	window_flags :=
 		sdl.WINDOW_OPENGL | sdl.WINDOW_RESIZABLE | sdl.WINDOW_ALLOW_HIGHDPI | sdl.WINDOW_UTILITY
 	app.window = sdl.CreateWindow(
@@ -171,6 +191,50 @@ init_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	return app.window, gl_context
 }
 
+cleanup_app_state :: proc() {
+	free(app.wx)
+	// println("freed app.wx")
+	free(app.wy)
+	// println("freed app.wy")
+	free(app.ui_state.quad_vbuffer)
+	// println("freed app.ui_state.quad_vbuffer")
+	free(app.ui_state.quad_vabuffer)
+	// println("freed app.ui_state.quad_vauffer")
+	free(app.ui_state.frame_num)
+	free(app.ui_state.root_rect)
+	// println("freed app.frame_num")
+	delete_dynamic_array(app.ui_state.rect_stack)
+	// println("deleted app.ui_state.rect_stack")
+	delete_dynamic_array(app.ui_state.color_stack)
+	// println("deleted app.ui_state.color_stack")
+	for key, val in app.ui_state.box_cache {
+		println("freeing box from box_cache with id_string: {} ", val.id_string)
+		free(val)
+	}
+	for entry in app.ui_state.temp_boxes {
+		println("freeing box from temp_boxes with id_string: {}", entry.id_string)
+		free(entry)
+	}
+	delete_map(app.ui_state.box_cache)
+	// println("deleted app.ui_state.box_cache")
+	delete(app.ui_state.temp_boxes)
+	// println("deleted app.ui_state.temp_boxes")
+	sdl.DestroyWindow(app.window)
+	// println("destroyed sdl window")
+
+	delete(app.audio_state.tracks)
+	// println("deleted app.audio_state.tracks")
+	free(app.audio_state.engine)
+	// println("freed app.audio_state.engine")
+	for group in app.audio_state.audio_groups {
+		free(group)
+	}
+	free(app.ui_state)
+	free(app)
+	free_all(context.allocator)
+	free_all(context.temp_allocator)
+}
+
 init_ui_state :: proc() -> ^UI_State {
 	ui_state.root_rect = new(Rect)
 
@@ -186,6 +250,7 @@ init_ui_state :: proc() -> ^UI_State {
 	ui_state.box_cache = make(map[string]^Box)
 	ui_state.temp_boxes = make([dynamic]^Box)
 	ui_state.first_frame = true
+	ui_state.text_box_padding = 10
 
 	gl.GenVertexArrays(1, ui_state.quad_vabuffer)
 	create_vbuffer(ui_state.quad_vbuffer, nil, 400_000)
@@ -231,10 +296,10 @@ init_ui_state :: proc() -> ^UI_State {
 	)
 	defer image.image_free(texture_data)
 
-	texutre_id := new(u32)
+	texutre_id: u32
 	gl.ActiveTexture(gl.TEXTURE0)
-	gl.GenTextures(1, texutre_id)
-	gl.BindTexture(gl.TEXTURE_2D, texutre_id^)
+	gl.GenTextures(1, &texutre_id)
+	gl.BindTexture(gl.TEXTURE_2D, texutre_id)
 
 	// Set texture parameters (wrap/filter) for font
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
@@ -272,10 +337,10 @@ init_ui_state :: proc() -> ^UI_State {
 	)
 	printfln("image data: {}x{}  - {}", knob_width, knob_height, channels)
 
-	knob_texture_id := new(u32)
+	knob_texture_id: u32
 	gl.ActiveTexture(gl.TEXTURE1)
-	gl.GenTextures(1, knob_texture_id)
-	gl.BindTexture(gl.TEXTURE_2D, knob_texture_id^)
+	gl.GenTextures(1, &knob_texture_id)
+	gl.BindTexture(gl.TEXTURE_2D, knob_texture_id)
 
 	// Upload texture data to OpenGL
 	gl.TexImage2D(
@@ -313,10 +378,10 @@ init_ui_state :: proc() -> ^UI_State {
 		4,
 	)
 
-	fader_knob_texture_id := new(u32)
+	fader_knob_texture_id: u32
 	gl.ActiveTexture(gl.TEXTURE2)
-	gl.GenTextures(1, fader_knob_texture_id)
-	gl.BindTexture(gl.TEXTURE_2D, fader_knob_texture_id^)
+	gl.GenTextures(1, &fader_knob_texture_id)
+	gl.BindTexture(gl.TEXTURE_2D, fader_knob_texture_id)
 
 	// Upload texture data to OpenGL
 	gl.TexImage2D(
@@ -352,10 +417,10 @@ init_ui_state :: proc() -> ^UI_State {
 		4,
 	)
 
-	background_texture_id := new(u32)
+	background_texture_id: u32
 	gl.ActiveTexture(gl.TEXTURE3)
-	gl.GenTextures(1, background_texture_id)
-	gl.BindTexture(gl.TEXTURE_2D, background_texture_id^)
+	gl.GenTextures(1, &background_texture_id)
+	gl.BindTexture(gl.TEXTURE_2D, background_texture_id)
 
 	// Upload texture data to OpenGL
 	gl.TexImage2D(
@@ -397,7 +462,6 @@ init_app :: proc() -> ^App_State {
 	return app
 }
 
-
 update_app :: proc() -> bool {
 	root_rect := app.ui_state.root_rect
 	frame_num := app.ui_state.frame_num
@@ -432,8 +496,9 @@ update_app :: proc() -> bool {
 	sdl.GL_SwapWindow(app.window)
 
 	free_all(context.temp_allocator)
-	free_all()
+	clear(&app.ui_state.temp_boxes)
 	frame_num^ += 1
+	app.curr_chars_stored = 0
 	return true
 }
 
@@ -476,6 +541,9 @@ handle_input :: proc(event: sdl.Event) -> bool {
 		case .ESCAPE:
 			return false
 		case .SPACE: app.audio_state.playing = !app.audio_state.playing
+		case:
+			app.char_queue[app.curr_chars_stored] = event.key.keysym.sym
+			app.curr_chars_stored += 1
 		}
 	}
 	if etype == .MOUSEWHEEL {

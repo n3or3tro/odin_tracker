@@ -90,10 +90,6 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 	if s.contains(box.id_string, "step") {
 		data.border_thickness = 100
 		data.corner_radius = 0
-		// data.tl_color = {0.5, 0.5, 0.5, 1}
-		// data.bl_color = {0.5, 0.5, 0.5, 1}
-		// data.tr_color = {0.5, 0.5, 0.5, 1}
-		// data.br_color = {0.5, 0.5, 0.5, 1}
 		if box.selected {
 			data.tl_color = {0.5, 0, 0.7, 1}
 			data.bl_color = {0.2, 0, 0.4, 1}
@@ -103,36 +99,60 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 		}
 		if is_active_step(box) {
 			data.corner_radius = 0
-			// data.tl_color += {0.2, 0.2, 0.2, 1}
-			// data.tr_color += {0.2, 0.2, 0.2, 1}
-			// data.bl_color += {0.2, 0.2, 0.2, 1}
-			// data.br_color += {0.2, 0.2, 0.2, 1}
 			outlining_rect := data
 			outlining_rect.border_thickness = 0.7
 			normal_color: Color = {1, 0, 0, 1}
 			outline_color: Color = {0.5, 0.5, 0.5, 1}
-			// if s.contains(box.id_string, "pitch") {
 			outlining_rect.tl_color = normal_color
 			outlining_rect.tr_color = normal_color
 			outlining_rect.bl_color = normal_color
 			outlining_rect.br_color = normal_color
-			// outlining_rect.bottom_right.x -= 30
-			// } else if s.contains(box.id_string, "send2") {
-			// 	outlining_rect.tl_color = normal_color
-			// 	outlining_rect.tr_color = normal_color
-			// 	outlining_rect.bl_color = normal_color
-			// 	outlining_rect.br_color = normal_color
-			// 	// outlining_rect.top_left.x += 30
-			// }
 			append(render_data, data, outlining_rect)
 			return render_data
 		}
 	}
+
 	if s.contains(box.id_string, "button") {
 		data.corner_radius = 10
 	}
+
 	append(render_data, data)
+
+	// These come after adding the main rect data since they have a higher 'z-order'.
+	if s.contains(box.id_string, "input") && should_render_text_cursor() {
+		color := Color{0, 0.5, 1, 1}
+		// cursor_pos_x := box.rect.top_left.x + app.ui_state.text_box_padding + word_rendered_length()
+		cursor_data := Rect_Render_Data {
+			top_left         = {app.ui_state.text_cursor_x_coord, box.rect.top_left.y + 3},
+			bottom_right     = {app.ui_state.text_cursor_x_coord + 5, box.rect.bottom_right.y - 3},
+			bl_color         = color,
+			tl_color         = color,
+			br_color         = color,
+			tr_color         = color,
+			border_thickness = 300,
+			corner_radius    = 0,
+			edge_softness    = 2,
+		}
+		append(render_data, cursor_data)
+	}
+
+	if .Draw_Border in box.flags {
+		border_rect := data
+		border_rect.border_thickness = 0.6
+		border_rect.bl_color = {0, 0, 0, 1}
+		border_rect.tl_color = {0, 0, 0, 1}
+		border_rect.tr_color = {0, 0, 0, 1}
+		border_rect.br_color = {0, 0, 0, 1}
+		append(render_data, border_rect)
+	}
 	return render_data
+}
+
+// A jank way to 'animate' the text cursor blinking based on frame number.
+should_render_text_cursor :: proc() -> bool {
+	frame_rate: u64 = 120 // Shouldn't be hardcoded in prod.
+	curr_frame := app.ui_state.frame_num^ % frame_rate
+	return curr_frame < frame_rate
 }
 
 is_active_step :: proc(box: Box) -> bool {
@@ -214,7 +234,7 @@ add_word_rendering_data :: proc(
 ) {
 	word_length := word_rendered_length(box.name)
 	gap := (int(rect_width(box.rect)) - word_length) / 2
-	starting_x, starting_y := get_font_baseline(box.name, box.rect)
+	starting_x, starting_y := get_font_baseline(box.name, box)
 	parent_rect := boxes_to_render[len(boxes_to_render) - 1]
 	len_so_far: f32 = 0
 	for i in 0 ..< len(box.name) {

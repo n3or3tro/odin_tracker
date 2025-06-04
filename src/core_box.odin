@@ -13,6 +13,7 @@ import "core:math/fixed"
 import "core:math/rand"
 import "core:mem"
 import "core:strings"
+import s "core:strings"
 import sdl "vendor:sdl2"
 
 
@@ -55,6 +56,9 @@ Box_Flag :: enum {
 	View_Scroll,
 	Draw,
 	Draw_Text,
+	Text_Center,
+	Text_Left,
+	Text_Right,
 	Edit_Text,
 	Draw_Border,
 	Draw_Background,
@@ -89,57 +93,71 @@ Box_Signals :: struct {
 // New Box struct based on my simplified layout algorithm.
 Box :: struct {
 	// UI info - color, padding, visual names, etc
-	name:                     string,
-	color:                    [4]f32,
-	padding:                  [4]Size, // {x-left, x-right, y-bottom, y-top}
+	name:          string,
+	color:         [4]f32,
+	padding:       [4]Size, // {x-left, x-right, y-bottom, y-top}
 
 	// Caching related data.
-	hash_next:                ^Box,
-	hash_prev:                ^Box,
-	// Key + generation info.
-	key:                      string,
-	last_frame_touched_index: u64,
+	// hash_next:                ^Box,
+	// hash_prev:                ^Box,
+	// // Key + generation info.
+	// key:                      string,
+	// last_frame_touched_index: u64,
 
 	// Per-frame info provided by builders
-	flags:                    Box_Flags,
-	id_string:                string,
+	flags:         Box_Flags,
+	id_string:     string,
 
 	// The actual (x1,y1),(x2,y2) co-ordinates of the box on the screen.
-	rect:                     Rect,
+	rect:          Rect,
 	// Actual pixel (width, height) dimensions of the box.
-	size:                     Vec2,
-	visible:                  bool,
-	corner_radius:            f32,
+	size:          Vec2,
+	visible:       bool,
+	corner_radius: f32,
 
 	// Persistent data.
-	hot:                      bool,
-	active:                   bool,
+	hot:           bool,
+	active:        bool,
 
 	// Feels a little wrong having this here, but let's try
-	signals:                  Box_Signals,
+	signals:       Box_Signals,
 
 	// To help determine if various things in the ui are selected.
-	selected:                 bool,
+	selected:      bool,
 
 	// Helps determine event handling when items are stacked on each other.
-	z_index:                  u8,
+	z_index:       u8,
 }
 
-box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
+box_from_cache :: proc(
+	flags: Box_Flags,
+	id_string: string,
+	rect: Rect,
+	// Don't really want to have this extra arg, but it has been introduced to help
+	// figure out how to create robust input text boxes.
+	display_text: string = "",
+) -> ^Box {
 	id := get_id_from_id_string(id_string)
-	if id in ui_state.box_cache && id_string != "spacer@spacer" {
+	if id in ui_state.box_cache {
 		box := ui_state.box_cache[id]
 		box.rect = rect
 		return box
 	} else {
-		printfln("making new box: {} with id: {}", id_string, id)
-		new_box := box_make(flags, id_string, rect)
-		ui_state.box_cache[id] = new_box
+		new_box := box_make(flags, id_string, rect, display_text)
+		if id_string != "spacer@spacer" {
+			printfln("making new box with id: {}", id_string)
+			ui_state.box_cache[id] = new_box
+		}
 		return new_box
 	}
 }
 
-box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
+box_make :: proc(
+	flags: Box_Flags,
+	id_string: string,
+	rect: Rect,
+	display_text: string = "",
+) -> ^Box {
 	// println("making new box: ", id_string)
 	box := new(Box)
 	box.flags = flags
@@ -147,7 +165,7 @@ box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
 	box.color = {rand.float32_range(0, 1), rand.float32_range(0, 1), rand.float32_range(0, 1), 1}
 	color, is_top := top_color()
 	if !is_top {
-		println("[WARNING] - There was no color assigned to this box, it's color is randomised.")
+		// println("[WARNING] - There was no color assigned to this box, it's color is randomised.")
 		box.color = {
 			rand.float32_range(0, 1),
 			rand.float32_range(0, 1),
@@ -157,7 +175,8 @@ box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
 	} else {
 		box.color = color
 	}
-	box.name = get_name_from_id_string(id_string)
+	box.name =
+		display_text != "" || s.contains(box.id_string, "text") ? display_text : get_name_from_id_string(id_string)
 	box.rect = rect
 	box.z_index = ui_state.z_index
 	return box
@@ -414,7 +433,6 @@ shrink_x :: proc(rect: Rect, amount: Size) -> Rect {
 	new_rect.bottom_right.x = rect.bottom_right.x - px_amount
 	return new_rect
 }
-
 shrink_y :: proc(rect: Rect, amount: Size) -> Rect {
 	px_amount := math.floor(get_pixel_change_amount(rect, amount, "y"))
 	new_rect := rect
@@ -422,7 +440,6 @@ shrink_y :: proc(rect: Rect, amount: Size) -> Rect {
 	new_rect.bottom_right.y = rect.bottom_right.y + px_amount
 	return new_rect
 }
-
 shrink :: proc(rect: Rect, amount: Size) -> Rect {
 	return shrink_x(shrink_y(rect, amount), amount)
 }
@@ -472,7 +489,7 @@ clear_color_stack :: proc() {
 
 top_color :: proc() -> (Color, bool) {
 	n_colors := len(ui_state.color_stack)
-	if n_colors < 1 do return {20, 20, 20, 20}, false
+	if n_colors < 1 do return {-1, -1, -1, -1}, false
 	return ui_state.color_stack[n_colors - 1], true
 }
 
@@ -502,15 +519,16 @@ push_parent_rect :: proc(rect: ^Rect) {
 pop_parent_rect :: proc() {
 	pop(&ui_state.rect_stack)
 }
+
 get_name_from_id_string :: proc(id_string: string) -> string {
 	to := strings.index(id_string, "@")
 	return id_string[:to]
 }
+
 get_id_from_id_string :: proc(id_string: string) -> string {
 	from := strings.index(id_string, "@")
 	return id_string[from:]
 }
-
 
 spacer :: proc(id_string: string, rect_cut: RectCut) -> ^Box {
 	rect := cut_rect(top_rect(), rect_cut)

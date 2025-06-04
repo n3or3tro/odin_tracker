@@ -1,13 +1,22 @@
 // Builder basics, buttons, containers, etc.
 package main
+import "core:bytes"
+import "core:hash"
+import "core:math"
+import "core:math/rand"
+import str "core:strings"
+import "core:text/edit"
+import sdl "vendor:sdl2"
 
-Text_Box_Signals :: struct {
-	box_signals: Box_Signals,
-	text:        string,
-}
 Draggable_Container_Signals :: struct {
 	handle_bar: Box_Signals,
 	container:  Box_Signals,
+}
+
+Text_Input_Signals :: struct {
+	box_signals: Box_Signals,
+	new_string:  string,
+	cursor_pos:  int,
 }
 
 container :: proc(id_string: string, rect: Rect) -> Box_Signals {
@@ -76,13 +85,87 @@ text_button_absolute :: proc(id_string: string, x, y: f32) -> Box_Signals {
 }
 
 // Differs from text_container as it's like <input> element from HTML.
-text_box :: proc(id_string: string, rect: Rect) -> Text_Box_Signals {
+text_box :: proc(id_string: string, rect: Rect) -> Box_Signals {
 	data: string // might need to allocte this.
-	b := box_from_cache(
-		{.Draw, .Clickable, .Draw_Text, .Active_Animation, .Edit_Text},
-		id_string,
-		rect,
-	)
+	b := box_from_cache({.Draw, .Clickable, .Draw_Text}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
-	return {box_signals(b), data}
+	return box_signals(b)
+}
+
+text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_Signals {
+	// could probably change the api of this function in order to avoid this messyness.
+	b := box_from_cache(
+		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
+		tprintf("{}_text_input", id_string),
+		rect,
+		buffer,
+	)
+	buffer_to_use := b.name == "" ? buffer : b.name
+	signals := box_signals(b)
+	builder := str.builder_make()
+	state: edit.State
+
+	// Not sure if generating a unique ID is neccessary, but we shall do it anyway
+	// for now.
+	bytes_buffer: bytes.Buffer
+	defer bytes.buffer_destroy(&bytes_buffer)
+	bytes.buffer_init_string(&bytes_buffer, id_string)
+	byts := bytes.buffer_to_bytes(&bytes_buffer)
+	editor_id := u64(hash.crc32(byts))
+	// printfln("editor id for box: %v is %v", id_string, editor_id)
+
+	edit.init(&state, context.temp_allocator, context.temp_allocator)
+	edit.setup_once(&state, &builder)
+	edit.begin(&state, editor_id, &builder)
+	edit.input_text(&state, buffer_to_use)
+
+	// Put cursor where it was last frame
+	diff := len(buffer_to_use) - app.ui_state.text_cursor_pos
+	diff = diff > 0 ? diff : diff * -1
+
+	for i := 0; i < diff; i += 1 {
+		printfln(
+			"i: {}   len(buffer_to_use): {}   app.uistate.cursor_pos: {}",
+			i,
+			len(buffer_to_use),
+			app.ui_state.text_cursor_pos,
+		)
+		edit.move_to(&state, .Left)
+	}
+
+	if app.ui_state.last_active_box == b {
+		for i in 0 ..< app.curr_chars_stored {
+			keycode := app.char_queue[i]
+			#partial switch keycode {
+			case .LEFT:
+				edit.move_to(&state, .Left)
+				break
+			case .RIGHT:
+				edit.move_to(&state, .Right)
+				break
+			case .BACKSPACE:
+				edit.delete_to(&state, .Left)
+			case .LCTRL | .RCTRL:
+			//do nothing
+			case:
+				edit.input_rune(&state, rune(keycode))
+			}
+		}
+	}
+
+	b.name = str.to_string(state.builder^)
+	append(&ui_state.temp_boxes, b)
+	res := Text_Input_Signals {
+		box_signals = signals,
+		new_string  = b.name,
+		// Need to be careful here.
+		cursor_pos  = state.selection[0],
+	}
+	app.ui_state.text_cursor_pos = res.cursor_pos
+	app.ui_state.text_cursor_x_coord =
+		rect.top_left.x +
+		f32(app.ui_state.text_box_padding) +
+		f32(word_rendered_length(res.new_string[:res.cursor_pos]))
+	edit.end(&state)
+	return res
 }

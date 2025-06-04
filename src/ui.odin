@@ -41,11 +41,22 @@ UI_State :: struct {
 	// active_id:           string,
 	hot_box:             ^Box,
 	active_box:          ^Box,
+	last_hot_box:        ^Box,
+	last_active_box:     ^Box,
 	z_index:             u8,
 	context_menu_pos:    Vec2,
 	context_menu_active: bool,
 	right_clicked_on:    ^Box,
 	wav_rendering_data:  map[ma.sound][dynamic]Rect_Render_Data,
+	// Need to store where the cursor was across frame-boundaries.
+	text_cursor_pos:     int,
+	// Actual pixel value of where the cursor is; we store this since it's 
+	// cumbersome to compute it inside the renderer code. This is mainly because
+	// the text input data is not available via a box / rect, only the id_string is.
+	// If id_strings store the inputted text in the future, then I can remove this.
+	text_cursor_x_coord: f32,
+	// the visual space between border of text box and the text inside.
+	text_box_padding:    u16,
 }
 
 num_column :: proc(track_height: u32, n_steps: u32) {
@@ -65,9 +76,6 @@ main_tracker_panel :: proc() {
 	col_height := cast(u32)(rect_height(top_rect()^) * track_steps_height_ratio)
 	num_column(col_height, n_track_steps)
 	track_padding: u32 = 10
-	// This is the remaining space to the right of the number column.
-	rest_screen := f32(app.wx^) * (1 - track_steps_width_ratio)
-	// track_width: f32 = f32(rest_screen / f32(N_TRACKS) - f32(track_padding))
 	/*
 		Need some computational way to figure out the track_width, as it can't really 
 		be a ratio of the screen since we don't want it to shrink in proportion to the window 
@@ -75,7 +83,7 @@ main_tracker_panel :: proc() {
 	track_width: f32 = 200
 	for i in 0 ..< app.n_tracks {
 		create_track(u32(i), track_width)
-		spacer("spacer@spacer", RectCut{Size{.Pixels, f32(track_padding)}, .Left})
+		defer free(spacer("spacer@spacer", RectCut{Size{.Pixels, f32(track_padding)}, .Left}))
 	}
 	add_track_rect := Rect {
 		top_left     = {track_width * f32(app.n_tracks) + 100, f32(app.wy^ / 2) - 50},
@@ -107,6 +115,14 @@ main_tracker_panel :: proc() {
 	}
 }
 
+second_panel :: proc() {
+	// input_buffer: string = tprintf("{}lolol", app.ui_state.frame_num)
+	text_input_rect := Rect{{100, 100}, {600, 140}}
+	input := text_input("text-input@input-1", text_input_rect, "")
+	// Weird bug when I do this vvvv.
+	// input := text_input("text-input@input-1", text_input_rect, "starting text")
+}
+
 create_ui :: proc() {
 	topbar := top_bar()
 	handle_top_bar_interactions(topbar)
@@ -114,11 +130,7 @@ create_ui :: proc() {
 	case 0:
 		main_tracker_panel()
 	case 1:
-		text_container_absolute(
-			"heyyyyyyyyyyyyyy\nwhat the fuck is oging on man :)@lolol",
-			100,
-			500,
-		)
+		second_panel()
 	case 2:
 		text_button_absolute("this is the conent of tab 3@whatalksj", 100, 100)
 	}
@@ -147,14 +159,23 @@ render_ui :: proc() {
 }
 
 reset_ui_state :: proc() {
+	/* 
+		I think maybe I don't want to actually reset this each frame, for exmaple,
+		if a user selected some input field on one frame, then it should still be active
+		on the next fram
+	*/
+
+	if ui_state.active_box != nil {
+		ui_state.last_active_box = ui_state.active_box
+	}
+	if ui_state.hot_box != nil {
+		ui_state.last_hot_box = ui_state.hot_box
+	}
 	ui_state.active_box = nil
 	ui_state.hot_box = nil
 }
 
-
 /* ------- stuff for a theme / color system -------------- */
-
-
 Color_Theme :: struct {
 	primary:       Color,
 	primary_var:   Color,

@@ -9,7 +9,7 @@ sampler :: proc(id_string: string, rect: ^Rect) -> Sampler_Signals {
 	ui_state.z_index = 2
 	defer ui_state.z_index = 0
 	s_container := draggable_container(
-		tprintf("{}-container@{}-container", sampler_name, get_id_from_id_string(id_string)),
+		tprintf("{}-container{}-container", sampler_name, get_id_from_id_string(id_string)),
 		rect,
 	)
 	s_rect := s_container.container.box.rect

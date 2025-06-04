@@ -124,7 +124,8 @@ parse_font_metadata :: proc(path: string) -> Atlas_Metadata {
 get_chars_box :: proc() {
 }
 
-get_font_baseline :: proc(text: string, rect: Rect) -> (x, y: f32) {
+get_font_baseline :: proc(text: string, box: Box) -> (x, y: f32) {
+	rect := box.rect
 	max_height: f32 = -1
 	str_width: f32 = 0
 	for ch in text {
@@ -134,7 +135,14 @@ get_font_baseline :: proc(text: string, rect: Rect) -> (x, y: f32) {
 		}
 		str_width += f32(ui_state.atlas_metadata.chars[ch].advance)
 	}
-	x = rect.top_left.x + (rect_width(rect) - str_width) / 2
+	if .Text_Left in box.flags {
+		x = rect.top_left.x + f32(app.ui_state.text_box_padding)
+	} else if .Text_Right in box.flags {
+		// figure this out when we need it :)
+	} else { 	// default case is to center text.
+		x = rect.top_left.x + (rect_width(rect) - str_width) / 2
+	}
+	// x = rect.top_left.x + (rect_width(rect) - str_width) / 2
 	y = rect.bottom_right.y - (rect_height(rect) - max_height) / 2
 	return x, y
 }
