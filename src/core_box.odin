@@ -137,16 +137,17 @@ box_from_cache :: proc(
 	// figure out how to create robust input text boxes.
 	display_text: string = "",
 ) -> ^Box {
-	id := get_id_from_id_string(id_string)
-	if id in ui_state.box_cache {
-		box := ui_state.box_cache[id]
+	if id_string in ui_state.box_cache {
+		box := ui_state.box_cache[id_string]
 		box.rect = rect
 		return box
 	} else {
-		new_box := box_make(flags, id_string, rect, display_text)
+		persistant_id_string := s.clone(id_string)
+		// persistant_id := get_id_from_id_string(persistant_id_string)
+		new_box := box_make(flags, persistant_id_string, rect, display_text)
 		if id_string != "spacer@spacer" {
-			printfln("making new box with id: {}", id_string)
-			ui_state.box_cache[id] = new_box
+			printfln("making new box with id: {}", persistant_id_string)
+			ui_state.box_cache[persistant_id_string] = new_box
 		}
 		return new_box
 	}

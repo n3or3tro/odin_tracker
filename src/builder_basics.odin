@@ -124,12 +124,12 @@ text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_
 	diff = diff > 0 ? diff : diff * -1
 
 	for i := 0; i < diff; i += 1 {
-		printfln(
-			"i: {}   len(buffer_to_use): {}   app.uistate.cursor_pos: {}",
-			i,
-			len(buffer_to_use),
-			app.ui_state.text_cursor_pos,
-		)
+		// printfln(
+		// 	"i: {}   len(buffer_to_use): {}   app.uistate.cursor_pos: {}",
+		// 	i,
+		// 	len(buffer_to_use),
+		// 	app.ui_state.text_cursor_pos,
+		// )
 		edit.move_to(&state, .Left)
 	}
 
