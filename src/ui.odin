@@ -2,6 +2,7 @@ package main
 import "core:fmt"
 import "core:math"
 import alg "core:math/linalg"
+import str "core:strings"
 import "core:sys/posix"
 import thread "core:thread"
 import gl "vendor:OpenGL"
@@ -41,6 +42,7 @@ UI_State :: struct {
 	// active_id:           string,
 	hot_box:             ^Box,
 	active_box:          ^Box,
+	selected_box:        ^Box,
 	last_hot_box:        ^Box,
 	last_active_box:     ^Box,
 	z_index:             u8,
@@ -57,6 +59,7 @@ UI_State :: struct {
 	text_cursor_x_coord: f32,
 	// the visual space between border of text box and the text inside.
 	text_box_padding:    u16,
+	keyboard_mode:       bool,
 }
 
 num_column :: proc(track_height: u32, n_steps: u32) {
@@ -68,7 +71,7 @@ num_column :: proc(track_height: u32, n_steps: u32) {
 	}
 }
 
-track_steps_height_ratio: f32 = 0.75
+track_steps_height_ratio: f32 = 0.80
 track_steps_width_ratio: f32 = 0.04
 n_track_steps: u32 = 32
 
@@ -76,15 +79,12 @@ main_tracker_panel :: proc() {
 	col_height := cast(u32)(rect_height(top_rect()^) * track_steps_height_ratio)
 	num_column(col_height, n_track_steps)
 	track_padding: u32 = 10
-	/*
-		Need some computational way to figure out the track_width, as it can't really 
-		be a ratio of the screen since we don't want it to shrink in proportion to the window 
-	*/
 	track_width: f32 = 200
 	for i in 0 ..< app.n_tracks {
 		create_track(u32(i), track_width)
 		defer free(spacer("spacer@spacer", RectCut{Size{.Pixels, f32(track_padding)}, .Left}))
 	}
+
 	add_track_rect := Rect {
 		top_left     = {track_width * f32(app.n_tracks) + 100, f32(app.wy^ / 2) - 50},
 		bottom_right = {track_width * f32(app.n_tracks) + 150, f32(app.wy^ / 2)},
@@ -92,9 +92,11 @@ main_tracker_panel :: proc() {
 	ui_state.z_index = 5
 	add_track := text_button("+@add-track-button", add_track_rect)
 	ui_state.z_index = 0
+
 	if add_track.clicked {
 		app.n_tracks += 1
 	}
+
 	if app.sampler_open {
 		sampler_top_left := app.sampler_pos
 		sampler_bottom_right := Vec2{1000 + sampler_top_left.x, 500 + sampler_top_left.y}
@@ -108,11 +110,235 @@ main_tracker_panel :: proc() {
 		if app.dragging_window {
 			change_in_x := app.mouse.last_pos.x - app.mouse.pos.x
 			change_in_y := app.mouse.last_pos.y - app.mouse.pos.y
-			// printfln("delta x: {}    delta y: {}", change_in_x, change_in_y)
 			app.sampler_pos.x -= f32(change_in_x)
 			app.sampler_pos.y -= f32(change_in_y)
 		}
 	}
+
+	// Handle keyboard navigation.
+	for i in 0 ..< app.curr_chars_stored {
+		keycode := app.char_queue[i]
+		#partial switch keycode {
+		case .LEFT, .h:
+			move_active_box_left()
+		case .RIGHT, .l:
+			move_active_box_right()
+		case .UP, .k:
+			move_active_box_up()
+		case .DOWN, .j:
+			move_active_box_down()
+		case .TAB:
+			println("pressed tab, moving to first step")
+			first_box := app.ui_state.box_cache["step-0-pitch@step-0-pitch-track0-text-input"]
+			ui_state.selected_box = first_box
+			first_box.selected = true
+		case .RETURN, .RETURN2:
+			ui_state.selected_box.active = true
+			ui_state.active_box = ui_state.selected_box
+		case .ESCAPE:
+			ui_state.active_box = nil
+			ui_state.selected_box.active = false
+		}
+	}
+}
+
+move_active_box_left :: proc() {
+	box := app.ui_state.selected_box
+	step_num := step_num_from_step(box.id_string)
+	track_num := track_num_from_step(box.id_string)
+	// i.e. we're on the left most step.
+
+	next_active_box_id: string
+	if str.contains(box.id_string, "send2") {
+		next_active_box_id = tprintf(
+			"step-{}-send1@step-{}-send1-track{}-text-input",
+			step_num,
+			step_num,
+			track_num,
+		)
+	} else if str.contains(box.id_string, "send1") {
+		next_active_box_id = tprintf(
+			"step-{}-volume@step-{}-volume-track{}-text-input",
+			step_num,
+			step_num,
+			track_num,
+		)
+	} else if str.contains(box.id_string, "volume") {
+		next_active_box_id = tprintf(
+			"step-{}-pitch@step-{}-pitch-track{}-text-input",
+			step_num,
+			step_num,
+			track_num,
+		)
+	} else if str.contains(box.id_string, "pitch") {
+		if track_num > 0 {
+			// move left
+			track_num -= 1
+			next_active_box_id = tprintf(
+				"step-{}-send2@step-{}-send2-track{}-text-input",
+				step_num,
+				step_num,
+				track_num,
+			)
+		} else {
+			// we're on track 0, so do nothing.
+		}
+	} else {
+		panic("we don't know how to move left :(")
+	}
+
+	next_box := ui_state.box_cache[next_active_box_id]
+	// printfln("next box id string: {}, next box: {}", next_active_box_id, next_box)
+	box.selected = false
+	next_box.selected = true
+	ui_state.selected_box = next_box
+
+}
+
+move_active_box_right :: proc() {
+	box := app.ui_state.selected_box
+	step_num := step_num_from_step(box.id_string)
+	track_num := track_num_from_step(box.id_string)
+
+	next_active_box_id: string
+	if str.contains(box.id_string, "pitch") {
+		next_active_box_id = tprintf(
+			"step-{}-volume@step-{}-volume-track{}-text-input",
+			step_num,
+			step_num,
+			track_num,
+		)
+	} else if str.contains(box.id_string, "volume") {
+		next_active_box_id = tprintf(
+			"step-{}-send1@step-{}-send1-track{}-text-input",
+			step_num,
+			step_num,
+			track_num,
+		)
+	} else if str.contains(box.id_string, "send1") {
+		next_active_box_id = tprintf(
+			"step-{}-send2@step-{}-send2-track{}-text-input",
+			step_num,
+			step_num,
+			track_num,
+		)
+	} else if str.contains(box.id_string, "send2") {
+		if track_num < u16(app.n_tracks) {
+			track_num += 1
+			next_active_box_id = tprintf(
+				"step-{}-pitch@step-{}-pitch-track{}-text-input",
+				step_num,
+				step_num,
+				track_num,
+			)
+		} else {
+			// we're on the last track, so do nothing.
+		}
+	} else {
+		printfln("box.id_string: {}", box.id_string)
+		panic("we don't know how to move left :(")
+	}
+
+	next_box := ui_state.box_cache[next_active_box_id]
+	// printfln("next box id string: {}, next box: {}", next_active_box_id, next_box)
+	box.selected = false
+	next_box.selected = true
+	ui_state.selected_box = next_box
+}
+
+move_active_box_up :: proc() {
+	box := app.ui_state.selected_box
+	step_num := step_num_from_step(box.id_string)
+	track_num := track_num_from_step(box.id_string)
+	if (step_num == 0) {
+		return
+	}
+	next_active_box_id: string
+	if str.contains(box.id_string, "pitch") {
+		next_active_box_id = tprintf(
+			"step-{}-pitch@step-{}-pitch-track{}-text-input",
+			step_num - 1,
+			step_num - 1,
+			track_num,
+		)
+	} else if str.contains(box.id_string, "volume") {
+		next_active_box_id = tprintf(
+			"step-{}-volume@step-{}-volume-track{}-text-input",
+			step_num - 1,
+			step_num - 1,
+			track_num,
+		)
+	} else if str.contains(box.id_string, "send1") {
+		next_active_box_id = tprintf(
+			"step-{}-send1@step-{}-send1-track{}-text-input",
+			step_num - 1,
+			step_num - 1,
+			track_num,
+		)
+	} else if str.contains(box.id_string, "send2") {
+		next_active_box_id = tprintf(
+			"step-{}-send2@step-{}-send2-track{}-text-input",
+			step_num - 1,
+			step_num - 1,
+			track_num,
+		)
+	} else {
+		printfln("box.id_string: {}", box.id_string)
+		panic("we don't know how to move left :(")
+	}
+
+	next_box := ui_state.box_cache[next_active_box_id]
+	box.selected = false
+	next_box.selected = true
+	ui_state.selected_box = next_box
+
+}
+
+move_active_box_down :: proc() {
+	box := app.ui_state.selected_box
+	step_num := step_num_from_step(box.id_string)
+	track_num := track_num_from_step(box.id_string)
+	if (step_num >= u16(n_track_steps)) {
+		return
+	}
+	next_active_box_id: string
+	if str.contains(box.id_string, "pitch") {
+		next_active_box_id = tprintf(
+			"step-{}-pitch@step-{}-pitch-track{}-text-input",
+			step_num + 1,
+			step_num + 1,
+			track_num,
+		)
+	} else if str.contains(box.id_string, "volume") {
+		next_active_box_id = tprintf(
+			"step-{}-volume@step-{}-volume-track{}-text-input",
+			step_num + 1,
+			step_num + 1,
+			track_num,
+		)
+	} else if str.contains(box.id_string, "send1") {
+		next_active_box_id = tprintf(
+			"step-{}-send1@step-{}-send1-track{}-text-input",
+			step_num + 1,
+			step_num + 1,
+			track_num,
+		)
+	} else if str.contains(box.id_string, "send2") {
+		next_active_box_id = tprintf(
+			"step-{}-send2@step-{}-send2-track{}-text-input",
+			step_num + 1,
+			step_num + 1,
+			track_num,
+		)
+	} else {
+		printfln("box.id_string: {}", box.id_string)
+		panic("we don't know how to move left :(")
+	}
+
+	next_box := ui_state.box_cache[next_active_box_id]
+	box.selected = false
+	next_box.selected = true
+	ui_state.selected_box = next_box
 }
 
 second_panel :: proc() {

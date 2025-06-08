@@ -31,7 +31,6 @@ Track_Steps_Signals :: [32]Individual_Step_Signals
 
 // Obviously not a complete track, but as complete-ish for now :).
 create_track :: proc(which: u32, track_width: f32) -> Track_Steps_Signals {
-
 	track_rect := cut_rect(top_rect(), RectCut{Size{.Pixels, track_width}, .Left})
 	track_controlls_rect := cut_rect(&track_rect, RectCut{Size{.Percent, 0.20}, .Bottom})
 	track_container := container(tprintf("container@track-{}-container", which), track_rect)
@@ -45,18 +44,13 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Steps_Signals {
 		which,
 	)
 	pop_parent_rect()
-	track_step_container := cut_rect(top_rect(), {Size{.Percent, 0.97}, .Top})
-	steps := track_steps(fmt.tprintf("steps@track-{}-steps", which), &track_step_container, which)
+	track_step_container := top_rect()
+	steps := track_steps(fmt.tprintf("steps@track-{}-steps", which), track_step_container, which)
 	pop_parent_rect()
-
 
 	handle_track_steps_interactions(steps, which)
 	handle_track_control_interactions(&track_controls, which)
 
-	// grey out track if inactive
-	if !app.audio_state.tracks[which].armed {
-		track_container.box.color = {0.4, 0.4, 0.4, 1}
-	}
 	return steps
 }
 
@@ -127,13 +121,6 @@ handle_track_steps_interactions :: proc(track: Track_Steps_Signals, which: u32) 
 			ui_state.step_pitches[which][step_num] += f32(app.mouse.wheel.y)
 		}
 	}
-	// for step in track {
-	// 	track_num := track_num_from_step(step.box.id_string)
-	// 	step_num := step_num_from_step(step.box.id_string)
-	// 	pitch := ui_state.step_pitches[track_num][step_num]
-	// 	pitch_box :=
-	// 		text_box(tprintf("{}@track{}{}-pitch", pitch, track_num, step_num), step.box.rect).box_signals.box
-	// }
 }
 
 // assumes 0 <= value <= 100

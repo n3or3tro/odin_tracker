@@ -115,15 +115,16 @@ Box :: struct {
 	visible:       bool,
 	corner_radius: f32,
 
-	// Persistent data.
+	// The three are neccessary I think in order to have simultaneous keyboard and mouse
+	// control of tracker steps.
 	hot:           bool,
 	active:        bool,
+	// I think selected is only relevant for tracker steps.
+	selected:      bool,
 
 	// Feels a little wrong having this here, but let's try
 	signals:       Box_Signals,
 
-	// To help determine if various things in the ui are selected.
-	selected:      bool,
 
 	// Helps determine event handling when items are stacked on each other.
 	z_index:       u8,
@@ -183,7 +184,6 @@ box_make :: proc(
 	return box
 }
 
-
 box_signals :: proc(box: ^Box) -> Box_Signals {
 	// signals from previous frame
 	prev_signals := box.signals
@@ -192,6 +192,7 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 	signals.hovering = hovering_in_box(box)
 	if signals.hovering {
 		ui_state.hot_box = box
+		box.hot = true
 		signals.pressed = app.mouse.left_pressed
 		signals.right_pressed = app.mouse.right_pressed
 		if left_clicked_on_box(box, prev_signals) {
@@ -212,6 +213,8 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 				signals.dragging = true
 			}
 		}
+	} else {
+		box.hot = false
 	}
 	box.signals = signals
 	return signals

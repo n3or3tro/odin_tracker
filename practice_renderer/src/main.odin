@@ -137,6 +137,6 @@ setup_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 }
 
 clear :: proc() {
-	gl.ClearColor(1, 0.5, 1, 1.0)
+	gl.ClearColor(1, 0.5, 1, 1.0, 0.0)
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 }

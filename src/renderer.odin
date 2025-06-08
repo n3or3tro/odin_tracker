@@ -60,12 +60,14 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 	tr_color: Vec4 = box.color
 	br_color: Vec4 = box.color
 
-	// shade buttons
-	if s.contains(box.id_string, "button") {
-		bl_color = {0.2, 0.2, 0.2, 1}
-		br_color = {0.2, 0.2, 0.2, 1}
+	is_button := s.contains(box.id_string, "button")
+
+	if is_button {
+		bl_color -= {0.6, 0.6, 0.6, 0}
+		br_color -= {0.6, 0.6, 0.6, 0}
 	}
 
+	// super jank and not-sensible color animations for clickable stuff.
 	if box.signals.hovering && .Active_Animation in box.flags {
 		bl_color += {0.3, 0.3, 0.3, 0}
 		br_color += {0.3, 0.3, 0.3, 0}
@@ -87,16 +89,14 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 		edge_softness    = 0,
 		border_thickness = 300,
 	}
+
+	if is_button {
+		data.corner_radius = 10
+	}
+
+	// Add red outline to indicate the current step of the sequence.
 	if s.contains(box.id_string, "step") {
 		data.border_thickness = 100
-		data.corner_radius = 0
-		if box.selected {
-			data.tl_color = {0.5, 0, 0.7, 1}
-			data.bl_color = {0.2, 0, 0.4, 1}
-			data.tr_color = {0.8, 0, 0.2, 1}
-			data.br_color = {0.9, 0, 0.7, 1}
-			data.border_thickness = 100
-		}
 		if is_active_step(box) {
 			data.corner_radius = 0
 			outlining_rect := data
@@ -112,16 +112,13 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 		}
 	}
 
-	if s.contains(box.id_string, "button") {
-		data.corner_radius = 10
-	}
-
 	append(render_data, data)
-
 	// These come after adding the main rect data since they have a higher 'z-order'.
+
+
+	// Add cursor inside text box. Blinking is kinda jank right now.
 	if s.contains(box.id_string, "input") && should_render_text_cursor() {
 		color := Color{0, 0.5, 1, 1}
-		// cursor_pos_x := box.rect.top_left.x + app.ui_state.text_box_padding + word_rendered_length()
 		cursor_data := Rect_Render_Data {
 			top_left         = {app.ui_state.text_cursor_x_coord, box.rect.top_left.y + 3},
 			bottom_right     = {app.ui_state.text_cursor_x_coord + 5, box.rect.bottom_right.y - 3},
@@ -144,6 +141,51 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 		border_rect.tr_color = {0, 0, 0, 1}
 		border_rect.br_color = {0, 0, 0, 1}
 		append(render_data, border_rect)
+	}
+
+	// Add 2 rects to serve as outline indicators for the current step that's been edited.
+	if s.contains(box.id_string, "step") {
+		if box.hot || box.selected || box.active {
+			left_selection_border := data
+			left_selection_border.border_thickness = 3
+			left_selection_border.bottom_right.x -= (rect_width(box.rect) / 1.7)
+			left_selection_border.tl_color = {box.color.r, box.color.g, box.color.b, 0}
+			left_selection_border.bl_color = {box.color.r, box.color.g, box.color.b, 0}
+
+			right_selection_border := data
+			right_selection_border.border_thickness = 3
+			right_selection_border.top_left.x += (rect_width(box.rect) / 1.7)
+			right_selection_border.tr_color = {box.color.r, box.color.g, box.color.b, 0}
+			right_selection_border.br_color = {box.color.r, box.color.g, box.color.b, 0}
+			if box.hot {
+				left_selection_border.tr_color = palette.secondary.s_800
+				left_selection_border.br_color = palette.secondary.s_800
+				right_selection_border.tl_color = palette.secondary.s_800
+				right_selection_border.bl_color = palette.secondary.s_800
+			}
+			if box.selected {
+				left_selection_border.border_thickness = 5
+				right_selection_border.border_thickness = 5
+				// Set to hot pink for now.
+				left_selection_border.tr_color = {1.0, 0.41, 0.71, 1.0}
+				left_selection_border.br_color = {1.0, 0.41, 0.71, 1.0}
+				right_selection_border.tl_color = {1.0, 0.41, 0.71, 1.0}
+				right_selection_border.bl_color = {1.0, 0.41, 0.71, 1.0}
+				// left_selection_border.tr_color = palette.primary.s_300
+				// left_selection_border.br_color = palette.primary.s_300
+				// right_selection_border.tl_color = palette.primary.s_300
+				// right_selection_border.bl_color = palette.primary.s_300
+			}
+			if box.active {
+				left_selection_border.tr_color = palette.secondary.s_500
+				left_selection_border.br_color = palette.secondary.s_500
+				right_selection_border.tl_color = palette.secondary.s_500
+				right_selection_border.bl_color = palette.secondary.s_500
+			}
+			append(render_data, left_selection_border)
+			append(render_data, right_selection_border)
+		}
+
 	}
 	return render_data
 }

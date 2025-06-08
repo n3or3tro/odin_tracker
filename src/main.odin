@@ -254,7 +254,7 @@ init_ui_state :: proc() -> ^UI_State {
 	ui_state.text_box_padding = 10
 
 	gl.GenVertexArrays(1, ui_state.quad_vabuffer)
-	create_vbuffer(ui_state.quad_vbuffer, nil, 400_000)
+	create_vbuffer(ui_state.quad_vbuffer, nil, 700_000)
 
 	program1, quad_shader_ok := gl.load_shaders_source(
 		string(ui_vertex_shader_data),
@@ -503,31 +503,6 @@ update_app :: proc() -> bool {
 	return true
 }
 
-// stupid_sem: sync.Atomic_Sema
-run_app :: proc() {
-	// The weird semaphore stuff is required because of Odin's bad thread
-	// implementation, don't exactly understand the issue, but without it t1, will join
-	// and finish before ui_thread has even started.
-
-	// ui_thr := thread.create_and_start(proc() {
-	// 	sync.atomic_sema_post(&stupid_sem)
-	// 	ui_thread()
-	// })
-	// // waiting for ui_thread to start
-	// sync.atomic_sema_wait_with_timeout(&stupid_sem, time.Millisecond * 200)
-
-	// audio_thr := thread.create_and_start(proc() {
-	// 	sync.atomic_sema_post(&stupid_sem)
-	// 	audio_thread()
-	// })
-	// // waiting for audio_thread to start
-	// sync.atomic_sema_wait_with_timeout(&stupid_sem, time.Millisecond * 200)
-
-	// thread.join(ui_thr)
-	// thread.join(audio_thr)
-	// println(main_color)
-}
-
 handle_input :: proc(event: sdl.Event) -> bool {
 	etype := event.type
 	if etype == .QUIT {
@@ -539,9 +514,8 @@ handle_input :: proc(event: sdl.Event) -> bool {
 	}
 	if etype == .KEYDOWN {
 		#partial switch event.key.keysym.sym {
-		case .ESCAPE:
-			return false
 		case .SPACE: app.audio_state.playing = !app.audio_state.playing
+		// fallthrough
 		case:
 			app.char_queue[app.curr_chars_stored] = event.key.keysym.sym
 			app.curr_chars_stored += 1
@@ -552,6 +526,7 @@ handle_input :: proc(event: sdl.Event) -> bool {
 		app.mouse.wheel.y = cast(i8)event.wheel.y
 	}
 	if etype == .MOUSEBUTTONDOWN {
+		ui_state.keyboard_mode = false
 		switch event.button.button {
 		case sdl.BUTTON_LEFT:
 			if !app.mouse.left_pressed { 	// i.e. if left button wasn't pressed last frame
@@ -599,6 +574,31 @@ handle_input :: proc(event: sdl.Event) -> bool {
 	}
 	return true
 }
+// stupid_sem: sync.Atomic_Sema
+run_app :: proc() {
+	// The weird semaphore stuff is required because of Odin's bad thread
+	// implementation, don't exactly understand the issue, but without it t1, will join
+	// and finish before ui_thread has even started.
+
+	// ui_thr := thread.create_and_start(proc() {
+	// 	sync.atomic_sema_post(&stupid_sem)
+	// 	ui_thread()
+	// })
+	// // waiting for ui_thread to start
+	// sync.atomic_sema_wait_with_timeout(&stupid_sem, time.Millisecond * 200)
+
+	// audio_thr := thread.create_and_start(proc() {
+	// 	sync.atomic_sema_post(&stupid_sem)
+	// 	audio_thread()
+	// })
+	// // waiting for audio_thread to start
+	// sync.atomic_sema_wait_with_timeout(&stupid_sem, time.Millisecond * 200)
+
+	// thread.join(ui_thr)
+	// thread.join(audio_thr)
+	// println(main_color)
+}
+
 
 register_resize :: proc() -> bool {
 	old_width, old_height := app.wx^, app.wy^

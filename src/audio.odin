@@ -6,10 +6,6 @@ import "core:strconv"
 import "core:strings"
 import ma "vendor:miniaudio"
 
-Track_Info :: struct {
-	playing: bool,
-}
-
 Track :: struct {
 	sound:     ^ma.sound,
 	armed:     bool,
@@ -18,6 +14,7 @@ Track :: struct {
 	pcm_data:  [dynamic]f32,
 	curr_step: u16,
 }
+
 Audio_State :: struct {
 	tracks:       [dynamic]Track,
 	engine:       ^ma.engine,

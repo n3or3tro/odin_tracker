@@ -20,7 +20,7 @@ Text_Input_Signals :: struct {
 }
 
 container :: proc(id_string: string, rect: Rect) -> Box_Signals {
-	b := box_from_cache({.Draw}, id_string, rect)
+	b := box_from_cache({}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)
 }
@@ -96,7 +96,7 @@ text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_
 	// could probably change the api of this function in order to avoid this messyness.
 	b := box_from_cache(
 		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
-		tprintf("{}_text_input", id_string),
+		tprintf("{}-text-input", id_string),
 		rect,
 		buffer,
 	)
@@ -134,23 +134,31 @@ text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_
 	}
 
 	if app.ui_state.last_active_box == b {
-		for i in 0 ..< app.curr_chars_stored {
+		// if app.ui_state.active_box == b {
+		i: u32 = 0
+		for i = 0; i < app.curr_chars_stored; i += 1 {
 			keycode := app.char_queue[i]
 			#partial switch keycode {
 			case .LEFT:
 				edit.move_to(&state, .Left)
-				break
 			case .RIGHT:
 				edit.move_to(&state, .Right)
-				break
 			case .BACKSPACE:
 				edit.delete_to(&state, .Left)
+			case .DELETE:
+				edit.delete_to(&state, .Right)
 			case .LCTRL | .RCTRL:
 			//do nothing
+			case .ESCAPE, .CAPSLOCK:
+				println("last active box set to nil")
+				ui_state.last_active_box = nil
+				ui_state.active_box = nil
 			case:
 				edit.input_rune(&state, rune(keycode))
 			}
 		}
+		// println(i)
+		app.curr_chars_stored -= app.curr_chars_stored - i
 	}
 
 	b.name = str.to_string(state.builder^)
