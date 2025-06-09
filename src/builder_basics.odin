@@ -123,18 +123,9 @@ text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_
 	diff := len(buffer_to_use) - app.ui_state.text_cursor_pos
 	diff = diff > 0 ? diff : diff * -1
 
-	for i := 0; i < diff; i += 1 {
-		// printfln(
-		// 	"i: {}   len(buffer_to_use): {}   app.uistate.cursor_pos: {}",
-		// 	i,
-		// 	len(buffer_to_use),
-		// 	app.ui_state.text_cursor_pos,
-		// )
-		edit.move_to(&state, .Left)
-	}
+	for i := 0; i < diff; i += 1 {edit.move_to(&state, .Left)}
 
 	if app.ui_state.last_active_box == b {
-		// if app.ui_state.active_box == b {
 		i: u32 = 0
 		for i = 0; i < app.curr_chars_stored; i += 1 {
 			keycode := app.char_queue[i]
@@ -150,16 +141,23 @@ text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_
 			case .LCTRL | .RCTRL:
 			//do nothing
 			case .ESCAPE, .CAPSLOCK:
-				println("last active box set to nil")
 				ui_state.last_active_box = nil
 				ui_state.active_box = nil
+				app.curr_chars_stored = 1
+				break
+			case .UP, .DOWN:
+			// consuming these events
 			case:
 				edit.input_rune(&state, rune(keycode))
 			}
 		}
-		// println(i)
+		// We do this because not every key should be handled by the text input.
+		// For example, the escape key, should remove focus from the current text box,
+		// but NOT be consumed, and instead be consumed elsewhere in the UI.
 		app.curr_chars_stored -= app.curr_chars_stored - i
 	}
+
+	// Kind of jank, but this is how we differentiate
 
 	b.name = str.to_string(state.builder^)
 	append(&ui_state.temp_boxes, b)

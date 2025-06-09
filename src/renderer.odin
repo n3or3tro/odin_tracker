@@ -6,6 +6,7 @@ import "core:fmt"
 import "core:math"
 import alg "core:math/linalg"
 import "core:math/rand"
+import "core:strconv"
 import s "core:strings"
 import gl "vendor:OpenGL"
 import ma "vendor:miniaudio"
@@ -274,13 +275,28 @@ add_word_rendering_data :: proc(
 	boxes_to_render: ^[dynamic]Rect_Render_Data,
 	rendering_data: ^[dynamic]Rect_Render_Data,
 ) {
-	word_length := word_rendered_length(box.name)
+	// Figure out whether to render box.name or box.value
+	box_value, has_value := box.value.?
+	conversion_data: [8]byte
+	string_to_render: string
+	if has_value {
+		switch _ in box_value {
+		case string:
+			string_to_render = box_value.(string)
+		case u32:
+			// could underflow if box.value.(u32) is too large
+			string_to_render = strconv.itoa(conversion_data[:], int(box_value.(u32)))
+		}
+	} else {
+		string_to_render = box.name
+	}
+	word_length := word_rendered_length(string_to_render)
 	gap := (int(rect_width(box.rect)) - word_length) / 2
-	starting_x, starting_y := get_font_baseline(box.name, box)
+	starting_x, starting_y := get_font_baseline(string_to_render, box)
 	parent_rect := boxes_to_render[len(boxes_to_render) - 1]
 	len_so_far: f32 = 0
-	for i in 0 ..< len(box.name) {
-		ch := rune(box.name[i])
+	for i in 0 ..< len(string_to_render) {
+		ch := rune(string_to_render[i])
 		char_metadata := ui_state.atlas_metadata.chars[ch]
 		new_rect := Rect_Render_Data {
 			bl_color             = {1, 1, 1, 1},

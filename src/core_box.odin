@@ -90,6 +90,10 @@ Box_Signals :: struct {
 	scrolled:       bool,
 }
 
+Step_Value_Type :: union {
+	string, // pitch.
+	u32, // volume, send.s
+}
 // New Box struct based on my simplified layout algorithm.
 Box :: struct {
 	// UI info - color, padding, visual names, etc
@@ -107,6 +111,10 @@ Box :: struct {
 	// Per-frame info provided by builders
 	flags:         Box_Flags,
 	id_string:     string,
+	// Might need to generalise the type of value more in the future. ATM, this assumes
+	// that the only boxes with explicit values are tracker steps.
+	value:         Maybe(Step_Value_Type),
+
 
 	// The actual (x1,y1),(x2,y2) co-ordinates of the box on the screen.
 	rect:          Rect,

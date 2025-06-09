@@ -1,11 +1,16 @@
 package main
+import "core:bytes"
 import "core:fmt"
+import "core:hash"
 import "core:math"
 import "core:math/rand"
 import "core:strconv"
 import s "core:strings"
+import "core:text/edit"
 import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
+
+Track_Steps_Signals :: [32]Individual_Step_Signals
 
 Track_Button_Signals :: struct {
 	enable_signals:    Box_Signals,
@@ -22,12 +27,15 @@ Track_Control_Signals :: struct {
 
 Individual_Step_Signals :: struct {
 	pitch:  Text_Input_Signals,
-	volume: Text_Input_Signals,
-	send1:  Text_Input_Signals,
-	send2:  Text_Input_Signals,
+	volume: Num_Step_Input_Signals,
+	send1:  Num_Step_Input_Signals,
+	send2:  Num_Step_Input_Signals,
 }
 
-Track_Steps_Signals :: [32]Individual_Step_Signals
+Num_Step_Input_Signals :: struct {
+	box_signals: Box_Signals,
+	new_value:   u32,
+}
 
 // Obviously not a complete track, but as complete-ish for now :).
 create_track :: proc(which: u32, track_width: f32) -> Track_Steps_Signals {
@@ -54,9 +62,16 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Steps_Signals {
 	return steps
 }
 
-tracker_step :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
+pitch_step :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
 	// b := box_from_cache({.Draw, .Clickable, .Active_Animation, .Draw_Border}, id_string, rect)
 	signals := text_input(id_string, rect, "")
+	return signals
+}
+
+num_step :: proc(id_string: string, rect: Rect) -> Num_Step_Input_Signals {
+	// b := box_from_cache({.Draw, .Clickable, .Active_Animation, .Draw_Border}, id_string, rect)
+	signals := step_num_input(id_string, rect)
+	println("after step_num_input has run - app.chars_stored: {}", app.curr_chars_stored)
 	return signals
 }
 
@@ -71,24 +86,24 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 		each_steps_rect := cut_rect_into_n_horizontally(&steps_rect, 4)
 
 		push_color(palette.primary.s_500)
-		step0 := tracker_step(
+		step0 := pitch_step(
 			fmt.tprintf("step-{}-pitch@step-{}-pitch-track{}", i, i, which),
 			each_steps_rect[0],
 		)
 		push_color(palette.secondary.s_500)
-		step1 := tracker_step(
+		step1 := num_step(
 			fmt.tprintf("step-{}-volume@step-{}-volume-track{}", i, i, which),
 			each_steps_rect[1],
 		)
 
 		push_color(palette.secondary.s_400)
-		step2 := tracker_step(
+		step2 := num_step(
 			fmt.tprintf("step-{}-send1@step-{}-send1-track{}", i, i, which),
 			each_steps_rect[2],
 		)
 
 		push_color(palette.secondary.s_300)
-		step3 := tracker_step(
+		step3 := num_step(
 			fmt.tprintf("step-{}-send2@step-{}-send2-track{}", i, i, which),
 			each_steps_rect[3],
 		)
@@ -242,4 +257,75 @@ track_num_from_step :: proc(id_string: string) -> u16 {
 	start := s.index(track_id, "track") + len("track")
 	num := cast(u16)strconv.atoi(track_id[start:])
 	return num
+}
+
+step_num_input :: proc(id_string: string, rect: Rect) -> Num_Step_Input_Signals {
+	b := box_from_cache(
+		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
+		tprintf("{}-text-input", id_string),
+		rect,
+		"",
+	)
+	signals := box_signals(b)
+	curr_value: u32
+	box_value, been_created := b.value.?
+	if been_created {
+		curr_value = 0
+		switch _ in box_value {
+		case string:
+			panic("box.value was set as string in step_num_input()")
+		case u32:
+			curr_value = box_value.(u32)
+		}
+
+	}
+	if app.ui_state.last_active_box == b {
+		i: u32 = 0
+		for i = 0; i < app.curr_chars_stored; i += 1 {
+			keycode := app.char_queue[i]
+			#partial switch keycode {
+			case .UP, .k:
+				curr_value += 1
+			case .DOWN, .j:
+				curr_value -= 1
+			case .LEFT, .h:
+				curr_value -= 10
+			case .RIGHT, .l:
+				curr_value += 10
+			case .BACKSPACE:
+				curr_value = 0
+			case .DELETE:
+				curr_value = 0
+			case .ESCAPE:
+				println("last active box set to nil")
+				ui_state.last_active_box = nil
+				ui_state.active_box = nil
+				app.curr_chars_stored = 0
+				break
+			}
+		}
+		// We do this because not every key should be handled by the text input.
+		// For example, the escape key, should remove focus from the current text box,
+		// but NOT be consumed, and instead be consumed elsewhere in the UI.
+		app.curr_chars_stored -= app.curr_chars_stored - i
+		// app.curr_chars_stored = 0
+	}
+	printfln(
+		"after handling events in num_step_input, curr_chars_stored: {}",
+		app.curr_chars_stored,
+	)
+	// volume can't be negative.
+	curr_value = curr_value > 0 ? curr_value : 0
+
+	// Kind of jank, but this is how we differentiate
+	// b.name = 
+	append(&ui_state.temp_boxes, b)
+
+	res := Num_Step_Input_Signals {
+		box_signals = signals,
+		new_value   = curr_value,
+	}
+	b.value = curr_value
+	return res
+
 }

@@ -146,7 +146,6 @@ move_active_box_left :: proc() {
 	box := app.ui_state.selected_box
 	step_num := step_num_from_step(box.id_string)
 	track_num := track_num_from_step(box.id_string)
-	// i.e. we're on the left most step.
 
 	next_active_box_id: string
 	if str.contains(box.id_string, "send2") {
@@ -172,7 +171,6 @@ move_active_box_left :: proc() {
 		)
 	} else if str.contains(box.id_string, "pitch") {
 		if track_num > 0 {
-			// move left
 			track_num -= 1
 			next_active_box_id = tprintf(
 				"step-{}-send2@step-{}-send2-track{}-text-input",
@@ -181,7 +179,7 @@ move_active_box_left :: proc() {
 				track_num,
 			)
 		} else {
-			// we're on track 0, so do nothing.
+			return
 		}
 	} else {
 		panic("we don't know how to move left :(")
@@ -223,7 +221,7 @@ move_active_box_right :: proc() {
 			track_num,
 		)
 	} else if str.contains(box.id_string, "send2") {
-		if track_num < u16(app.n_tracks) {
+		if track_num < u16(app.n_tracks) - 1 {
 			track_num += 1
 			next_active_box_id = tprintf(
 				"step-{}-pitch@step-{}-pitch-track{}-text-input",
@@ -232,7 +230,7 @@ move_active_box_right :: proc() {
 				track_num,
 			)
 		} else {
-			// we're on the last track, so do nothing.
+			return
 		}
 	} else {
 		printfln("box.id_string: {}", box.id_string)
@@ -298,7 +296,8 @@ move_active_box_down :: proc() {
 	box := app.ui_state.selected_box
 	step_num := step_num_from_step(box.id_string)
 	track_num := track_num_from_step(box.id_string)
-	if (step_num >= u16(n_track_steps)) {
+	if (step_num >= u16(n_track_steps) - 1) {
+		println("'moving' down into track controls")
 		return
 	}
 	next_active_box_id: string
@@ -332,7 +331,7 @@ move_active_box_down :: proc() {
 		)
 	} else {
 		printfln("box.id_string: {}", box.id_string)
-		panic("we don't know how to move left :(")
+		panic("we don't know how to move down :(")
 	}
 
 	next_box := ui_state.box_cache[next_active_box_id]
