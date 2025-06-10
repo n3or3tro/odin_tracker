@@ -71,7 +71,7 @@ pitch_step :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
 num_step :: proc(id_string: string, rect: Rect) -> Num_Step_Input_Signals {
 	// b := box_from_cache({.Draw, .Clickable, .Active_Animation, .Draw_Border}, id_string, rect)
 	signals := step_num_input(id_string, rect)
-	println("after step_num_input has run - app.chars_stored: {}", app.curr_chars_stored)
+	// println("after step_num_input has run - app.chars_stored: {}", app.curr_chars_stored)
 	return signals
 }
 
@@ -102,7 +102,7 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 			each_steps_rect[2],
 		)
 
-		push_color(palette.secondary.s_300)
+		push_color(palette.secondary.s_400)
 		step3 := num_step(
 			fmt.tprintf("step-{}-send2@step-{}-send2-track{}", i, i, which),
 			each_steps_rect[3],
@@ -227,38 +227,6 @@ calc_slider_grip_val :: proc(current_val: f32, max: f32) -> f32 {
 	}
 }
 
-dropped_on_track :: proc() -> (u32, bool) {
-	mouse_x, mouse_y: i32
-	sdl.GetMouseState(&mouse_x, &mouse_y)
-	for i in 0 ..= N_TRACKS - 1 {
-		l := i32(f32(app.wx^) * f32(i) / f32(N_TRACKS))
-		r := i32(f32(app.wx^) * f32(i + 1) / f32(N_TRACKS))
-
-		printf("l: {}    r: {} ", l, r)
-		println("mouse state:", mouse_x)
-		println("i:", i, "i/ntracks:", f32(i) / f32(N_TRACKS))
-		if mouse_x >= l && mouse_x <= r {
-			return u32(i), true
-		}
-	}
-	return 0, false
-}
-
-// This code is fairly brittle as it relies on box id strings of steps being of a certain format.
-step_num_from_step :: proc(id_string: string) -> u16 {
-	name := get_name_from_id_string(id_string)
-	index_of_num := s.index(name, "-")
-	num := u16(strconv.atoi(name[index_of_num + 1:]))
-	return num
-}
-
-track_num_from_step :: proc(id_string: string) -> u16 {
-	track_id := get_id_from_id_string(id_string)
-	start := s.index(track_id, "track") + len("track")
-	num := cast(u16)strconv.atoi(track_id[start:])
-	return num
-}
-
 step_num_input :: proc(id_string: string, rect: Rect) -> Num_Step_Input_Signals {
 	b := box_from_cache(
 		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
@@ -267,18 +235,21 @@ step_num_input :: proc(id_string: string, rect: Rect) -> Num_Step_Input_Signals 
 		"",
 	)
 	signals := box_signals(b)
-	curr_value: u32
-	box_value, been_created := b.value.?
-	if been_created {
+	curr_value: int
+	box_value, has_value := b.value.?
+	if has_value {
 		curr_value = 0
 		switch _ in box_value {
 		case string:
 			panic("box.value was set as string in step_num_input()")
 		case u32:
-			curr_value = box_value.(u32)
+			curr_value = int(box_value.(u32))
 		}
-
 	}
+	// else {
+	// 	panic("box.value == nil inside of step_num_input")
+	// }
+
 	if app.ui_state.last_active_box == b {
 		i: u32 = 0
 		for i = 0; i < app.curr_chars_stored; i += 1 {
@@ -307,15 +278,16 @@ step_num_input :: proc(id_string: string, rect: Rect) -> Num_Step_Input_Signals 
 		// We do this because not every key should be handled by the text input.
 		// For example, the escape key, should remove focus from the current text box,
 		// but NOT be consumed, and instead be consumed elsewhere in the UI.
-		app.curr_chars_stored -= app.curr_chars_stored - i
-		// app.curr_chars_stored = 0
+		// app.curr_chars_stored -= app.curr_chars_stored - i
+		app.curr_chars_stored = 0
 	}
-	printfln(
-		"after handling events in num_step_input, curr_chars_stored: {}",
-		app.curr_chars_stored,
-	)
-	// volume can't be negative.
-	curr_value = curr_value > 0 ? curr_value : 0
+	// printfln(
+	// 	"after handling events in num_step_input, curr_chars_stored: {}",
+	// 	app.curr_chars_stored,
+	// )
+
+	curr_value = clamp(curr_value, 0, 100)
+
 
 	// Kind of jank, but this is how we differentiate
 	// b.name = 
@@ -323,9 +295,40 @@ step_num_input :: proc(id_string: string, rect: Rect) -> Num_Step_Input_Signals 
 
 	res := Num_Step_Input_Signals {
 		box_signals = signals,
-		new_value   = curr_value,
+		new_value   = u32(curr_value),
 	}
-	b.value = curr_value
+	b.value = u32(curr_value)
 	return res
+}
 
+// This code is fairly brittle as it relies on box id strings of steps being of a certain format.
+step_num_from_step :: proc(id_string: string) -> u16 {
+	name := get_name_from_id_string(id_string)
+	index_of_num := s.index(name, "-")
+	num := u16(strconv.atoi(name[index_of_num + 1:]))
+	return num
+}
+
+track_num_from_step :: proc(id_string: string) -> u16 {
+	track_id := get_id_from_id_string(id_string)
+	start := s.index(track_id, "track") + len("track")
+	num := cast(u16)strconv.atoi(track_id[start:])
+	return num
+}
+
+dropped_on_track :: proc() -> (u32, bool) {
+	mouse_x, mouse_y: i32
+	sdl.GetMouseState(&mouse_x, &mouse_y)
+	for i in 0 ..= N_TRACKS - 1 {
+		l := i32(f32(app.wx^) * f32(i) / f32(N_TRACKS))
+		r := i32(f32(app.wx^) * f32(i + 1) / f32(N_TRACKS))
+
+		printf("l: {}    r: {} ", l, r)
+		println("mouse state:", mouse_x)
+		println("i:", i, "i/ntracks:", f32(i) / f32(N_TRACKS))
+		if mouse_x >= l && mouse_x <= r {
+			return u32(i), true
+		}
+	}
+	return 0, false
 }

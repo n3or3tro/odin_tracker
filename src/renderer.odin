@@ -285,7 +285,11 @@ add_word_rendering_data :: proc(
 			string_to_render = box_value.(string)
 		case u32:
 			// could underflow if box.value.(u32) is too large
-			string_to_render = strconv.itoa(conversion_data[:], int(box_value.(u32)))
+			if box_value.(u32) == 0 {
+				string_to_render = ""
+			} else {
+				string_to_render = strconv.itoa(conversion_data[:], int(box_value.(u32)))
+			}
 		}
 	} else {
 		string_to_render = box.name

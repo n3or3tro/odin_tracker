@@ -58,7 +58,15 @@ setup_audio :: proc() -> ^Audio_State {
 	audio_state.engine = engine
 
 	init_delay(0.5, 0.3)
-	set_track_sound("/home/lucas/Music/test_sounds/the-create-vol-4/loops/01-save-the-day.wav", 0)
+	when ODIN_OS == .Windows {
+		println("c:\\Music\\tracker\\3.wav loading...")
+		set_track_sound("c:\\users\\n3or3tro\\Music\\tracker\\3.wav", 0)
+	} else {
+		set_track_sound(
+			"/home/lucas/Music/test_sounds/the-create-vol-4/loops/01-save-the-day.wav",
+			0,
+		)
+	}
 	return audio_state
 }
 
@@ -79,7 +87,11 @@ set_track_sound :: proc(path: cstring, which: u32) {
 		nil,
 		new_sound,
 	)
-	assert(res == .SUCCESS)
+	if res != .SUCCESS {
+		println(res)
+		panic("fuck")
+	}
+	// assert(res == .SUCCESS)
 
 	ma.node_attach_output_bus(cast(^ma.node)new_sound, 0, cast(^ma.node)&app.audio_state.delay, 0)
 
@@ -106,7 +118,6 @@ init_delay :: proc(delay_time: f32, decay_time: f32) {
 		println(res)
 		panic("")
 	}
-	// assert(res == .SUCCESS)
 
 	res = ma.node_attach_output_bus(
 		cast(^ma.node)(&app.audio_state.delay),

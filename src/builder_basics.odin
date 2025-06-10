@@ -4,6 +4,7 @@ import "core:bytes"
 import "core:hash"
 import "core:math"
 import "core:math/rand"
+import "core:strconv"
 import str "core:strings"
 import "core:text/edit"
 import sdl "vendor:sdl2"
@@ -60,11 +61,7 @@ button :: proc(id_string: string, rect: Rect) -> Box_Signals {
 }
 
 text_button :: proc(id_string: string, rect: Rect) -> Box_Signals {
-	b := box_from_cache(
-		{.Draw, .Clickable, .Active_Animation, .Draw_Text, .Hot_Animation},
-		id_string,
-		rect,
-	)
+	b := box_from_cache({.Draw, .Clickable, .Active_Animation, .Draw_Text, .Hot_Animation}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)
 }
@@ -75,11 +72,7 @@ text_button_absolute :: proc(id_string: string, x, y: f32) -> Box_Signals {
 	length := f32(word_rendered_length(name))
 	height := f32(tallest_char_height(name))
 	rect := Rect{{x, y}, {x + length, y + height}}
-	b := box_from_cache(
-		{.Draw, .Clickable, .Active_Animation, .Draw_Text, .Hot_Animation},
-		id_string,
-		rect,
-	)
+	b := box_from_cache({.Draw, .Clickable, .Active_Animation, .Draw_Text, .Hot_Animation}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)
 }
@@ -112,7 +105,6 @@ text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_
 	bytes.buffer_init_string(&bytes_buffer, id_string)
 	byts := bytes.buffer_to_bytes(&bytes_buffer)
 	editor_id := u64(hash.crc32(byts))
-	// printfln("editor id for box: %v is %v", id_string, editor_id)
 
 	edit.init(&state, context.temp_allocator, context.temp_allocator)
 	edit.setup_once(&state, &builder)
@@ -145,8 +137,15 @@ text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_
 				ui_state.active_box = nil
 				app.curr_chars_stored = 1
 				break
-			case .UP, .DOWN:
-			// consuming these events
+			// for pitch editing
+			case .UP:
+				if str.contains(id_string, "pitch") {
+					up_one_semitone(&state)
+				}
+			case .DOWN:
+				if str.contains(id_string, "pitch") {
+					down_one_semitone(&state)
+				}
 			case:
 				edit.input_rune(&state, rune(keycode))
 			}
@@ -156,8 +155,6 @@ text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_
 		// but NOT be consumed, and instead be consumed elsewhere in the UI.
 		app.curr_chars_stored -= app.curr_chars_stored - i
 	}
-
-	// Kind of jank, but this is how we differentiate
 
 	b.name = str.to_string(state.builder^)
 	append(&ui_state.temp_boxes, b)
@@ -175,3 +172,65 @@ text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_
 	edit.end(&state)
 	return res
 }
+
+up_one_semitone :: proc(edit_state: ^edit.State) {
+	curr_value := str.to_string(edit_state.builder^)
+	is_sharp := str.contains(curr_value, "#")
+	octave := is_sharp ? strconv.atoi(curr_value[2:]) : strconv.atoi(curr_value[1:])
+	new_value: string
+
+	switch curr_value[0] {
+	case 'A':
+		new_value = is_sharp ? tprintf("B{}", octave) : tprintf("A#{}", octave)
+	case 'B':
+		new_value = tprintf("C{}", octave)
+	case 'C':
+		new_value = is_sharp ? tprintf("D{}", octave) : tprintf("C#{}", octave)
+	case 'D':
+		new_value = is_sharp ? tprintf("E{}", octave) : tprintf("D#{}", octave)
+	case 'E':
+		new_value = tprintf("F{}", octave)
+	case 'F':
+		new_value = is_sharp ? tprintf("G{}", octave) : tprintf("F#{}", octave)
+	case 'G':
+		new_value = is_sharp ? tprintf("A{}", octave + 1) : tprintf("G#{}", octave)
+	}
+	edit.select_to(edit_state, .Soft_Line_End)
+	edit.selection_delete(edit_state)
+	edit.input_text(edit_state, new_value)
+}
+
+down_one_semitone :: proc(edit_state: ^edit.State) {
+	curr_value := str.to_string(edit_state.builder^)
+	is_sharp := str.contains(curr_value, "#")
+	octave := is_sharp ? strconv.atoi(curr_value[2:]) : strconv.atoi(curr_value[1:])
+	new_value: string
+
+	switch curr_value[0] {
+	case 'A':
+		new_value = is_sharp ? tprintf("A{}", octave) : tprintf("G#{}", octave - 1)
+	case 'B':
+		new_value = tprintf("A#{}", octave - 1)
+	case 'C':
+		new_value = is_sharp ? tprintf("C{}", octave) : tprintf("B{}", octave)
+	case 'D':
+		new_value = is_sharp ? tprintf("D{}", octave) : tprintf("C#{}", octave)
+	case 'E':
+		new_value = tprintf("D#{}", octave)
+	case 'F':
+		new_value = is_sharp ? tprintf("F{}", octave) : tprintf("E{}", octave)
+	case 'G':
+		new_value = is_sharp ? tprintf("G{}", octave + 1) : tprintf("F#{}", octave)
+	}
+	edit.select_to(edit_state, .Soft_Line_End)
+	edit.selection_delete(edit_state)
+	edit.input_text(edit_state, new_value)
+}
+
+// up_one_octave :: proc(edit_state: edit.State) {
+// 	curr_value := str.to_string(edit_state.builder^)
+// }
+
+// down_one_octave :: proc(edit_state: edit.State) {
+// 	curr_value := str.to_string(edit_state.builder^)
+// }

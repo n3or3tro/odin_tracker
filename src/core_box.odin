@@ -155,7 +155,7 @@ box_from_cache :: proc(
 		// persistant_id := get_id_from_id_string(persistant_id_string)
 		new_box := box_make(flags, persistant_id_string, rect, display_text)
 		if id_string != "spacer@spacer" {
-			printfln("making new box with id: {}", persistant_id_string)
+			// printfln("making new box with id: {}", persistant_id_string)
 			ui_state.box_cache[persistant_id_string] = new_box
 		}
 		return new_box

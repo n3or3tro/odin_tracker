@@ -42,6 +42,8 @@ App_State :: struct {
 	window:            ^sdl.Window,
 	ui_state:          ^UI_State,
 	char_map:          ^u32,
+	// tracks which key is held down according to SDL.
+	keys_held:         [sdl.NUM_SCANCODES]bool,
 	mouse:             struct {
 		pos:           [2]i32, // these are typed like this to follow the SDL api, else, they'd be u16
 		last_pos:      [2]i32, // pos of the mouse in the last frame.
@@ -499,7 +501,7 @@ update_app :: proc() -> bool {
 	free_all(context.temp_allocator)
 	clear(&app.ui_state.temp_boxes)
 	frame_num^ += 1
-	app.curr_chars_stored = 0
+	app.curr_chars_stored = {}
 	return true
 }
 
@@ -512,14 +514,16 @@ handle_input :: proc(event: sdl.Event) -> bool {
 		app.mouse.last_pos = app.mouse.pos
 		sdl.GetMouseState(&app.mouse.pos.x, &app.mouse.pos.y)
 	}
+	// We cannot just rely on querying the current 'keys held down' for typing in input fields,
+	// since order matters and querying some matrix of keys down does NOT preserve input order.
+	// It would work for querying if we're in the state to trigger some keyboard shortcut however.
 	if etype == .KEYDOWN {
-		#partial switch event.key.keysym.sym {
-		case .SPACE: app.audio_state.playing = !app.audio_state.playing
-		// fallthrough
-		case:
-			app.char_queue[app.curr_chars_stored] = event.key.keysym.sym
-			app.curr_chars_stored += 1
-		}
+		app.char_queue[app.curr_chars_stored] = event.key.keysym.sym
+		app.curr_chars_stored += 1
+		app.keys_held[event.key.keysym.scancode] = true
+	}
+	if etype == .KEYUP {
+		app.keys_held[event.key.keysym.scancode] = false
 	}
 	if etype == .MOUSEWHEEL {
 		app.mouse.wheel.x = cast(i8)event.wheel.x
@@ -574,6 +578,7 @@ handle_input :: proc(event: sdl.Event) -> bool {
 	}
 	return true
 }
+
 // stupid_sem: sync.Atomic_Sema
 run_app :: proc() {
 	// The weird semaphore stuff is required because of Odin's bad thread

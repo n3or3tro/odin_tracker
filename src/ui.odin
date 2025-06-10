@@ -115,7 +115,8 @@ main_tracker_panel :: proc() {
 		}
 	}
 
-	// Handle keyboard navigation.
+	// Handle keyboard navigation based on in order keys that were queued via 
+	// querying sdl event stream.
 	for i in 0 ..< app.curr_chars_stored {
 		keycode := app.char_queue[i]
 		#partial switch keycode {
@@ -140,6 +141,19 @@ main_tracker_panel :: proc() {
 			ui_state.selected_box.active = false
 		}
 	}
+
+	// Handle keyboard navigation based on the state of keyboard keys held down,
+	// pretty sure this will only be used for handling multikey keyboard shortcuts
+	if app.keys_held[sdl.Scancode.T] &&
+	   (app.keys_held[sdl.Scancode.LCTRL] || app.keys_held[sdl.Scancode.RCTRL]) {
+		println("adding a new track")
+		app.n_tracks += 1
+		// hack to stop triggering this too many times
+		app.keys_held[sdl.Scancode.T] = false
+		// app.keys_held[sdl.Scancode.RCTRL] = false
+		// app.keys_held[sdl.Scancode.LCTRL] = false
+	}
+
 }
 
 move_active_box_left :: proc() {
