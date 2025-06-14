@@ -87,7 +87,9 @@ void main() {
 		vec4 texture_sample = texture(background_texture, texture_uv);
 		color = texture_sample;
 	} else {
-		vec4 texture_sample = texture(font_texture, texture_uv);
+		// vec4 texture_sample = texture(font_texture, texture_uv);
+		float texture_sample = texture(font_texture, texture_uv).r; // Sample red channel
 		color = v_color * texture_sample;
+		// color = vec4(v_color.rgb, v_color.a * font_alpha * sdf_factor);
 	}
 }

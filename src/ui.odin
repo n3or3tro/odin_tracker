@@ -6,6 +6,7 @@ import str "core:strings"
 import "core:sys/posix"
 import thread "core:thread"
 import gl "vendor:OpenGL"
+import "vendor:fontstash"
 import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
 
@@ -20,7 +21,8 @@ Z_Layer :: enum {
 
 UI_State :: struct {
 	box_cache:           Box_Cache, // cross-frame cache of boxes
-	atlas_metadata:      Atlas_Metadata,
+	font_atlas:          ^Atlas,
+	// font_context:        fontstash.FontContext,
 	temp_boxes:          [dynamic]^Box,
 	first_frame:         bool, // dont want to render on the first frame
 	rect_stack:          [dynamic]^Rect,
@@ -100,10 +102,7 @@ main_tracker_panel :: proc() {
 	if app.sampler_open {
 		sampler_top_left := app.sampler_pos
 		sampler_bottom_right := Vec2{1000 + sampler_top_left.x, 500 + sampler_top_left.y}
-		sampler_signals := sampler(
-			"sampler@first-sampler",
-			&Rect{sampler_top_left, sampler_bottom_right},
-		)
+		sampler_signals := sampler("sampler@first-sampler", &Rect{sampler_top_left, sampler_bottom_right})
 		if sampler_signals.container_signals.handle_bar.dragging {
 			app.dragging_window = true
 		}

@@ -62,7 +62,7 @@ void main() {
 	vec2 tex_pos = (vertices[gl_VertexID] * tex_half_size + tex_center);
 
 	if (ui_element_type == 1.0) { // i.e. text - need to do math to figure out atlas stuff
-		out_texture_uv = vec2(tex_pos.x / font_texture_width, 1.0 - tex_pos.y / font_texture_height);
+		out_texture_uv = tex_pos;
 	} else { // rest of textures you just paste the whole texture ontop of the quad.
 		out_texture_uv = (vertices[gl_VertexID] + 1.0) * 0.5;
 		out_texture_uv.y = 1.0 - out_texture_uv.y; 

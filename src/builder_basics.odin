@@ -46,7 +46,7 @@ text_container :: proc(id_string: string, rect: Rect) -> Box_Signals {
 text_container_absolute :: proc(id_string: string, x, y: f32) -> Box_Signals {
 	name := get_name_from_id_string(id_string)
 	length := f32(word_rendered_length(name))
-	height := f32(tallest_char_height(name))
+	height := tallest_rendered_char(name)
 	rect := Rect{{x, y}, {x + length, y + height}}
 	b := box_from_cache({.Draw_Text}, id_string, rect)
 	b.color = {1, 1, 1, 1}
@@ -70,7 +70,7 @@ text_button :: proc(id_string: string, rect: Rect) -> Box_Signals {
 text_button_absolute :: proc(id_string: string, x, y: f32) -> Box_Signals {
 	name := get_name_from_id_string(id_string)
 	length := f32(word_rendered_length(name))
-	height := f32(tallest_char_height(name))
+	height := tallest_rendered_char(name)
 	rect := Rect{{x, y}, {x + length, y + height}}
 	b := box_from_cache({.Draw, .Clickable, .Active_Animation, .Draw_Text, .Hot_Animation}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
@@ -140,11 +140,13 @@ text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_
 			// for pitch editing
 			case .UP:
 				if str.contains(id_string, "pitch") {
-					up_one_semitone(&state)
+					nv := up_one_semitone(&state)
+					printfln("moving up a semitone {}", nv)
 				}
 			case .DOWN:
 				if str.contains(id_string, "pitch") {
-					down_one_semitone(&state)
+					nv := down_one_semitone(&state)
+					printfln("moving down a semitone {}", nv)
 				}
 			case:
 				edit.input_rune(&state, rune(keycode))
@@ -173,8 +175,8 @@ text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_
 	return res
 }
 
-up_one_semitone :: proc(edit_state: ^edit.State) {
-	curr_value := str.to_string(edit_state.builder^)
+up_one_semitone :: proc(edit_state: ^edit.State) -> string {
+	curr_value, _ := str.to_upper(str.to_string(edit_state.builder^), context.temp_allocator)
 	is_sharp := str.contains(curr_value, "#")
 	octave := is_sharp ? strconv.atoi(curr_value[2:]) : strconv.atoi(curr_value[1:])
 	new_value: string
@@ -194,14 +196,18 @@ up_one_semitone :: proc(edit_state: ^edit.State) {
 		new_value = is_sharp ? tprintf("G{}", octave) : tprintf("F#{}", octave)
 	case 'G':
 		new_value = is_sharp ? tprintf("A{}", octave + 1) : tprintf("G#{}", octave)
+	case:
+		panic("fuck1")
 	}
-	edit.select_to(edit_state, .Soft_Line_End)
+	edit.move_to(edit_state, .Start)
+	edit.select_to(edit_state, .End)
 	edit.selection_delete(edit_state)
 	edit.input_text(edit_state, new_value)
+	return new_value
 }
 
-down_one_semitone :: proc(edit_state: ^edit.State) {
-	curr_value := str.to_string(edit_state.builder^)
+down_one_semitone :: proc(edit_state: ^edit.State) -> string {
+	curr_value := str.to_upper(str.to_string(edit_state.builder^), context.temp_allocator)
 	is_sharp := str.contains(curr_value, "#")
 	octave := is_sharp ? strconv.atoi(curr_value[2:]) : strconv.atoi(curr_value[1:])
 	new_value: string
@@ -221,10 +227,14 @@ down_one_semitone :: proc(edit_state: ^edit.State) {
 		new_value = is_sharp ? tprintf("F{}", octave) : tprintf("E{}", octave)
 	case 'G':
 		new_value = is_sharp ? tprintf("G{}", octave + 1) : tprintf("F#{}", octave)
+	case:
+		panic("fuck1")
 	}
-	edit.select_to(edit_state, .Soft_Line_End)
+	edit.move_to(edit_state, .Start)
+	edit.select_to(edit_state, .End)
 	edit.selection_delete(edit_state)
 	edit.input_text(edit_state, new_value)
+	return new_value
 }
 
 // up_one_octave :: proc(edit_state: edit.State) {

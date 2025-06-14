@@ -15,6 +15,7 @@ import "core:sync"
 import "core:thread"
 import "core:time"
 import gl "vendor:OpenGL"
+import "vendor:fontstash"
 import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
 import "vendor:stb/image"
@@ -150,8 +151,7 @@ main :: proc() {
 init_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	// sdl.Init({.AUDIO, .EVENTS, .TIMER})
 	sdl.Init({.EVENTS})
-	window_flags :=
-		sdl.WINDOW_OPENGL | sdl.WINDOW_RESIZABLE | sdl.WINDOW_ALLOW_HIGHDPI | sdl.WINDOW_UTILITY
+	window_flags := sdl.WINDOW_OPENGL | sdl.WINDOW_RESIZABLE | sdl.WINDOW_ALLOW_HIGHDPI | sdl.WINDOW_UTILITY
 	app.window = sdl.CreateWindow(
 		"n3or3tro-tracker",
 		sdl.WINDOWPOS_UNDEFINED,
@@ -185,8 +185,6 @@ init_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	gl.Enable(gl.LINE_SMOOTH)
 	gl.Enable(gl.POLYGON_SMOOTH)
 	gl.Enable(gl.MULTISAMPLE)
-	gl.Disable(gl.BLEND)
-	// gl.Enable(gl.Depth)
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
@@ -267,42 +265,43 @@ init_ui_state :: proc() -> ^UI_State {
 
 
 	bind_shader(ui_state.quad_shader_program)
-	set_shader_vec2(
-		ui_state.quad_shader_program,
-		"screen_res",
-		{f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)},
-	)
+	set_shader_vec2(ui_state.quad_shader_program, "screen_res", {f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)})
 
-	ui_state.atlas_metadata = parse_font_metadata("font-atlas/Unnamed.fnt")
+	when ODIN_OS == .Windows {
+		font_path := "C:\\Windows\\Fonts\\micross.ttf"
+	} else {
+		panic("Need to set 'font_path' for non-windows environments")
+	}
 
-	set_shader_i32(
-		ui_state.quad_shader_program,
-		"font_texture_height",
-		i32(ui_state.atlas_metadata.texture.texture_height),
-	)
+	ui_state.font_atlas = create_font_atlas(font_path, 32)
+	font_texture_data := ui_state.font_atlas.texture.pixels
+
+	// write font texture out to view it for debuggin.
+	// image.write_png(
+	// 	"font_atlas.png",
+	// 	i32(ui_state.font_atlas.texture.width),
+	// 	i32(ui_state.font_atlas.texture.height),
+	// 	1, // 1 channel (grayscale)
+	// 	raw_data(ui_state.font_atlas.texture.pixels),
+	// 	i32(ui_state.font_atlas.texture.width), // stride
+	// )
+
+	println(ui_state.font_atlas.texture.pixels)
 	set_shader_i32(
 		ui_state.quad_shader_program,
 		"font_texture_width",
-		i32(ui_state.atlas_metadata.texture.texture_width),
+		i32(ui_state.font_atlas.texture.width),
+	)
+	set_shader_i32(
+		ui_state.quad_shader_program,
+		"font_texture_height",
+		i32(ui_state.font_atlas.texture.height),
 	)
 
-	font_texture_data := #load("../font-atlas/Unnamed.png")
-	texture_x, texture_y, texture_channels: i32
-	image.set_flip_vertically_on_load(1)
-	texture_data := image.load_from_memory(
-		raw_data(font_texture_data),
-		i32(len(font_texture_data)),
-		&texture_x,
-		&texture_y,
-		&texture_channels,
-		4,
-	)
-	defer image.image_free(texture_data)
-
-	texutre_id: u32
+	font_texture_id: u32
 	gl.ActiveTexture(gl.TEXTURE0)
-	gl.GenTextures(1, &texutre_id)
-	gl.BindTexture(gl.TEXTURE_2D, texutre_id)
+	gl.GenTextures(1, &font_texture_id)
+	gl.BindTexture(gl.TEXTURE_2D, font_texture_id)
 
 	// Set texture parameters (wrap/filter) for font
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
@@ -310,17 +309,20 @@ init_ui_state :: proc() -> ^UI_State {
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 
+	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1) // Important for single-channel textures!
+
+
 	// Upload to GPU
 	gl.TexImage2D(
 		gl.TEXTURE_2D,
 		0,
-		gl.RGBA,
-		i32(ui_state.atlas_metadata.texture.texture_width),
-		i32(ui_state.atlas_metadata.texture.texture_height),
+		gl.R8,
+		i32(ui_state.font_atlas.texture.width),
+		i32(ui_state.font_atlas.texture.height),
 		0,
-		gl.RGBA,
+		gl.RED,
 		gl.UNSIGNED_BYTE,
-		texture_data,
+		raw_data(font_texture_data),
 	)
 	set_shader_i32(program1, "font_texture", 0)
 

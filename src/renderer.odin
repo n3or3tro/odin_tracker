@@ -296,12 +296,12 @@ add_word_rendering_data :: proc(
 	}
 	word_length := word_rendered_length(string_to_render)
 	gap := (int(rect_width(box.rect)) - word_length) / 2
-	starting_x, starting_y := get_font_baseline(string_to_render, box)
+	baseline_x, baseline_y := get_font_baseline(string_to_render, box)
 	parent_rect := boxes_to_render[len(boxes_to_render) - 1]
 	len_so_far: f32 = 0
 	for i in 0 ..< len(string_to_render) {
 		ch := rune(string_to_render[i])
-		char_metadata := ui_state.atlas_metadata.chars[ch]
+		char_metadata := ui_state.font_atlas.chars[ch]
 		new_rect := Rect_Render_Data {
 			bl_color             = {1, 1, 1, 1},
 			br_color             = {1, 1, 1, 1},
@@ -311,20 +311,31 @@ add_word_rendering_data :: proc(
 			corner_radius        = 0,
 			edge_softness        = 0,
 			ui_element_type      = 1.0,
-			top_left             = {starting_x + len_so_far, starting_y - 40},
-			bottom_right         = {
-				starting_x + len_so_far + f32(char_metadata.width),
-				starting_y,
+			top_left             = {
+				baseline_x + len_so_far,
+				baseline_y - (char_metadata.height - char_metadata.bearing_y),
 			},
-			texture_top_left     = {f32(char_metadata.x), f32(char_metadata.y)},
-			texture_bottom_right = {
-				f32(char_metadata.x + char_metadata.width),
-				f32(char_metadata.y + char_metadata.height),
-			},
+			bottom_right         = {baseline_x + len_so_far + char_metadata.width, baseline_y},
+			texture_top_left     = {char_metadata.u0, char_metadata.v0},
+			texture_bottom_right = {char_metadata.u1, char_metadata.v1},
 		}
-		len_so_far += f32(char_metadata.advance)
+
+		len_so_far += char_metadata.advance_x
 		append(rendering_data, new_rect)
 	}
+	// render font baseline for debuggin purposes
+	font_baseline_rect := Rect_Render_Data {
+		bl_color         = {1, 0.2, 0.5, 1},
+		tl_color         = {1, 0.2, 0.5, 1},
+		br_color         = {1, 0.2, 0.5, 1},
+		tr_color         = {1, 0.2, 0.5, 1},
+		border_thickness = 100,
+		top_left         = {baseline_x, baseline_y},
+		bottom_right     = {baseline_x + f32(word_rendered_length(string_to_render)), baseline_y + 3},
+		corner_radius    = 0,
+		edge_softness    = 0,
+	}
+	append(rendering_data, font_baseline_rect)
 }
 
 // Assumes pcm_frames is from a mono version of the .wav file, BOLD assumption.
