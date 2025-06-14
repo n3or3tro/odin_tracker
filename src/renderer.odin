@@ -311,13 +311,35 @@ add_word_rendering_data :: proc(
 			corner_radius        = 0,
 			edge_softness        = 0,
 			ui_element_type      = 1.0,
+			// top_left             = {baseline_x + len_so_far, baseline_y - (char_metadata.bearing_y)},
+			// bottom_right         = {
+			// 	baseline_x + len_so_far + char_metadata.advance_x,
+			// 	baseline_y + (char_metadata.bearing_y - char_metadata.height),
+			// },
 			top_left             = {
-				baseline_x + len_so_far,
-				baseline_y - (char_metadata.height - char_metadata.bearing_y),
+				baseline_x + len_so_far + char_metadata.glyph_x0, // Use glyph x0
+				baseline_y + char_metadata.glyph_y0, // Use glyph y0
 			},
-			bottom_right         = {baseline_x + len_so_far + char_metadata.width, baseline_y},
+			// bottom_right         = {
+			// 	baseline_x + len_so_far + char_metadata.advance_x, // Use glyph x1
+			// 	baseline_y + char_metadata.glyph_y1, // Use glyph y1
+			// },
+			bottom_right         = {
+				baseline_x + len_so_far + char_metadata.glyph_x1, // Use glyph_x1 for actual glyph width
+				baseline_y + char_metadata.glyph_y1,
+			},
 			texture_top_left     = {char_metadata.u0, char_metadata.v0},
 			texture_bottom_right = {char_metadata.u1, char_metadata.v1},
+		}
+		// In add_word_rendering_data
+		if ch == 'i' {
+			printfln("Rendering 'i':")
+			printfln(
+				"  quad left={}, right={}",
+				baseline_x + len_so_far + char_metadata.glyph_x0,
+				baseline_x + len_so_far + char_metadata.glyph_x1,
+			)
+			printfln("  width={}", char_metadata.glyph_x1 - char_metadata.glyph_x0)
 		}
 
 		len_so_far += char_metadata.advance_x

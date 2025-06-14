@@ -39,11 +39,6 @@ uniform int font_texture_height;
 
 void main() {
 	vec4[4] colors;
-	// colors[0] = tl_color;
-	// colors[1] = tr_color;
-	// colors[2] = bl_color;
-	// colors[3] = br_color;
-
 	colors[0] = br_color;
 	colors[1] = tr_color;
 	colors[2] = bl_color;
@@ -61,12 +56,11 @@ void main() {
 	vec2 tex_center = (texture_bottom_right + texture_top_left) / 2;
 	vec2 tex_pos = (vertices[gl_VertexID] * tex_half_size + tex_center);
 
-	if (ui_element_type == 1.0) { // i.e. text - need to do math to figure out atlas stuff
+	if (ui_element_type == 1.0) { // 
 		out_texture_uv = tex_pos;
 	} else { // rest of textures you just paste the whole texture ontop of the quad.
 		out_texture_uv = (vertices[gl_VertexID] + 1.0) * 0.5;
 		out_texture_uv.y = 1.0 - out_texture_uv.y; 
-		// Flip Y if needed
 	}
 
     // Map to screen coordinates (-1 to 1 NDC)

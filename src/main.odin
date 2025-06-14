@@ -268,35 +268,15 @@ init_ui_state :: proc() -> ^UI_State {
 	set_shader_vec2(ui_state.quad_shader_program, "screen_res", {f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)})
 
 	when ODIN_OS == .Windows {
-		font_path := "C:\\Windows\\Fonts\\micross.ttf"
+		font_path := "C:/Windows/Fonts/calibri.ttf"
+		// font_path := "C:\\Users\\n3or3tro\\MySoftware\\my-projects\\odin_tracker\\data\\OpenSans-Semibold.ttf"
 	} else {
 		panic("Need to set 'font_path' for non-windows environments")
 	}
+	// font_path := "../data/Debrosee-ALPnL.ttf"
 
 	ui_state.font_atlas = create_font_atlas(font_path, 32)
-	font_texture_data := ui_state.font_atlas.texture.pixels
-
-	// write font texture out to view it for debuggin.
-	// image.write_png(
-	// 	"font_atlas.png",
-	// 	i32(ui_state.font_atlas.texture.width),
-	// 	i32(ui_state.font_atlas.texture.height),
-	// 	1, // 1 channel (grayscale)
-	// 	raw_data(ui_state.font_atlas.texture.pixels),
-	// 	i32(ui_state.font_atlas.texture.width), // stride
-	// )
-
-	println(ui_state.font_atlas.texture.pixels)
-	set_shader_i32(
-		ui_state.quad_shader_program,
-		"font_texture_width",
-		i32(ui_state.font_atlas.texture.width),
-	)
-	set_shader_i32(
-		ui_state.quad_shader_program,
-		"font_texture_height",
-		i32(ui_state.font_atlas.texture.height),
-	)
+	font_texture_data := raw_data(ui_state.font_atlas.texture.pixels)
 
 	font_texture_id: u32
 	gl.ActiveTexture(gl.TEXTURE0)
@@ -311,6 +291,29 @@ init_ui_state :: proc() -> ^UI_State {
 
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1) // Important for single-channel textures!
 
+	x, y, actual_channels_in_image: i32
+	image.set_flip_vertically_on_load(1)
+
+	// image.write_png(
+	// 	"font_atlas.png",
+	// 	i32(ui_state.font_atlas.texture.width),
+	// 	i32(ui_state.font_atlas.texture.height),
+	// 	1, // 1 channel (grayscale)
+	// 	raw_data(ui_state.font_atlas.texture.pixels),
+	// 	i32(ui_state.font_atlas.texture.width), // stride
+	// )
+	// image_data, err := os.read_entire_file_from_filename("font_atlas.png")
+	// font_texture_data := image.load_from_memory(
+	// 	raw_data(image_data),
+	// 	i32(len(image_data)),
+	// 	&x,
+	// 	&y,
+	// 	&actual_channels_in_image,
+	// 	1,
+	// )
+
+	// println(raw_data(font_texture_data))
+	printfln("x: {}, y: {}, chanels: {}", x, y, actual_channels_in_image)
 
 	// Upload to GPU
 	gl.TexImage2D(
@@ -322,16 +325,26 @@ init_ui_state :: proc() -> ^UI_State {
 		0,
 		gl.RED,
 		gl.UNSIGNED_BYTE,
-		raw_data(font_texture_data),
+		rawptr(font_texture_data),
 	)
 	set_shader_i32(program1, "font_texture", 0)
 
+	set_shader_i32(
+		ui_state.quad_shader_program,
+		"font_texture_width",
+		i32(ui_state.font_atlas.texture.width),
+	)
+	set_shader_i32(
+		ui_state.quad_shader_program,
+		"font_texture_height",
+		i32(ui_state.font_atlas.texture.height),
+	)
 	/*
 	---------------- Circle knob texture stuff -----------------------------------------------------
 	*/
 	// load knob texture image 
 	knob_width, knob_height, channels: i32
-	raw_image_data := #load("../textures/knob.png")
+	raw_image_data := #load("../data/knob.png")
 	knob_image_data := image.load_from_memory(
 		raw_data(raw_image_data),
 		i32(len(raw_image_data)),
@@ -340,7 +353,6 @@ init_ui_state :: proc() -> ^UI_State {
 		&channels,
 		4,
 	)
-	printfln("image data: {}x{}  - {}", knob_width, knob_height, channels)
 
 	knob_texture_id: u32
 	gl.ActiveTexture(gl.TEXTURE1)
@@ -373,7 +385,7 @@ init_ui_state :: proc() -> ^UI_State {
 	*/
 	fader_knob_width, fader_knob_height: i32
 	channels = 0
-	fader_knob_raw_image_data := #load("../textures/fader-knob.png")
+	fader_knob_raw_image_data := #load("../data/fader-knob.png")
 	fader_knob_image_data := image.load_from_memory(
 		raw_data(fader_knob_raw_image_data),
 		i32(len(fader_knob_raw_image_data)),
@@ -412,7 +424,7 @@ init_ui_state :: proc() -> ^UI_State {
 	*/
 	background_img_width, background_img_height: i32
 	channels = 0
-	background_img_raw_image_data := #load("../textures/metal-background.jpeg")
+	background_img_raw_image_data := #load("../data/metal-background.jpeg")
 	background_image_data := image.load_from_memory(
 		raw_data(background_img_raw_image_data),
 		i32(len(background_img_raw_image_data)),

@@ -27,12 +27,9 @@ top_bar :: proc() -> Top_Bar_Signals {
 	tab2_rect := get_right(tabs_rect, {.Percent, 0.50})
 
 	push_color(palette.secondary.s_800)
-	play_button := text_button(
-		app.audio_state.playing ? ":)@topbar_play" : ":(@topbar_pause",
-		play_rect,
-	)
+	play_button := text_button(app.audio_state.playing ? ":)@topbar_play" : ":(@topbar_pause", play_rect)
 	push_color(palette.secondary.s_600)
-	settings_button := text_button("Settings@settings-button-topbar", settings_rect)
+	settings_button := text_button("Settngs@settings-button-topbar", settings_rect)
 	push_color(palette.secondary.s_400)
 	sampler_button := text_button("Open Sampler@sampler-button-topbar", sampler_rect)
 	push_color(palette.secondary.s_300)
@@ -106,15 +103,9 @@ settings_menu :: proc(settings_menu_rect: Rect) -> Settings_Menu_Signals {
 	ui_state.z_index = 1
 	defer ui_state.z_index = 0
 
-	settings_container := container(
-		"options-container@settings-container-topbar",
-		settings_menu_rect,
-	)
+	settings_container := container("options-container@settings-container-topbar", settings_menu_rect)
 
-	resize_buttons_rect := get_top(
-		settings_menu_rect,
-		Size{kind = .Percent, value = 1 / n_buttons},
-	)
+	resize_buttons_rect := get_top(settings_menu_rect, Size{kind = .Percent, value = 1 / n_buttons})
 	reduce_rect := get_left(resize_buttons_rect, Size{.Percent, 0.5})
 	increase_rect := get_right(resize_buttons_rect, Size{.Percent, 0.5})
 

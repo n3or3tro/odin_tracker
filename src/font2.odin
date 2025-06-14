@@ -25,6 +25,12 @@ Atlas :: struct {
 Char_Atlas_Metadata :: struct {
 	u0, v0, u1, v1: f32, // normalized uv-cordinates of this char in the atlas - [0,1]
 	x0, y0, x1, y1: f32, // i.e. co-ordinates of this letter in the texture.
+	// Glyph metrics (for positioning)
+	// Store original values of glyph positiong
+	glyph_x0:       f32,
+	glyph_y0:       f32,
+	glyph_x1:       f32,
+	glyph_y1:       f32,
 	width, height:  f32, // glyph dimensions
 	advance_x:      f32,
 	bearing_y:      f32, // amount above the baseline, i.e top_left.y
@@ -47,9 +53,10 @@ create_font_atlas :: proc(
 		println("failed to init the font fuck me :( ")
 		// panic()
 	}
-	scale := tt.ScaleForPixelHeight(&font, font_size)
+
 	ascent, descent, line_gap: i32
 	tt.GetFontVMetrics(&font, &ascent, &descent, &line_gap)
+	scale := tt.ScaleForPixelHeight(&font, font_size)
 
 	atlas := new(Atlas)
 	atlas.chars = make(map[rune]Char_Atlas_Metadata)
@@ -110,18 +117,54 @@ create_font_atlas :: proc(
 		)
 		// Store glyph into our hashmap
 		new_char_metadata := Char_Atlas_Metadata {
+			// x0        = f32(current_x + x0),
+			// y0        = f32(baseline_y + y0),
+			// x1        = f32(current_x + x1),
+			// y1        = f32(baseline_y + y1),
+			// u0        = f32(current_x + x0) / f32(atlas.texture.width),
+			// v0        = f32(baseline_y + y0) / f32(atlas.texture.height),
+			// u1        = f32(current_x + x1) / f32(atlas.texture.width),
+			// v1        = f32(baseline_y + y1) / f32(atlas.texture.height),
+			// advance_x = f32(advance) * scale,
+			// bearing_y = f32(y1), // Distance from baseline to top of char
+			// width     = f32(glyph_width),
+			// height    = f32(glyph_height),
+
+			// Atlas positions (for texture sampling)
 			x0        = f32(current_x + x0),
 			y0        = f32(baseline_y + y0),
 			x1        = f32(current_x + x1),
 			y1        = f32(baseline_y + y1),
+
+			// UV coordinates
 			u0        = f32(current_x + x0) / f32(atlas.texture.width),
 			v0        = f32(baseline_y + y0) / f32(atlas.texture.height),
 			u1        = f32(current_x + x1) / f32(atlas.texture.width),
 			v1        = f32(baseline_y + y1) / f32(atlas.texture.height),
+
+			// Glyph metrics (for positioning)
+			glyph_x0  = f32(x0), // Store original values!
+			glyph_y0  = f32(y0),
+			glyph_x1  = f32(x1),
+			glyph_y1  = f32(y1),
 			advance_x = f32(advance) * scale,
-			bearing_y = f32(y0), // Distance from baseline to top of char
+			bearing_y = f32(-y0), // Distance from baseline to top
 			width     = f32(glyph_width),
 			height    = f32(glyph_height),
+		}
+		// In create_font_atlas, after storing the metadata for 'i':
+		if ch == 'i' || ch == 'l' || ch == 't' || ch == 'T' || ch == 'm' {
+			printfln("Character '{}' metrics:", ch)
+			printfln("  x0={}, y0={}, x1={}, y1={}", x0, y0, x1, y1)
+			printfln("  glyph_width={}, glyph_height={}", glyph_width, glyph_height)
+			printfln("  advance={}, scale={}", advance, scale)
+			printfln("  advance_x={}", new_char_metadata.advance_x)
+		}
+		// In create_font_atlas
+		if ch == 'i' || ch == 'l' || ch == 't' || ch == 'T' || ch == 'm' {
+			printfln("Character '{}' metrics:", ch)
+			printfln("  x0={}, x1={}, width={}", x0, x1, glyph_width)
+			printfln("  advance={} (scaled={})", advance, f32(advance) * scale)
 		}
 		atlas.chars[ch] = new_char_metadata
 		current_x += glyph_width + 1
