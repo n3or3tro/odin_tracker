@@ -15,17 +15,24 @@ Track :: struct {
 	curr_step: u16,
 }
 
+Pitch_Metadata :: struct {
+	pitch_name: string,
+}
+
 Audio_State :: struct {
-	tracks:       [dynamic]Track,
-	engine:       ^ma.engine,
+	tracks:            [dynamic]Track,
+	engine:            ^ma.engine,
 	// for now there will be a fixed amount of channels, but irl this will be dynamic.
 	// channels are a miniaudio idea of basically audio processing groups. need to dive deeper into this
 	// as it probably will help in designging the audio processing stuff.
-	audio_groups: [N_AUDIO_GROUPS]^ma.sound_group,
-	playing:      bool,
+	audio_groups:      [N_AUDIO_GROUPS]^ma.sound_group,
+	playing:           bool,
 	// For some reason this thing needs to be globally accessible (at least according to the docs),
 	// Perhaps we can localize it later.
-	delay:        ma.delay_node,
+	delay:             ma.delay_node,
+	// At this moment, the only problem this sovles is that it gives us permamnet storage of pitches,
+	// like literally the strings: "A#2", etc, etc. But in the future I imagine it will be used for more stuff.
+	note_to_pitch_map: map[string]Pitch_Metadata,
 }
 
 SOUND_FILE_LOAD_FLAGS: ma.sound_flags = {.DECODE, .NO_SPATIALIZATION}
@@ -62,11 +69,47 @@ setup_audio :: proc() -> ^Audio_State {
 		println("c:\\Music\\tracker\\3.wav loading...")
 		set_track_sound("c:\\users\\n3or3tro\\Music\\tracker\\3.wav", 0)
 	} else {
-		set_track_sound(
-			"/home/lucas/Music/test_sounds/the-create-vol-4/loops/01-save-the-day.wav",
-			0,
-		)
+		set_track_sound("/home/lucas/Music/test_sounds/the-create-vol-4/loops/01-save-the-day.wav", 0)
 	}
+
+	pitch_map := make(map[string]Pitch_Metadata)
+	pitch_map["A0"] = Pitch_Metadata {
+		pitch_name = "A0",
+	}
+	pitch_map["A#0"] = Pitch_Metadata {
+		pitch_name = "A#0",
+	}
+	pitch_map["B0"] = Pitch_Metadata {
+		pitch_name = "B0",
+	}
+	pitch_map["C0"] = Pitch_Metadata {
+		pitch_name = "C0",
+	}
+	pitch_map["C#0"] = Pitch_Metadata {
+		pitch_name = "C#0",
+	}
+	pitch_map["D0"] = Pitch_Metadata {
+		pitch_name = "D0",
+	}
+	pitch_map["D#0"] = Pitch_Metadata {
+		pitch_name = "D#0",
+	}
+	pitch_map["E0"] = Pitch_Metadata {
+		pitch_name = "E0",
+	}
+	pitch_map["F0"] = Pitch_Metadata {
+		pitch_name = "F0",
+	}
+	pitch_map["F#0"] = Pitch_Metadata {
+		pitch_name = "F#0",
+	}
+	pitch_map["G0"] = Pitch_Metadata {
+		pitch_name = "G0",
+	}
+	pitch_map["G#0"] = Pitch_Metadata {
+		pitch_name = "G#0",
+	}
+	audio_state.note_to_pitch_map = pitch_map
 	return audio_state
 }
 
@@ -133,9 +176,7 @@ turn_on_delay :: proc() {
 
 toggle_sound_playing :: proc(sound: ^ma.sound) {
 	if sound == nil {
-		println(
-			"Passed in a 'nil' sound.\nMost likely this track hasn't been loaded with a sound.",
-		)
+		println("Passed in a 'nil' sound.\nMost likely this track hasn't been loaded with a sound.")
 	} else {
 		if ma.sound_is_playing(sound) {
 			res := ma.sound_stop(sound)

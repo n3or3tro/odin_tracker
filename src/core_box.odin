@@ -138,14 +138,7 @@ Box :: struct {
 	z_index:       u8,
 }
 
-box_from_cache :: proc(
-	flags: Box_Flags,
-	id_string: string,
-	rect: Rect,
-	// Don't really want to have this extra arg, but it has been introduced to help
-	// figure out how to create robust input text boxes.
-	display_text: string = "",
-) -> ^Box {
+box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
 	if id_string in ui_state.box_cache {
 		box := ui_state.box_cache[id_string]
 		box.rect = rect
@@ -153,7 +146,7 @@ box_from_cache :: proc(
 	} else {
 		persistant_id_string := s.clone(id_string)
 		// persistant_id := get_id_from_id_string(persistant_id_string)
-		new_box := box_make(flags, persistant_id_string, rect, display_text)
+		new_box := box_make(flags, persistant_id_string, rect)
 		if id_string != "spacer@spacer" {
 			// printfln("making new box with id: {}", persistant_id_string)
 			ui_state.box_cache[persistant_id_string] = new_box
@@ -162,12 +155,7 @@ box_from_cache :: proc(
 	}
 }
 
-box_make :: proc(
-	flags: Box_Flags,
-	id_string: string,
-	rect: Rect,
-	display_text: string = "",
-) -> ^Box {
+box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
 	// println("making new box: ", id_string)
 	box := new(Box)
 	box.flags = flags
@@ -176,17 +164,11 @@ box_make :: proc(
 	color, is_top := top_color()
 	if !is_top {
 		// println("[WARNING] - There was no color assigned to this box, it's color is randomised.")
-		box.color = {
-			rand.float32_range(0, 1),
-			rand.float32_range(0, 1),
-			rand.float32_range(0, 1),
-			1,
-		}
+		box.color = {rand.float32_range(0, 1), rand.float32_range(0, 1), rand.float32_range(0, 1), 1}
 	} else {
 		box.color = color
 	}
-	box.name =
-		display_text != "" || s.contains(box.id_string, "text") ? display_text : get_name_from_id_string(id_string)
+	box.name = get_name_from_id_string(id_string)
 	box.rect = rect
 	box.z_index = ui_state.z_index
 	return box
@@ -232,8 +214,7 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 hovering_in_box :: proc(box: ^Box) -> bool {
 	if ui_state.hot_box != nil {
 		if box.z_index > ui_state.hot_box.z_index {
-			if mouse_inside_box(box, {app.mouse.pos.x, app.mouse.pos.y}) &&
-			   .Clickable in box.flags {
+			if mouse_inside_box(box, {app.mouse.pos.x, app.mouse.pos.y}) && .Clickable in box.flags {
 				ui_state.hot_box.hot = false
 				ui_state.hot_box.signals.hovering = false
 				return true
@@ -329,10 +310,7 @@ cut_top :: proc(rect: ^Rect, amount: Size) -> Rect {
 	parent_top_left_y: f32 = rect.top_left.y
 	px_amount := math.floor(get_pixel_change_amount(rect^, amount, "y"))
 	rect.top_left.y = rect.top_left.y + px_amount
-	return Rect {
-		{rect.top_left.x, parent_top_left_y},
-		{rect.bottom_right.x, parent_top_left_y + px_amount},
-	}
+	return Rect{{rect.top_left.x, parent_top_left_y}, {rect.bottom_right.x, parent_top_left_y + px_amount}}
 }
 cut_bottom :: proc(rect: ^Rect, amount: Size) -> Rect {
 	parent_bottom_right_y: f32 = rect.bottom_right.y
@@ -378,10 +356,7 @@ get_right :: proc(rect: Rect, amount: Size) -> Rect {
 get_top :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_top_left_y: f32 = rect.top_left.y
 	px_amount := math.floor(get_pixel_change_amount(rect, amount, "y"))
-	return Rect {
-		{rect.top_left.x, parent_top_left_y},
-		{rect.bottom_right.x, parent_top_left_y + px_amount},
-	}
+	return Rect{{rect.top_left.x, parent_top_left_y}, {rect.bottom_right.x, parent_top_left_y + px_amount}}
 }
 get_bottom :: proc(rect: Rect, amount: Size) -> Rect {
 	parent_bottom_right_y: f32 = rect.bottom_right.y
@@ -564,10 +539,7 @@ cut_rect_into_n_horizontally :: proc(
 	bl := rect.top_left.xy + {0, piece_height}
 	slices := make([dynamic]Rect, allocator = allocator)
 	for i in 0 ..< n {
-		new_rect := Rect {
-			tl.xy + {(f32(i) * piece_width), 0},
-			bl.xy + {f32(i + 1) * piece_width, 0},
-		}
+		new_rect := Rect{tl.xy + {(f32(i) * piece_width), 0}, bl.xy + {f32(i + 1) * piece_width, 0}}
 		append(&slices, new_rect)
 	}
 	return slices

@@ -311,19 +311,10 @@ add_word_rendering_data :: proc(
 			corner_radius        = 0,
 			edge_softness        = 0,
 			ui_element_type      = 1.0,
-			// top_left             = {baseline_x + len_so_far, baseline_y - (char_metadata.bearing_y)},
-			// bottom_right         = {
-			// 	baseline_x + len_so_far + char_metadata.advance_x,
-			// 	baseline_y + (char_metadata.bearing_y - char_metadata.height),
-			// },
 			top_left             = {
 				baseline_x + len_so_far + char_metadata.glyph_x0, // Use glyph x0
 				baseline_y + char_metadata.glyph_y0, // Use glyph y0
 			},
-			// bottom_right         = {
-			// 	baseline_x + len_so_far + char_metadata.advance_x, // Use glyph x1
-			// 	baseline_y + char_metadata.glyph_y1, // Use glyph y1
-			// },
 			bottom_right         = {
 				baseline_x + len_so_far + char_metadata.glyph_x1, // Use glyph_x1 for actual glyph width
 				baseline_y + char_metadata.glyph_y1,
@@ -332,32 +323,22 @@ add_word_rendering_data :: proc(
 			texture_bottom_right = {char_metadata.u1, char_metadata.v1},
 		}
 		// In add_word_rendering_data
-		if ch == 'i' {
-			printfln("Rendering 'i':")
-			printfln(
-				"  quad left={}, right={}",
-				baseline_x + len_so_far + char_metadata.glyph_x0,
-				baseline_x + len_so_far + char_metadata.glyph_x1,
-			)
-			printfln("  width={}", char_metadata.glyph_x1 - char_metadata.glyph_x0)
-		}
-
 		len_so_far += char_metadata.advance_x
 		append(rendering_data, new_rect)
 	}
 	// render font baseline for debuggin purposes
-	font_baseline_rect := Rect_Render_Data {
-		bl_color         = {1, 0.2, 0.5, 1},
-		tl_color         = {1, 0.2, 0.5, 1},
-		br_color         = {1, 0.2, 0.5, 1},
-		tr_color         = {1, 0.2, 0.5, 1},
-		border_thickness = 100,
-		top_left         = {baseline_x, baseline_y},
-		bottom_right     = {baseline_x + f32(word_rendered_length(string_to_render)), baseline_y + 3},
-		corner_radius    = 0,
-		edge_softness    = 0,
-	}
-	append(rendering_data, font_baseline_rect)
+	// font_baseline_rect := Rect_Render_Data {
+	// 	bl_color         = {1, 0.2, 0.5, 1},
+	// 	tl_color         = {1, 0.2, 0.5, 1},
+	// 	br_color         = {1, 0.2, 0.5, 1},
+	// 	tr_color         = {1, 0.2, 0.5, 1},
+	// 	border_thickness = 100,
+	// 	top_left         = {baseline_x, baseline_y},
+	// 	bottom_right     = {baseline_x + f32(word_rendered_length(string_to_render)), baseline_y + 3},
+	// 	corner_radius    = 0,
+	// 	edge_softness    = 0,
+	// }
+	// append(rendering_data, font_baseline_rect)
 }
 
 // Assumes pcm_frames is from a mono version of the .wav file, BOLD assumption.

@@ -16,7 +16,6 @@ Draggable_Container_Signals :: struct {
 
 Text_Input_Signals :: struct {
 	box_signals: Box_Signals,
-	new_string:  string,
 	cursor_pos:  int,
 }
 
@@ -78,22 +77,35 @@ text_button_absolute :: proc(id_string: string, x, y: f32) -> Box_Signals {
 }
 
 // Differs from text_container as it's like <input> element from HTML.
-text_box :: proc(id_string: string, rect: Rect) -> Box_Signals {
+text_box :: proc(id_string: string, rect: Rect, flag_overides: bit_set[Box_Flag] = {}) -> Box_Signals {
 	data: string // might need to allocte this.
-	b := box_from_cache({.Draw, .Clickable, .Draw_Text}, id_string, rect)
+	b: ^Box
+	if flag_overides != {} {
+		b = box_from_cache(flag_overides, id_string, rect)
+	} else {
+		b = box_from_cache({.Draw, .Clickable, .Draw_Text}, id_string, rect)
+	}
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)
 }
 
-text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_Signals {
+/*
+Previously we edited box.name, however, it doesn't make logical sense to have box names to
+be editable, the only string of a box that is editable is box.value.
+*/
+text_input :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
 	// could probably change the api of this function in order to avoid this messyness.
 	b := box_from_cache(
 		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
 		tprintf("{}-text-input", id_string),
 		rect,
-		buffer,
 	)
-	buffer_to_use := b.name == "" ? buffer : b.name
+
+
+	if b.value == nil {
+		b.value = ""
+	}
+	buffer_to_use := b.value.?.(string)
 	signals := box_signals(b)
 	builder := str.builder_make()
 	state: edit.State
@@ -114,7 +126,6 @@ text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_
 	// Put cursor where it was last frame
 	diff := len(buffer_to_use) - app.ui_state.text_cursor_pos
 	diff = diff > 0 ? diff : diff * -1
-
 	for i := 0; i < diff; i += 1 {edit.move_to(&state, .Left)}
 
 	if app.ui_state.last_active_box == b {
@@ -140,13 +151,21 @@ text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_
 			// for pitch editing
 			case .UP:
 				if str.contains(id_string, "pitch") {
-					nv := up_one_semitone(&state)
-					printfln("moving up a semitone {}", nv)
+					new_value := up_one_semitone(str.to_string(state.builder^))
+					// new_value := app.audio_state.note_to_pitch_map[key].pitch_name
+					edit.move_to(&state, .Start)
+					edit.select_to(&state, .End)
+					edit.selection_delete(&state)
+					edit.input_text(&state, new_value)
 				}
 			case .DOWN:
 				if str.contains(id_string, "pitch") {
-					nv := down_one_semitone(&state)
-					printfln("moving down a semitone {}", nv)
+					new_value := down_one_semitone(str.to_string(state.builder^))
+					// new_value := app.audio_state.note_to_pitch_map[key].pitch_name
+					edit.move_to(&state, .Start)
+					edit.select_to(&state, .End)
+					edit.selection_delete(&state)
+					edit.input_text(&state, new_value)
 				}
 			case:
 				edit.input_rune(&state, rune(keycode))
@@ -158,89 +177,74 @@ text_input :: proc(id_string: string, rect: Rect, buffer: string) -> Text_Input_
 		app.curr_chars_stored -= app.curr_chars_stored - i
 	}
 
-	b.name = str.to_string(state.builder^)
+	new_value, err := new_clone(str.to_string(state.builder^))
+	b.value = new_value^
 	append(&ui_state.temp_boxes, b)
 	res := Text_Input_Signals {
 		box_signals = signals,
-		new_string  = b.name,
-		// Need to be careful here.
 		cursor_pos  = state.selection[0],
 	}
 	app.ui_state.text_cursor_pos = res.cursor_pos
 	app.ui_state.text_cursor_x_coord =
 		rect.top_left.x +
 		f32(app.ui_state.text_box_padding) +
-		f32(word_rendered_length(res.new_string[:res.cursor_pos]))
+		f32(word_rendered_length(b.value.?.(string)[:res.cursor_pos]))
 	edit.end(&state)
 	return res
 }
 
-up_one_semitone :: proc(edit_state: ^edit.State) -> string {
-	curr_value, _ := str.to_upper(str.to_string(edit_state.builder^), context.temp_allocator)
+// Should support going up one step in some scale eventually.
+up_one_semitone :: proc(curr_value: string) -> string {
 	is_sharp := str.contains(curr_value, "#")
 	octave := is_sharp ? strconv.atoi(curr_value[2:]) : strconv.atoi(curr_value[1:])
 	new_value: string
 
 	switch curr_value[0] {
-	case 'A':
+	case 'A', 'a':
 		new_value = is_sharp ? tprintf("B{}", octave) : tprintf("A#{}", octave)
-	case 'B':
+	case 'B', 'b':
 		new_value = tprintf("C{}", octave)
-	case 'C':
+	case 'C', 'c':
 		new_value = is_sharp ? tprintf("D{}", octave) : tprintf("C#{}", octave)
-	case 'D':
+	case 'D', 'd':
 		new_value = is_sharp ? tprintf("E{}", octave) : tprintf("D#{}", octave)
-	case 'E':
+	case 'E', 'e':
 		new_value = tprintf("F{}", octave)
-	case 'F':
+	case 'F', 'f':
 		new_value = is_sharp ? tprintf("G{}", octave) : tprintf("F#{}", octave)
-	case 'G':
+	case 'G', 'g':
 		new_value = is_sharp ? tprintf("A{}", octave + 1) : tprintf("G#{}", octave)
 	case:
+		printfln("about to panic, curr_value is: {}", curr_value)
 		panic("fuck1")
 	}
-	edit.move_to(edit_state, .Start)
-	edit.select_to(edit_state, .End)
-	edit.selection_delete(edit_state)
-	edit.input_text(edit_state, new_value)
 	return new_value
 }
 
-down_one_semitone :: proc(edit_state: ^edit.State) -> string {
-	curr_value := str.to_upper(str.to_string(edit_state.builder^), context.temp_allocator)
+// Should support going up down step in some scale eventually.
+down_one_semitone :: proc(curr_value: string) -> string {
+	// curr_value := str.to_upper(str.to_string(edit_state.builder^), context.temp_allocator)
 	is_sharp := str.contains(curr_value, "#")
 	octave := is_sharp ? strconv.atoi(curr_value[2:]) : strconv.atoi(curr_value[1:])
 	new_value: string
 
 	switch curr_value[0] {
-	case 'A':
+	case 'A', 'a':
 		new_value = is_sharp ? tprintf("A{}", octave) : tprintf("G#{}", octave - 1)
-	case 'B':
+	case 'B', 'b':
 		new_value = tprintf("A#{}", octave - 1)
-	case 'C':
+	case 'C', 'c':
 		new_value = is_sharp ? tprintf("C{}", octave) : tprintf("B{}", octave)
-	case 'D':
+	case 'D', 'd':
 		new_value = is_sharp ? tprintf("D{}", octave) : tprintf("C#{}", octave)
-	case 'E':
+	case 'E', 'e':
 		new_value = tprintf("D#{}", octave)
-	case 'F':
+	case 'F', 'f':
 		new_value = is_sharp ? tprintf("F{}", octave) : tprintf("E{}", octave)
-	case 'G':
+	case 'G', 'g':
 		new_value = is_sharp ? tprintf("G{}", octave + 1) : tprintf("F#{}", octave)
 	case:
 		panic("fuck1")
 	}
-	edit.move_to(edit_state, .Start)
-	edit.select_to(edit_state, .End)
-	edit.selection_delete(edit_state)
-	edit.input_text(edit_state, new_value)
 	return new_value
 }
-
-// up_one_octave :: proc(edit_state: edit.State) {
-// 	curr_value := str.to_string(edit_state.builder^)
-// }
-
-// down_one_octave :: proc(edit_state: edit.State) {
-// 	curr_value := str.to_string(edit_state.builder^)
-// }

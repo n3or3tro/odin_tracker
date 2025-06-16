@@ -63,8 +63,7 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Steps_Signals {
 }
 
 pitch_step :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
-	// b := box_from_cache({.Draw, .Clickable, .Active_Animation, .Draw_Border}, id_string, rect)
-	signals := text_input(id_string, rect, "")
+	signals := text_input(id_string, rect)
 	return signals
 }
 
@@ -121,6 +120,18 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 }
 
 handle_track_steps_interactions :: proc(track: Track_Steps_Signals, which: u32) {
+	handle_num_scroll :: proc(box: ^Box) {
+		if box.signals.hovering && box.signals.scrolled {
+			println("send1 scrolled")
+			value, has_value := box.value.?
+			if has_value {
+				box.value = clamp(value.(u32) + u32(app.mouse.wheel.y), 0, 100)
+			} else {
+				box.value = 0
+			}
+		}
+	}
+
 	for step in track {
 		if step.pitch.box_signals.clicked {
 			step.pitch.box_signals.box.selected = !step.pitch.box_signals.box.selected
@@ -131,20 +142,38 @@ handle_track_steps_interactions :: proc(track: Track_Steps_Signals, which: u32) 
 				ui_state.selected_steps[which][step_num] = false
 			}
 		}
-		if step.pitch.box_signals.hovering && step.pitch.box_signals.scrolled {
-			step_num := step_num_from_step(step.pitch.box_signals.box.id_string)
-			ui_state.step_pitches[which][step_num] += f32(app.mouse.wheel.y)
-		}
+		// handle num boxes
+		handle_num_scroll(step.send1.box_signals.box)
+		handle_num_scroll(step.send2.box_signals.box)
+		handle_num_scroll(step.volume.box_signals.box)
+		// This shit is broken at the moment.
+		// pitch_box := step.pitch.box_signals.box
+		// if pitch_box.signals.hovering && pitch_box.signals.scrolled {
+		// 	if ui_state.last_active_box == step.pitch.box_signals.box {
+		// 		println("scrolling on active box which is the pitch")
+		// 		curr_value, has_value := pitch_box.value.?
+		// 		if has_value {
+		// 			println("it has a value ")
+		// 			printfln("pitch_box.signals.box.value: {}", pitch_box.signals.box.value)
+		// 			printfln("curr_value: {}", curr_value)
+		// 			if app.mouse.wheel.y == 1 {
+		// 				pitch_box.value = up_one_semitone(curr_value.(string))
+		// 			} else if app.mouse.wheel.y == -1 {
+		// 				pitch_box.value = down_one_semitone(curr_value.(string))
+		// 			}
+		// 		} else {
+		// 			println("it has no value :(")
+		// 			pitch_box.value = "A0"
+		// 		}
+		// 	}
+		// 	printfln("afer - pitch_box.signals.box.value: {}", pitch_box.signals.box.value)
+		// }
 	}
 }
 
 // assumes 0 <= value <= 100
-track_control :: proc(
-	id_string: string,
-	rect: ^Rect,
-	value: f32,
-	which: u32,
-) -> Track_Control_Signals {
+track_control :: proc(id_string: string, rect: ^Rect, value: f32, which: u32) -> Track_Control_Signals {
+	no_sound_rect := get_rect(rect^, {side = .Top, size = {.Percent, 0.2}})
 	buttons_rect := cut_rect(rect, {Size{.Percent, 0.1}, .Bottom})
 	enable_track_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Left})
 	enable_button_id := tprintf(
@@ -160,8 +189,7 @@ track_control :: proc(
 		file_load_button_rect,
 	)
 
-	slider_track_rect := cut_rect(rect, RectCut{Size{.Percent, 1}, .Left})
-	slider_track_rect = shrink_x(slider_track_rect, {.Percent, 0.8})
+	slider_track_rect := shrink_x(cut_rect(rect, RectCut{Size{.Percent, 1}, .Left}), {.Percent, 0.8})
 	push_color(palette.secondary.s_500)
 	slider_track := box_from_cache({.Scrollable, .Draw, .Clickable}, id_string, slider_track_rect)
 	append(&ui_state.temp_boxes, slider_track)
@@ -169,21 +197,18 @@ track_control :: proc(
 	slider_grip_rect := get_bottom(slider_track.rect, Size{.Pixels, 30})
 	slider_grip_rect = expand_x(slider_grip_rect, Size{.Percent, 0.5})
 
-	space_below_grip := get_bottom(slider_track_rect, Size{.Percent, value / 100})
 	slider_grip_rect.bottom_right.y -= (value / 100) * rect_height(slider_track_rect)
 	slider_grip_rect.top_left.y -= (value / 100) * rect_height(slider_track_rect)
 	slider_grip := box_from_cache(
 		{.Clickable, .Hot_Animation, .Active_Animation, .Draggable, .Draw},
-		tprintf(
-			"{}{}@{}",
-			get_name_from_id_string(id_string),
-			"_grip",
-			get_id_from_id_string(id_string),
-		),
+		tprintf("{}{}@{}", get_name_from_id_string(id_string), "_grip", get_id_from_id_string(id_string)),
 		slider_grip_rect,
 	)
 	append(&ui_state.temp_boxes, slider_grip)
 	clear_color_stack()
+	// if app.audio_state.tracks[which].sound == nil {
+	// 	text_box(tprintf("No sound@{}-no-sound", which), no_sound_rect, {.Draw_Text})
+	// }
 	return Track_Control_Signals {
 		value = value,
 		max = 100,
@@ -232,7 +257,6 @@ step_num_input :: proc(id_string: string, rect: Rect) -> Num_Step_Input_Signals 
 		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
 		tprintf("{}-text-input", id_string),
 		rect,
-		"",
 	)
 	signals := box_signals(b)
 	curr_value: int
@@ -246,10 +270,6 @@ step_num_input :: proc(id_string: string, rect: Rect) -> Num_Step_Input_Signals 
 			curr_value = int(box_value.(u32))
 		}
 	}
-	// else {
-	// 	panic("box.value == nil inside of step_num_input")
-	// }
-
 	if app.ui_state.last_active_box == b {
 		i: u32 = 0
 		for i = 0; i < app.curr_chars_stored; i += 1 {

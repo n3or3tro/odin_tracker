@@ -208,12 +208,12 @@ cleanup_app_state :: proc() {
 	delete_dynamic_array(app.ui_state.color_stack)
 	// println("deleted app.ui_state.color_stack")
 	for key, val in app.ui_state.box_cache {
-		println("freeing box from box_cache with id_string: {} ", val.id_string)
+		// println("freeing box from box_cache with id_string: {} ", val.id_string)
 		delete(key)
 		free(val)
 	}
 	for entry in app.ui_state.temp_boxes {
-		println("freeing box from temp_boxes with id_string: {}", entry.id_string)
+		// println("freeing box from temp_boxes with id_string: {}", entry.id_string)
 		free(entry)
 	}
 	delete_map(app.ui_state.box_cache)
@@ -263,7 +263,6 @@ init_ui_state :: proc() -> ^UI_State {
 	assert(quad_shader_ok)
 	ui_state.quad_shader_program = program1
 
-
 	bind_shader(ui_state.quad_shader_program)
 	set_shader_vec2(ui_state.quad_shader_program, "screen_res", {f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)})
 
@@ -273,7 +272,6 @@ init_ui_state :: proc() -> ^UI_State {
 	} else {
 		panic("Need to set 'font_path' for non-windows environments")
 	}
-	// font_path := "../data/Debrosee-ALPnL.ttf"
 
 	ui_state.font_atlas = create_font_atlas(font_path, 32)
 	font_texture_data := raw_data(ui_state.font_atlas.texture.pixels)
@@ -293,24 +291,6 @@ init_ui_state :: proc() -> ^UI_State {
 
 	x, y, actual_channels_in_image: i32
 	image.set_flip_vertically_on_load(1)
-
-	// image.write_png(
-	// 	"font_atlas.png",
-	// 	i32(ui_state.font_atlas.texture.width),
-	// 	i32(ui_state.font_atlas.texture.height),
-	// 	1, // 1 channel (grayscale)
-	// 	raw_data(ui_state.font_atlas.texture.pixels),
-	// 	i32(ui_state.font_atlas.texture.width), // stride
-	// )
-	// image_data, err := os.read_entire_file_from_filename("font_atlas.png")
-	// font_texture_data := image.load_from_memory(
-	// 	raw_data(image_data),
-	// 	i32(len(image_data)),
-	// 	&x,
-	// 	&y,
-	// 	&actual_channels_in_image,
-	// 	1,
-	// )
 
 	// println(raw_data(font_texture_data))
 	printfln("x: {}, y: {}, chanels: {}", x, y, actual_channels_in_image)
@@ -477,6 +457,10 @@ init_app :: proc() -> ^App_State {
 	setup_audio()
 	app.n_tracks += 1
 	return app
+}
+
+audio_thread :: proc() {
+
 }
 
 update_app :: proc() -> bool {

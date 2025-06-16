@@ -354,11 +354,8 @@ move_active_box_down :: proc() {
 }
 
 second_panel :: proc() {
-	// input_buffer: string = tprintf("{}lolol", app.ui_state.frame_num)
 	text_input_rect := Rect{{100, 100}, {600, 140}}
-	input := text_input("text-input@input-1", text_input_rect, "")
-	// Weird bug when I do this vvvv.
-	// input := text_input("text-input@input-1", text_input_rect, "starting text")
+	input := text_input("text-input@input-1", text_input_rect)
 }
 
 create_ui :: proc() {
