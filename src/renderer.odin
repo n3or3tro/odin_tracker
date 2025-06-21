@@ -237,6 +237,16 @@ get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 			}
 		}
 		if .Draw_Text in box.flags {
+			// // only draw text if box is 'selected'
+			// step_num := step_num_from_step(box.id_string)
+			// track_num := track_num_from_step(box.id_string)
+			// if s.contains(box.id_string, "step") {
+			// 	if ui_state.selected_steps[track_num][step_num] {
+			// 		add_word_rendering_data(box^, boxes_to_render, rendering_data)
+			// 	}
+			// } else {
+			// 	add_word_rendering_data(box^, boxes_to_render, rendering_data)
+			// }
 			add_word_rendering_data(box^, boxes_to_render, rendering_data)
 		}
 		if s.contains(get_id_from_id_string(box.id_string), "waveform-container") {
@@ -275,24 +285,35 @@ add_word_rendering_data :: proc(
 	boxes_to_render: ^[dynamic]Rect_Render_Data,
 	rendering_data: ^[dynamic]Rect_Render_Data,
 ) {
+	// Only render text data of a tracker step if it's 'selected'.
+	step_num := step_num_from_step(box.id_string)
+	track_num := track_num_from_step(box.id_string)
+	if s.contains(box.id_string, "step") &&
+	   s.contains(box.id_string, "input") &&
+	   !ui_state.selected_steps[track_num][step_num] {
+		return
+	}
+
 	// Figure out whether to render box.name or box.value
 	box_value, has_value := box.value.?
 	conversion_data: [8]byte
 	string_to_render: string
+	// 0 should be a valid value here, previously 0 was treated as special.
 	if has_value {
 		switch _ in box_value {
 		case string:
 			string_to_render = box_value.(string)
 		case u32:
-			// could underflow if box.value.(u32) is too large
-			if box_value.(u32) == 0 {
-				string_to_render = ""
-			} else {
-				string_to_render = strconv.itoa(conversion_data[:], int(box_value.(u32)))
-			}
+			string_to_render = strconv.itoa(conversion_data[:], int(box_value.(u32)))
 		}
 	} else {
-		string_to_render = box.name
+		// Basically if box.value wasn't set, but this field is supposed to 
+		// take an input, then we render no text.
+		if s.contains(box.id_string, "input") {
+			string_to_render = ""
+		} else {
+			string_to_render = box.name
+		}
 	}
 	word_length := word_rendered_length(string_to_render)
 	gap := (int(rect_width(box.rect)) - word_length) / 2
@@ -311,19 +332,10 @@ add_word_rendering_data :: proc(
 			corner_radius        = 0,
 			edge_softness        = 0,
 			ui_element_type      = 1.0,
-			// top_left             = {baseline_x + len_so_far, baseline_y - (char_metadata.bearing_y)},
-			// bottom_right         = {
-			// 	baseline_x + len_so_far + char_metadata.advance_x,
-			// 	baseline_y + (char_metadata.bearing_y - char_metadata.height),
-			// },
 			top_left             = {
 				baseline_x + len_so_far + char_metadata.glyph_x0, // Use glyph x0
 				baseline_y + char_metadata.glyph_y0, // Use glyph y0
 			},
-			// bottom_right         = {
-			// 	baseline_x + len_so_far + char_metadata.advance_x, // Use glyph x1
-			// 	baseline_y + char_metadata.glyph_y1, // Use glyph y1
-			// },
 			bottom_right         = {
 				baseline_x + len_so_far + char_metadata.glyph_x1, // Use glyph_x1 for actual glyph width
 				baseline_y + char_metadata.glyph_y1,
@@ -331,33 +343,22 @@ add_word_rendering_data :: proc(
 			texture_top_left     = {char_metadata.u0, char_metadata.v0},
 			texture_bottom_right = {char_metadata.u1, char_metadata.v1},
 		}
-		// In add_word_rendering_data
-		if ch == 'i' {
-			printfln("Rendering 'i':")
-			printfln(
-				"  quad left={}, right={}",
-				baseline_x + len_so_far + char_metadata.glyph_x0,
-				baseline_x + len_so_far + char_metadata.glyph_x1,
-			)
-			printfln("  width={}", char_metadata.glyph_x1 - char_metadata.glyph_x0)
-		}
-
 		len_so_far += char_metadata.advance_x
 		append(rendering_data, new_rect)
 	}
 	// render font baseline for debuggin purposes
-	font_baseline_rect := Rect_Render_Data {
-		bl_color         = {1, 0.2, 0.5, 1},
-		tl_color         = {1, 0.2, 0.5, 1},
-		br_color         = {1, 0.2, 0.5, 1},
-		tr_color         = {1, 0.2, 0.5, 1},
-		border_thickness = 100,
-		top_left         = {baseline_x, baseline_y},
-		bottom_right     = {baseline_x + f32(word_rendered_length(string_to_render)), baseline_y + 3},
-		corner_radius    = 0,
-		edge_softness    = 0,
-	}
-	append(rendering_data, font_baseline_rect)
+	// font_baseline_rect := Rect_Render_Data {
+	// 	bl_color         = {1, 0.2, 0.5, 1},
+	// 	tl_color         = {1, 0.2, 0.5, 1},
+	// 	br_color         = {1, 0.2, 0.5, 1},
+	// 	tr_color         = {1, 0.2, 0.5, 1},
+	// 	border_thickness = 100,
+	// 	top_left         = {baseline_x, baseline_y},
+	// 	bottom_right     = {baseline_x + f32(word_rendered_length(string_to_render)), baseline_y + 3},
+	// 	corner_radius    = 0,
+	// 	edge_softness    = 0,
+	// }
+	// append(rendering_data, font_baseline_rect)
 }
 
 // Assumes pcm_frames is from a mono version of the .wav file, BOLD assumption.

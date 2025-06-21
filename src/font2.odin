@@ -153,19 +153,19 @@ create_font_atlas :: proc(
 			height    = f32(glyph_height),
 		}
 		// In create_font_atlas, after storing the metadata for 'i':
-		if ch == 'i' || ch == 'l' || ch == 't' || ch == 'T' || ch == 'm' {
-			printfln("Character '{}' metrics:", ch)
-			printfln("  x0={}, y0={}, x1={}, y1={}", x0, y0, x1, y1)
-			printfln("  glyph_width={}, glyph_height={}", glyph_width, glyph_height)
-			printfln("  advance={}, scale={}", advance, scale)
-			printfln("  advance_x={}", new_char_metadata.advance_x)
-		}
-		// In create_font_atlas
-		if ch == 'i' || ch == 'l' || ch == 't' || ch == 'T' || ch == 'm' {
-			printfln("Character '{}' metrics:", ch)
-			printfln("  x0={}, x1={}, width={}", x0, x1, glyph_width)
-			printfln("  advance={} (scaled={})", advance, f32(advance) * scale)
-		}
+		// if ch == 'i' || ch == 'l' || ch == 't' || ch == 'T' || ch == 'm' {
+		// 	printfln("Character '{}' metrics:", ch)
+		// 	printfln("  x0={}, y0={}, x1={}, y1={}", x0, y0, x1, y1)
+		// 	printfln("  glyph_width={}, glyph_height={}", glyph_width, glyph_height)
+		// 	printfln("  advance={}, scale={}", advance, scale)
+		// 	printfln("  advance_x={}", new_char_metadata.advance_x)
+		// }
+		// // In create_font_atlas
+		// if ch == 'i' || ch == 'l' || ch == 't' || ch == 'T' || ch == 'm' {
+		// 	printfln("Character '{}' metrics:", ch)
+		// 	printfln("  x0={}, x1={}, width={}", x0, x1, glyph_width)
+		// 	printfln("  advance={} (scaled={})", advance, f32(advance) * scale)
+		// }
 		atlas.chars[ch] = new_char_metadata
 		current_x += glyph_width + 1
 	}

@@ -35,6 +35,10 @@ top_bar :: proc() -> Top_Bar_Signals {
 	push_color(palette.secondary.s_300)
 	restart_button := text_button("Restart@restart-button-topbar", restart_rect)
 
+	// push_color(palette.secondary.s_300)
+	// reset_data_rect := rest
+	// reset_data_button := text_button("Reset Data@reset-data-button-topbar")
+
 	push_color(palette.tertiary.s_700)
 	tab0_button := text_button("Tab 0 @tab0-button-top-bar", tab0_rect)
 	tab1_button := text_button("Tab 1 @tab1-button-top-bar", tab1_rect)

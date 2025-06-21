@@ -3,7 +3,7 @@ import "core:fmt"
 import "core:mem"
 import "core:os"
 import "core:strconv"
-import "core:strings"
+import s "core:strings"
 import ma "vendor:miniaudio"
 
 Track :: struct {
@@ -62,10 +62,7 @@ setup_audio :: proc() -> ^Audio_State {
 		println("c:\\Music\\tracker\\3.wav loading...")
 		set_track_sound("c:\\users\\n3or3tro\\Music\\tracker\\3.wav", 0)
 	} else {
-		set_track_sound(
-			"/home/lucas/Music/test_sounds/the-create-vol-4/loops/01-save-the-day.wav",
-			0,
-		)
+		set_track_sound("/home/lucas/Music/test_sounds/the-create-vol-4/loops/01-save-the-day.wav", 0)
 	}
 	return audio_state
 }
@@ -133,9 +130,7 @@ turn_on_delay :: proc() {
 
 toggle_sound_playing :: proc(sound: ^ma.sound) {
 	if sound == nil {
-		println(
-			"Passed in a 'nil' sound.\nMost likely this track hasn't been loaded with a sound.",
-		)
+		println("Passed in a 'nil' sound.\nMost likely this track hasn't been loaded with a sound.")
 	} else {
 		if ma.sound_is_playing(sound) {
 			res := ma.sound_stop(sound)
@@ -157,18 +152,64 @@ toggle_all_audio_playing :: proc() {
 	}
 }
 
-play_track_step :: proc(which: u32) {
-	sound := app.audio_state.tracks[which].sound
-	curr_step := app.audio_state.tracks[which].curr_step
-	if sound != nil {
-		if app.ui_state.selected_steps[which][curr_step] {
-			ma.sound_stop(sound)
-			pitch := ui_state.step_pitches[which][curr_step]
-			ma.sound_set_pitch(sound, pitch / 12)
-			ma.sound_seek_to_pcm_frame(sound, 0)
-			ma.sound_start(sound)
-		}
+play_track_step :: proc(which_track: u32) {
+	sound := app.audio_state.tracks[which_track].sound
+	step_num := u32(app.audio_state.tracks[which_track].curr_step)
+
+	// this can happen if a track is created and a sound HAS NOT been loaded.
+	if sound == nil {
+		return
 	}
+
+	pitch_box, volume_box, send1_box, send2_box := get_substeps_input_from_step(step_num, which_track)
+
+	println("trying to play_track_step()")
+	println(pitch_box, volume_box, send1_box, send2_box)
+	// Assumes all values in the step are valid, which should be the case when a user 'enables' a step.
+	pitch := pitch_difference("C3", pitch_box.value.?.(string)) / 12
+	volume := f32(volume_box.value.?.(u32))
+
+	// need to figure out sends.
+	if app.ui_state.selected_steps[which_track][step_num] {
+		ma.sound_stop(sound)
+		pitch := ui_state.step_pitches[which_track][step_num]
+		ma.sound_set_pitch(sound, pitch / 12)
+		ma.sound_set_volume(sound, volume / 100)
+		ma.sound_seek_to_pcm_frame(sound, 0)
+		ma.sound_start(sound)
+	}
+}
+
+// returns number of semitones between 2 notes.
+pitch_difference :: proc(from: string, to: string) -> f32 {
+	chromatic_scale := make(map[string]int, context.temp_allocator)
+	chromatic_scale["C"] = 0
+	chromatic_scale["C#"] = 1
+	chromatic_scale["D"] = 2
+	chromatic_scale["D#"] = 3
+	chromatic_scale["E"] = 4
+	chromatic_scale["F"] = 5
+	chromatic_scale["F#"] = 6
+	chromatic_scale["G"] = 7
+	chromatic_scale["G#"] = 8
+	chromatic_scale["A"] = 9
+	chromatic_scale["A#"] = 10
+	chromatic_scale["B"] = 11
+
+	from_octave := strconv.atoi(from[len(from) - 1:])
+	to_octave := strconv.atoi(to[len(to) - 1:])
+
+	octave_diff := from_octave - to_octave
+
+	from_is_sharp := s.contains(from, "#")
+	to_is_sharp := s.contains(to, "#")
+
+	from_note := from_is_sharp ? chromatic_scale[from[0:2]] : chromatic_scale[from[0:1]]
+	to_note := to_is_sharp ? chromatic_scale[to[0:2]] : chromatic_scale[to[0:1]]
+
+	octave_diff_in_semitones := octave_diff * 12
+	total_diff := octave_diff_in_semitones - (-1 * (from_note - to_note))
+	return f32(total_diff)
 }
 
 // This is here coz I was thinking about cachine the pcm wav rendering data, 

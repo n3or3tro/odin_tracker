@@ -128,13 +128,13 @@ main_tracker_panel :: proc() {
 		case .DOWN, .j:
 			move_active_box_down()
 		case .TAB:
-			println("pressed tab, moving to first step")
-			first_box := app.ui_state.box_cache["step-0-pitch@step-0-pitch-track0-text-input"]
+			first_box := app.ui_state.box_cache[create_substep_input_id(0, 0, .Pitch)]
 			ui_state.selected_box = first_box
 			first_box.selected = true
 		case .RETURN, .RETURN2:
-			ui_state.selected_box.active = true
-			ui_state.active_box = ui_state.selected_box
+			// ui_state.selected_box.active = true
+			// ui_state.active_box = ui_state.selected_box
+			enable_step(ui_state.selected_box)
 		case .ESCAPE:
 			ui_state.active_box = nil
 			ui_state.selected_box.active = false
@@ -157,40 +157,19 @@ main_tracker_panel :: proc() {
 
 move_active_box_left :: proc() {
 	box := app.ui_state.selected_box
-	step_num := step_num_from_step(box.id_string)
-	track_num := track_num_from_step(box.id_string)
+	step_num := u32(step_num_from_step(box.id_string))
+	track_num := u32(track_num_from_step(box.id_string))
 
 	next_active_box_id: string
 	if str.contains(box.id_string, "send2") {
-		next_active_box_id = tprintf(
-			"step-{}-send1@step-{}-send1-track{}-text-input",
-			step_num,
-			step_num,
-			track_num,
-		)
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Send1)
 	} else if str.contains(box.id_string, "send1") {
-		next_active_box_id = tprintf(
-			"step-{}-volume@step-{}-volume-track{}-text-input",
-			step_num,
-			step_num,
-			track_num,
-		)
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Volume)
 	} else if str.contains(box.id_string, "volume") {
-		next_active_box_id = tprintf(
-			"step-{}-pitch@step-{}-pitch-track{}-text-input",
-			step_num,
-			step_num,
-			track_num,
-		)
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch)
 	} else if str.contains(box.id_string, "pitch") {
 		if track_num > 0 {
-			track_num -= 1
-			next_active_box_id = tprintf(
-				"step-{}-send2@step-{}-send2-track{}-text-input",
-				step_num,
-				step_num,
-				track_num,
-			)
+			next_active_box_id = create_substep_input_id(step_num, track_num - 1, .Send2)
 		} else {
 			return
 		}
@@ -208,40 +187,20 @@ move_active_box_left :: proc() {
 
 move_active_box_right :: proc() {
 	box := app.ui_state.selected_box
-	step_num := step_num_from_step(box.id_string)
-	track_num := track_num_from_step(box.id_string)
-
+	step_num := u32(step_num_from_step(box.id_string))
+	track_num := u32(track_num_from_step(box.id_string))
 	next_active_box_id: string
+
 	if str.contains(box.id_string, "pitch") {
-		next_active_box_id = tprintf(
-			"step-{}-volume@step-{}-volume-track{}-text-input",
-			step_num,
-			step_num,
-			track_num,
-		)
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Volume)
 	} else if str.contains(box.id_string, "volume") {
-		next_active_box_id = tprintf(
-			"step-{}-send1@step-{}-send1-track{}-text-input",
-			step_num,
-			step_num,
-			track_num,
-		)
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Send1)
 	} else if str.contains(box.id_string, "send1") {
-		next_active_box_id = tprintf(
-			"step-{}-send2@step-{}-send2-track{}-text-input",
-			step_num,
-			step_num,
-			track_num,
-		)
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Send2)
+
 	} else if str.contains(box.id_string, "send2") {
-		if track_num < u16(app.n_tracks) - 1 {
-			track_num += 1
-			next_active_box_id = tprintf(
-				"step-{}-pitch@step-{}-pitch-track{}-text-input",
-				step_num,
-				step_num,
-				track_num,
-			)
+		if track_num < u32(app.n_tracks) - 1 {
+			next_active_box_id = create_substep_input_id(step_num, track_num + 1, .Pitch)
 		} else {
 			return
 		}
@@ -251,7 +210,6 @@ move_active_box_right :: proc() {
 	}
 
 	next_box := ui_state.box_cache[next_active_box_id]
-	// printfln("next box id string: {}, next box: {}", next_active_box_id, next_box)
 	box.selected = false
 	next_box.selected = true
 	ui_state.selected_box = next_box
@@ -259,106 +217,55 @@ move_active_box_right :: proc() {
 
 move_active_box_up :: proc() {
 	box := app.ui_state.selected_box
-	step_num := step_num_from_step(box.id_string)
-	track_num := track_num_from_step(box.id_string)
+	step_num := u32(step_num_from_step(box.id_string) - 1)
+	track_num := u32(track_num_from_step(box.id_string))
 	if (step_num == 0) {
 		return
 	}
 	next_active_box_id: string
 	if str.contains(box.id_string, "pitch") {
-		next_active_box_id = tprintf(
-			"step-{}-pitch@step-{}-pitch-track{}-text-input",
-			step_num - 1,
-			step_num - 1,
-			track_num,
-		)
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch)
 	} else if str.contains(box.id_string, "volume") {
-		next_active_box_id = tprintf(
-			"step-{}-volume@step-{}-volume-track{}-text-input",
-			step_num - 1,
-			step_num - 1,
-			track_num,
-		)
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Volume)
 	} else if str.contains(box.id_string, "send1") {
-		next_active_box_id = tprintf(
-			"step-{}-send1@step-{}-send1-track{}-text-input",
-			step_num - 1,
-			step_num - 1,
-			track_num,
-		)
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Send1)
 	} else if str.contains(box.id_string, "send2") {
-		next_active_box_id = tprintf(
-			"step-{}-send2@step-{}-send2-track{}-text-input",
-			step_num - 1,
-			step_num - 1,
-			track_num,
-		)
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Send2)
 	} else {
 		printfln("box.id_string: {}", box.id_string)
 		panic("we don't know how to move left :(")
 	}
-
 	next_box := ui_state.box_cache[next_active_box_id]
 	box.selected = false
 	next_box.selected = true
 	ui_state.selected_box = next_box
-
 }
 
 move_active_box_down :: proc() {
 	box := app.ui_state.selected_box
-	step_num := step_num_from_step(box.id_string)
-	track_num := track_num_from_step(box.id_string)
-	if (step_num >= u16(n_track_steps) - 1) {
-		println("'moving' down into track controls")
+	step_num := u32(step_num_from_step(box.id_string)) + 1
+	track_num := u32(track_num_from_step(box.id_string))
+	if (step_num >= u32(n_track_steps) - 1) {
+		println("'moving' down into track controls ... JKS, that isn't implemented.")
 		return
 	}
 	next_active_box_id: string
 	if str.contains(box.id_string, "pitch") {
-		next_active_box_id = tprintf(
-			"step-{}-pitch@step-{}-pitch-track{}-text-input",
-			step_num + 1,
-			step_num + 1,
-			track_num,
-		)
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch)
 	} else if str.contains(box.id_string, "volume") {
-		next_active_box_id = tprintf(
-			"step-{}-volume@step-{}-volume-track{}-text-input",
-			step_num + 1,
-			step_num + 1,
-			track_num,
-		)
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Volume)
 	} else if str.contains(box.id_string, "send1") {
-		next_active_box_id = tprintf(
-			"step-{}-send1@step-{}-send1-track{}-text-input",
-			step_num + 1,
-			step_num + 1,
-			track_num,
-		)
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Send1)
 	} else if str.contains(box.id_string, "send2") {
-		next_active_box_id = tprintf(
-			"step-{}-send2@step-{}-send2-track{}-text-input",
-			step_num + 1,
-			step_num + 1,
-			track_num,
-		)
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Send2)
 	} else {
 		printfln("box.id_string: {}", box.id_string)
 		panic("we don't know how to move down :(")
 	}
-
 	next_box := ui_state.box_cache[next_active_box_id]
 	box.selected = false
 	next_box.selected = true
 	ui_state.selected_box = next_box
-}
-
-second_panel :: proc() {
-	// input_buffer: string = tprintf("{}lolol", app.ui_state.frame_num)
-	text_input_rect := Rect{{100, 100}, {600, 140}}
-	input := text_input("text-input@input-1", text_input_rect, "")
-	// Weird bug when I do this vvvv.
-	// input := text_input("text-input@input-1", text_input_rect, "starting text")
 }
 
 create_ui :: proc() {
@@ -396,6 +303,11 @@ render_ui :: proc() {
 	reset_ui_state()
 }
 
+second_panel :: proc() {
+	text_input_rect := Rect{{100, 100}, {600, 140}}
+	input := text_input("text-input@input-1", text_input_rect)
+}
+
 reset_ui_state :: proc() {
 	/* 
 		I think maybe I don't want to actually reset this each frame, for exmaple,
@@ -412,6 +324,7 @@ reset_ui_state :: proc() {
 	ui_state.active_box = nil
 	ui_state.hot_box = nil
 }
+
 
 /* ------- stuff for a theme / color system -------------- */
 Color_Theme :: struct {

@@ -2,5 +2,8 @@ ols.json
 src.bin
 .vscode/
 .gdb_history
+src/third_party/miniaudio
+src.pdb
+src.rdi
 trace_test.spall
 

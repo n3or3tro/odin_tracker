@@ -135,17 +135,19 @@ main :: proc() {
 	}
 	init_app()
 	for {
-		desired_frame_time: int = 1000 / 120
+		// assumes 120fps
+		max_frame_time_ns: f64 = 1_000_000 * 8.30
 		start := time.now()._nsec
 		if !update_app() {
 			break
 		}
-		frame_time := f32(start - time.now()._nsec) / 1_000
+		frame_time := f64(time.now()._nsec - start)
+		time_to_wait := time.Duration(max_frame_time_ns - frame_time)
+		if time_to_wait > 0 {
+			time.sleep(time_to_wait)
+		}
 	}
 	cleanup_app_state()
-	// println("press enter to fully close the app")
-	// buffer: [2]u8
-	// os.read(os.stdin, buffer[:])
 }
 
 init_window :: proc() -> (^sdl.Window, sdl.GLContext) {
@@ -496,19 +498,10 @@ update_app :: proc() -> bool {
 		}
 	}
 
-	if app.audio_state.playing {
-		if frame_num^ % (30) == 0 { 	// moves at 120BPM if fps is 120 FPS.
-			for &track, track_num in app.audio_state.tracks {
-				if track.armed {
-					track.curr_step = (track.curr_step + 1) % 32
-					play_track_step(u32(track_num))
-				}
-			}
-		}
-	}
-
 	create_ui()
 	render_ui()
+	handle_audio()
+
 	reset_renderer_data()
 	sdl.GL_SwapWindow(app.window)
 
@@ -517,6 +510,21 @@ update_app :: proc() -> bool {
 	frame_num^ += 1
 	app.curr_chars_stored = {}
 	return true
+}
+
+handle_audio :: proc() {
+	if app.audio_state.playing {
+		if ui_state.frame_num^ % (30) == 0 { 	// moves at 120BPM if fps is 120 FPS.
+			for &track, track_num in app.audio_state.tracks {
+				if track.armed {
+					if ui_state.selected_steps[track_num][track.curr_step] {
+						play_track_step(u32(track_num))
+					}
+					track.curr_step = (track.curr_step + 1) % 32
+				}
+			}
+		}
+	}
 }
 
 handle_input :: proc(event: sdl.Event) -> bool {
