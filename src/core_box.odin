@@ -513,8 +513,9 @@ get_name_from_id_string :: proc(id_string: string) -> string {
 }
 
 get_id_from_id_string :: proc(id_string: string) -> string {
+	// printfln("trying to get id from id_string: '{}'", id_string)
 	from := strings.index(id_string, "@")
-	return id_string[from:]
+	return id_string[from + 1:]
 }
 
 spacer :: proc(id_string: string, rect_cut: RectCut) -> ^Box {
@@ -524,18 +525,63 @@ spacer :: proc(id_string: string, rect_cut: RectCut) -> ^Box {
 	return s
 }
 
+// make_square_cutting_x :: proc(rect: ^Rect) {
+
+// }
+// make_square_cutting_y :: proc(rect: ^Rect) {
+
+// }
+
+// will shrink rect to make it a square, it will cut the minimum amount off
+// the left AND right of the longer side.
+rect_to_square :: proc(rect: Rect) -> Rect {
+	rect := rect
+	height := rect_height(rect)
+	width := rect_width(rect)
+	diff := width - height
+	// width greater than height
+	if diff > 0 {
+		rect.top_left.x += diff / 2
+		rect.bottom_right.x -= diff / 2
+	} else { 	// width less than height => shrink height
+		rect.top_left.y += diff / 2
+		rect.bottom_right.y -= diff / 2
+	}
+	return rect
+}
+
+// move all boxes left so that they touch each other, optionally apply margin between
+pack_to_left :: proc(rects: []^Rect, margin: f32 = 0) {
+	for i := 0; i < len(rects) - 1; i += 1 {
+		gap_to_right := rects[i + 1].top_left.x - rects[i].bottom_right.x
+		rects[i + 1].top_left.x -= gap_to_right - margin
+		rects[i + 1].bottom_right.x -= gap_to_right - margin
+	}
+}
+pack_to_right :: proc(rects: []^Rect, margin: f32 = 0) {
+	for i := len(rects) - 1; i >= 1; i -= 1 {
+		gap_to_left := rects[i].top_left.x - rects[i - 1].bottom_right.x
+		rects[i - 1].top_left.x += gap_to_left - margin
+		rects[i - 1].bottom_right.x += gap_to_left - margin
+	}
+}
+
+// pack_to_middle :: proc() {
+
+// }
+
 
 // Slices along x axis - like slicing vegetables. 
 cut_rect_into_n_horizontally :: proc(
-	rect: ^Rect,
+	rect: Rect,
 	n: u32,
 	allocator: mem.Allocator = context.temp_allocator,
 ) -> [dynamic]Rect {
 	assert(n > 0)
 	tl := rect.top_left
 	br := rect.bottom_right
-	piece_width := rect_width(rect^) / f32(n)
-	piece_height := rect_height(rect^)
+	piece_width := rect_width(rect) / f32(n)
+	piece_height := rect_height(rect)
 	bl := rect.top_left.xy + {0, piece_height}
 	slices := make([dynamic]Rect, allocator = allocator)
 	for i in 0 ..< n {
@@ -546,5 +592,20 @@ cut_rect_into_n_horizontally :: proc(
 }
 
 // Slices along y axis - like collapsing a tower. 
-// cut_rect_into_n_vertically :: proc(box: ^Rect, n: u32) -> [2]Rect {
-// }
+cut_rect_into_n_vertically :: proc(
+	rect: Rect,
+	n: u32,
+	allocator: mem.Allocator = context.temp_allocator,
+) -> [dynamic]Rect {
+	tl := rect.top_left
+	br := rect.bottom_right
+	piece_width := rect_width(rect)
+	piece_height := rect_height(rect) / f32(n)
+	tr := tl.xy + {piece_width, 0}
+	slices := make([dynamic]Rect, allocator = allocator)
+	for i in 0 ..< n {
+		new_rect := Rect{tl.xy + {0, f32(i) * piece_height}, tr.xy + {0, f32(i + 1) * piece_height}}
+		append(&slices, new_rect)
+	}
+	return slices
+}

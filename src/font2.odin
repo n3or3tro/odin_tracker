@@ -11,6 +11,13 @@ import "core:unicode/utf8"
 import fs "vendor:fontstash"
 import tt "vendor:stb/truetype"
 
+Atlases :: struct {
+	xs: ^Atlas,
+	s:  ^Atlas,
+	m:  ^Atlas,
+	l:  ^Atlas,
+	xl: ^Atlas,
+}
 
 Atlas :: struct {
 	texture: struct {
@@ -39,7 +46,7 @@ Char_Atlas_Metadata :: struct {
 
 create_font_atlas :: proc(
 	path: string,
-	font_size: f32,
+	font_size: u32,
 	allocator: mem.Allocator = context.allocator,
 ) -> ^Atlas {
 	file_data, err := os.read_entire_file_from_path(path, context.allocator)
@@ -56,7 +63,7 @@ create_font_atlas :: proc(
 
 	ascent, descent, line_gap: i32
 	tt.GetFontVMetrics(&font, &ascent, &descent, &line_gap)
-	scale := tt.ScaleForPixelHeight(&font, font_size)
+	scale := tt.ScaleForPixelHeight(&font, f32(font_size))
 
 	atlas := new(Atlas)
 	atlas.chars = make(map[rune]Char_Atlas_Metadata)
@@ -117,19 +124,6 @@ create_font_atlas :: proc(
 		)
 		// Store glyph into our hashmap
 		new_char_metadata := Char_Atlas_Metadata {
-			// x0        = f32(current_x + x0),
-			// y0        = f32(baseline_y + y0),
-			// x1        = f32(current_x + x1),
-			// y1        = f32(baseline_y + y1),
-			// u0        = f32(current_x + x0) / f32(atlas.texture.width),
-			// v0        = f32(baseline_y + y0) / f32(atlas.texture.height),
-			// u1        = f32(current_x + x1) / f32(atlas.texture.width),
-			// v1        = f32(baseline_y + y1) / f32(atlas.texture.height),
-			// advance_x = f32(advance) * scale,
-			// bearing_y = f32(y1), // Distance from baseline to top of char
-			// width     = f32(glyph_width),
-			// height    = f32(glyph_height),
-
 			// Atlas positions (for texture sampling)
 			x0        = f32(current_x + x0),
 			y0        = f32(baseline_y + y0),
@@ -172,27 +166,7 @@ create_font_atlas :: proc(
 	return atlas
 }
 
-word_rendered_length :: proc(s: string) -> int {
-	tot: f32 = 0
-	// Make sure this isn't off by one!!
-	for ch in s[0:len(s)] {
-		tot += ui_state.font_atlas.chars[ch].advance_x
-	}
-	return int(tot)
-}
 
-tallest_rendered_char :: proc(s: string) -> f32 {
-	tallest: f32 = 0
-	for ch in s {
-		if ui_state.font_atlas.chars[ch].height > tallest {
-			tallest = ui_state.font_atlas.chars[ch].height
-		}
-	}
-	if tallest == 0 {
-		panic("tallest still == 0 after trying to get tallest character")
-	}
-	return tallest
-}
 // Gives you the first 'point' along the 'baseline' that
 // a string will be rendered on.
 get_font_baseline :: proc(text: string, box: Box) -> (x, y: f32) {
@@ -217,56 +191,24 @@ get_font_baseline :: proc(text: string, box: Box) -> (x, y: f32) {
 	return x, y
 }
 
-// code that's not working from fontstash
-// init_font :: proc(path: string) {
-// 	fs_context: fs.FontContext
-// 	texture_width, texture_height := 512, 512
-// 	fs.Init(&fs_context, texture_width, texture_height, .TOPLEFT)
-// 	fs.AddFontPath(&fs_context, "my-font", path)
-// 	fs.SetColor(&fs_context, {100, 200, 150, 1})
-// 	fs.SetSize(&fs_context, 26)
-// 	font_num := fs.GetFontByName(&fs_context, "my-font")
-// 	fs.SetFont(&fs_context, font_num)
-// 	ui_state.font_context = fs_context
-// }
-// // This function is pretty stateful, i.e. it relies on state being set correctly before calling it
-// // in order to achieve the desired behaviour.
-// create_glyph_atlas :: proc() {
-// 	ctx := ui_state.font_context
-// 	clear_map(&ui_state.atlas_metadata.chars)
+word_rendered_length :: proc(s: string) -> int {
+	tot: f32 = 0
+	// Make sure this isn't off by one!!
+	for ch in s[0:len(s)] {
+		tot += ui_state.font_atlas.chars[ch].advance_x
+	}
+	return int(tot)
+}
 
-// 	for c in 32 ..< 127 {
-// 		bytes: [1]u8 = {u8(c)}
-// 		// This will leak memory.
-// 		ch_as_string := str.clone_from(bytes[:])
-// 		iter := fs.TextIterInit(&ctx, 0, 0, ch_as_string)
-// 		quad: fs.Quad
-// 		if fs.TextIterNext(&ctx, &iter, &quad) {
-// 			ui_state.atlas_metadata.chars[rune(c)] = Char_Atlas_Metadata {
-// 				u0        = quad.s0,
-// 				v0        = quad.t0,
-// 				u1        = quad.s1,
-// 				v1        = quad.t1,
-// 				advance_x = iter.nextx - iter.x,
-// 				bearing_y = quad.y0,
-// 				width     = (quad.s1 - quad.s0) * f32(ctx.width),
-// 				height    = (quad.t1 - quad.t0) * f32(ctx.height),
-// 			}
-// 		}
-// 	}
-// }
-// font_set_size :: proc(size: f32) {
-// 	ctx := &ui_state.font_context
-// 	fs.SetSize(ctx, size)
-// 	create_glyph_atlas()
-// }
-// font_set_color :: proc(color: Color) {
-// 	ctx := &ui_state.font_context
-// 	r := u8(map_range(0, 1, 0, 255, color.r))
-// 	g := u8(map_range(0, 1, 0, 255, color.g))
-// 	b := u8(map_range(0, 1, 0, 255, color.b))
-// 	// map_range(0, 1, 0, 255, color.a)
-
-// 	fs.SetColor(ctx, {r, g, b, 1})
-// 	create_glyph_atlas()
-// }
+tallest_rendered_char :: proc(s: string) -> f32 {
+	tallest: f32 = 0
+	for ch in s {
+		if ui_state.font_atlas.chars[ch].height > tallest {
+			tallest = ui_state.font_atlas.chars[ch].height
+		}
+	}
+	if tallest == 0 {
+		panic("tallest still == 0 after trying to get tallest character")
+	}
+	return tallest
+}

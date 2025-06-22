@@ -21,6 +21,7 @@ Z_Layer :: enum {
 
 UI_State :: struct {
 	box_cache:           Box_Cache, // cross-frame cache of boxes
+	// font_atlases:        Atlases,
 	font_atlas:          ^Atlas,
 	// font_context:        fontstash.FontContext,
 	temp_boxes:          [dynamic]^Box,
@@ -135,6 +136,8 @@ main_tracker_panel :: proc() {
 			// ui_state.selected_box.active = true
 			// ui_state.active_box = ui_state.selected_box
 			enable_step(ui_state.selected_box)
+		case .s:
+			app.sampler_open = !app.sampler_open
 		case .ESCAPE:
 			ui_state.active_box = nil
 			ui_state.selected_box.active = false

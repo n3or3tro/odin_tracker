@@ -91,7 +91,6 @@ set_track_sound :: proc(path: cstring, which: u32) {
 	// assert(res == .SUCCESS)
 
 	ma.node_attach_output_bus(cast(^ma.node)new_sound, 0, cast(^ma.node)&app.audio_state.delay, 0)
-
 	app.audio_state.tracks[which].sound = new_sound
 }
 

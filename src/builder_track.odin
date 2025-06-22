@@ -81,7 +81,7 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 		track_name := get_name_from_id_string(id_string)
 		steps_rect := cut_rect(rect, {Size{.Pixels, step_height}, .Top})
 		step_width := rect_height(steps_rect)
-		each_steps_rect := cut_rect_into_n_horizontally(&steps_rect, 4)
+		each_steps_rect := cut_rect_into_n_horizontally(steps_rect, 4)
 
 		push_color(palette.primary.s_500)
 		pitch_box := pitch_step(create_subset_id(i, which, .Pitch), each_steps_rect[0])
@@ -198,7 +198,7 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32, which: u32) ->
 	slider_grip_rect.top_left.y -= (value / 100) * rect_height(slider_track_rect)
 	slider_grip := box_from_cache(
 		{.Clickable, .Hot_Animation, .Active_Animation, .Draggable, .Draw},
-		tprintf("{}{}@{}", get_name_from_id_string(id_string), "_grip", get_id_from_id_string(id_string)),
+		tprintf("grip@{}_grip", get_id_from_id_string(id_string)),
 		slider_grip_rect,
 	)
 	append(&ui_state.temp_boxes, slider_grip)
@@ -228,8 +228,9 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 		app.audio_state.tracks[which].armed = !armed_state
 	}
 	if t_controls.button_signals.file_load_signals.clicked {
-		files, fok := file_dialog(false)
-		assert(fok)
+		files, ok := file_dialog(false)
+		assert(ok, "file dialog failed :(")
+		printfln("{} returned from file dialog", files)
 		set_track_sound(files[0], which)
 	}
 }
@@ -324,7 +325,6 @@ dropped_on_track :: proc() -> (u32, bool) {
 	for i in 0 ..= N_TRACKS - 1 {
 		l := i32(f32(app.wx^) * f32(i) / f32(N_TRACKS))
 		r := i32(f32(app.wx^) * f32(i + 1) / f32(N_TRACKS))
-
 		printf("l: {}    r: {} ", l, r)
 		println("mouse state:", mouse_x)
 		println("i:", i, "i/ntracks:", f32(i) / f32(N_TRACKS))

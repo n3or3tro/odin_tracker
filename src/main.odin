@@ -593,6 +593,9 @@ handle_input :: proc(event: sdl.Event) -> bool {
 	}
 	if etype == .DROPFILE {
 		which, on_track := dropped_on_track()
+		if on_track {
+			printfln("file was dropped on track {}", which)
+		}
 		assert(on_track)
 		if on_track {
 			set_track_sound(event.drop.file, which)
