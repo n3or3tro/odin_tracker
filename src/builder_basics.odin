@@ -42,11 +42,11 @@ text_container :: proc(id_string: string, rect: Rect) -> Box_Signals {
 }
 
 // Lets you draw a text container at an absolute x,y position and calculates size
-// based on the font.
+// based on the font. ui_state.font_size has to be set if you want the right font size.
 text_container_absolute :: proc(id_string: string, x, y: f32) -> Box_Signals {
 	name := get_name_from_id_string(id_string)
-	length := f32(word_rendered_length(name))
-	height := tallest_rendered_char(name)
+	length := f32(word_rendered_length(name, ui_state.font_size))
+	height := tallest_rendered_char(name, ui_state.font_size)
 	rect := Rect{{x, y}, {x + length, y + height}}
 	b := box_from_cache({.Draw_Text}, id_string, rect)
 	b.color = {1, 1, 1, 1}
@@ -69,8 +69,8 @@ text_button :: proc(id_string: string, rect: Rect) -> Box_Signals {
 // Same as text_container_absolute, but for text buttons.
 text_button_absolute :: proc(id_string: string, x, y: f32) -> Box_Signals {
 	name := get_name_from_id_string(id_string)
-	length := f32(word_rendered_length(name))
-	height := tallest_rendered_char(name)
+	length := f32(word_rendered_length(name, ui_state.font_size))
+	height := tallest_rendered_char(name, ui_state.font_size)
 	rect := Rect{{x, y}, {x + length, y + height}}
 	b := box_from_cache({.Draw, .Clickable, .Active_Animation, .Draw_Text, .Hot_Animation}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
@@ -179,7 +179,7 @@ text_input :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
 	app.ui_state.text_cursor_x_coord =
 		rect.top_left.x +
 		f32(app.ui_state.text_box_padding) +
-		f32(word_rendered_length(res.new_string[:res.cursor_pos]))
+		f32(word_rendered_length(res.new_string[:res.cursor_pos], ui_state.font_size))
 	edit.end(&state)
 	return res
 }

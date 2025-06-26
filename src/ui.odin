@@ -21,14 +21,14 @@ Z_Layer :: enum {
 
 UI_State :: struct {
 	box_cache:           Box_Cache, // cross-frame cache of boxes
-	// font_atlases:        Atlases,
-	font_atlas:          ^Atlas,
-	// font_context:        fontstash.FontContext,
+	font_atlases:        Atlases,
+	font_size:           Font_Size,
 	temp_boxes:          [dynamic]^Box,
 	first_frame:         bool, // dont want to render on the first frame
 	rect_stack:          [dynamic]^Rect,
 	settings_toggled:    bool,
 	color_stack:         [dynamic]Color,
+	font_size_stack:     [dynamic]Font_Size,
 	selected_steps:      [N_TRACKS][32]bool,
 	step_pitches:        [N_TRACKS][32]f32,
 	ui_scale:            f32, // between 0.0 and 1.0.
@@ -80,7 +80,9 @@ n_track_steps: u32 = 32
 
 main_tracker_panel :: proc() {
 	col_height := cast(u32)(rect_height(top_rect()^) * track_steps_height_ratio)
+
 	num_column(col_height, n_track_steps)
+
 	track_padding: u32 = 10
 	track_width: f32 = 200
 	for i in 0 ..< app.n_tracks {

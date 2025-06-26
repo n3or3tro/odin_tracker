@@ -30,10 +30,12 @@ sampler_bottom_controls :: proc(container: ^Box) {
 
 	pack_to_left({&attack_rect, &decay_rect, &sustain_rect, &release_rect}, margin = 5)
 
+	ui_state.font_size = .s
 	attack_knob := knob("attack@sampler-attack-knob", &attack_rect)
 	decay_knob := knob("decay@sampler-decay-knob", &decay_rect)
 	sustain_knob := knob("sustain@sampler-sustain-knob", &sustain_rect)
 	release_knob := knob("release@sampler-release-knob", &release_rect)
+	ui_state.font_size = .l
 }
 
 sampler :: proc(id_string: string, rect: ^Rect) -> Sampler_Signals {

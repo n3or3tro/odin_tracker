@@ -114,6 +114,8 @@ Box :: struct {
 	// Might need to generalise the type of value more in the future. ATM, this assumes
 	// that the only boxes with explicit values are tracker steps.
 	value:         Maybe(Step_Value_Type),
+	// Considering wrapping this in a Maybe(), but should be okay for now.
+	font_size:     Font_Size,
 
 
 	// The actual (x1,y1),(x2,y2) co-ordinates of the box on the screen.
@@ -145,10 +147,8 @@ box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box 
 		return box
 	} else {
 		persistant_id_string := s.clone(id_string)
-		// persistant_id := get_id_from_id_string(persistant_id_string)
 		new_box := box_make(flags, persistant_id_string, rect)
 		if id_string != "spacer@spacer" {
-			// printfln("making new box with id: {}", persistant_id_string)
 			ui_state.box_cache[persistant_id_string] = new_box
 		}
 		return new_box
@@ -156,7 +156,6 @@ box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box 
 }
 
 box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
-	// println("making new box: ", id_string)
 	box := new(Box)
 	box.flags = flags
 	box.id_string = id_string
@@ -171,6 +170,7 @@ box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
 	box.name = get_name_from_id_string(id_string)
 	box.rect = rect
 	box.z_index = ui_state.z_index
+	box.font_size = ui_state.font_size
 	return box
 }
 

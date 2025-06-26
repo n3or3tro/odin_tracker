@@ -10,12 +10,25 @@ layout(location = 5) in float edge_softness;
 layout(location = 6) in float border_thickness;
 layout(location = 7) in vec2 texture_uv;
 layout(location = 8) in float ui_element_type; // 0 = normal quad, 1 = text, 2 = waveform data, 3 = circle.
+layout(location = 9) in float font_size; 
+
+#define font_size_xs  0
+#define font_size_s   1
+#define font_size_m   2
+#define font_size_l   3
+#define font_size_xl  4
 
 // At the moment, a fragment == a pixel.
 out vec4 color;
 
 // This indicates which texture unit holds the relevant texture data.
-uniform sampler2D font_texture;
+uniform sampler2D font_texture_xs;
+uniform sampler2D font_texture_s;
+uniform sampler2D font_texture_m;
+uniform sampler2D font_texture_l;
+uniform sampler2D font_texture_xl;
+// uniform sampler2D font_texture;
+
 uniform sampler2D circle_knob_texture;
 uniform sampler2D fader_knob_texture;
 uniform sampler2D background_texture;
@@ -86,10 +99,21 @@ void main() {
 	} else if (ui_element_type == 15.0) { // i.e. background
 		vec4 texture_sample = texture(background_texture, texture_uv);
 		color = texture_sample;
-	} else {
-		// vec4 texture_sample = texture(font_texture, texture_uv);
-		float texture_sample = texture(font_texture, texture_uv).r; // Sample red channel
+	} else { // i.e. we're rendering text.
+		float texture_sample;
+		// Sample red channel due to how texture is uploaded.
+		if (font_size == font_size_s) {
+			texture_sample = texture(font_texture_s, texture_uv).r; 
+		} else if (font_size == font_size_m) { 
+			texture_sample = texture(font_texture_m, texture_uv).r; 
+		} else if (font_size == font_size_l) { 
+			texture_sample = texture(font_texture_l, texture_uv).r; 
+		} else if (font_size == font_size_xl) { 
+			texture_sample = texture(font_texture_xl, texture_uv).r; 
+		// default font size will be xs.
+		} else {  
+			texture_sample = texture(font_texture_xs, texture_uv).r;
+		}
 		color = v_color * texture_sample;
-		// color = vec4(v_color.rgb, v_color.a * font_alpha * sdf_factor);
 	}
 }

@@ -34,6 +34,7 @@ Rect_Render_Data :: struct {
 	edge_softness:        f32,
 	border_thickness:     f32,
 	ui_element_type:      u32,
+	font_size:            Font_Size,
 }
 
 // Kind of the default data when turning an abstract box into an opengl rect.
@@ -315,14 +316,14 @@ add_word_rendering_data :: proc(
 			string_to_render = box.name
 		}
 	}
-	word_length := word_rendered_length(string_to_render)
+	word_length := word_rendered_length(string_to_render, box.font_size)
 	gap := (int(rect_width(box.rect)) - word_length) / 2
 	baseline_x, baseline_y := get_font_baseline(string_to_render, box)
 	parent_rect := boxes_to_render[len(boxes_to_render) - 1]
 	len_so_far: f32 = 0
 	for i in 0 ..< len(string_to_render) {
 		ch := rune(string_to_render[i])
-		char_metadata := ui_state.font_atlas.chars[ch]
+		char_metadata := ui_state.font_atlases[box.font_size].chars[ch]
 		new_rect := Rect_Render_Data {
 			bl_color             = {1, 1, 1, 1},
 			br_color             = {1, 1, 1, 1},
@@ -441,7 +442,6 @@ setup_for_quads :: proc(shader_program: ^u32) {
 	enable_layout(6)
 	gl.VertexAttribDivisor(6, 1)
 
-
 	gl.VertexAttribPointer(7, 1, gl.FLOAT, false, size_of(Rect_Render_Data), offset_of(Rect_Render_Data, edge_softness))
 	enable_layout(7)
 	gl.VertexAttribDivisor(7, 1)
@@ -461,6 +461,10 @@ setup_for_quads :: proc(shader_program: ^u32) {
 	gl.VertexAttribPointer(11, 1, gl.INT, false, size_of(Rect_Render_Data), offset_of(Rect_Render_Data, ui_element_type))
 	enable_layout(11)
 	gl.VertexAttribDivisor(11, 1)
+
+	gl.VertexAttribPointer(12, 1, gl.INT, false, size_of(Rect_Render_Data), offset_of(Rect_Render_Data, font_size))
+	enable_layout(12)
+	gl.VertexAttribDivisor(12, 1)
 
 	//odinfmt:enable
 }

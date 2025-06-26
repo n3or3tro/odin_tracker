@@ -30,6 +30,14 @@ tprintfln :: fmt.aprintfln
 PROFILING :: #config(profile, false)
 
 when ODIN_OS == .Windows {
+	font_path := "C:/Windows/Fonts/calibri.ttf"
+	// font_path := "C:\\Users\\n3or3tro\\MySoftware\\my-projects\\odin_tracker\\data\\OpenSans-Semibold.ttf"
+} else {
+	font_path := "fuck me dead"
+}
+
+
+when ODIN_OS == .Windows {
 	WINDOW_WIDTH := 1500
 	WINDOW_HEIGHT := 1000
 } else {
@@ -238,6 +246,18 @@ cleanup_app_state :: proc() {
 	free_all(context.temp_allocator)
 }
 
+init_app :: proc() -> ^App_State {
+	app = new(App_State)
+	app.sampler_pos = {100, 100}
+	init_window()
+	app.ui_state = new(UI_State)
+	ui_state = app.ui_state
+	init_ui_state()
+	setup_audio()
+	app.n_tracks += 1
+	return app
+}
+
 init_ui_state :: proc() -> ^UI_State {
 	ui_state.root_rect = new(Rect)
 
@@ -265,85 +285,21 @@ init_ui_state :: proc() -> ^UI_State {
 	assert(quad_shader_ok)
 	ui_state.quad_shader_program = program1
 
-
 	bind_shader(ui_state.quad_shader_program)
 	set_shader_vec2(ui_state.quad_shader_program, "screen_res", {f32(WINDOW_WIDTH), f32(WINDOW_HEIGHT)})
 
-	when ODIN_OS == .Windows {
-		font_path := "C:/Windows/Fonts/calibri.ttf"
-		// font_path := "C:\\Users\\n3or3tro\\MySoftware\\my-projects\\odin_tracker\\data\\OpenSans-Semibold.ttf"
-	} else {
-		panic("Need to set 'font_path' for non-windows environments")
-	}
-	// font_path := "../data/Debrosee-ALPnL.ttf"
+	setup_font_atlas(.xs)
+	setup_font_atlas(.s)
+	setup_font_atlas(.m)
+	setup_font_atlas(.l)
+	setup_font_atlas(.xl)
 
-	ui_state.font_atlas = create_font_atlas(font_path, 32)
-	font_texture_data := raw_data(ui_state.font_atlas.texture.pixels)
+	// Already used the first 5 texture slots at this point.
 
-	font_texture_id: u32
-	gl.ActiveTexture(gl.TEXTURE0)
-	gl.GenTextures(1, &font_texture_id)
-	gl.BindTexture(gl.TEXTURE_2D, font_texture_id)
-
-	// Set texture parameters (wrap/filter) for font
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-
-	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1) // Important for single-channel textures!
-
-	x, y, actual_channels_in_image: i32
-	image.set_flip_vertically_on_load(1)
-
-	// image.write_png(
-	// 	"font_atlas.png",
-	// 	i32(ui_state.font_atlas.texture.width),
-	// 	i32(ui_state.font_atlas.texture.height),
-	// 	1, // 1 channel (grayscale)
-	// 	raw_data(ui_state.font_atlas.texture.pixels),
-	// 	i32(ui_state.font_atlas.texture.width), // stride
-	// )
-	// image_data, err := os.read_entire_file_from_filename("font_atlas.png")
-	// font_texture_data := image.load_from_memory(
-	// 	raw_data(image_data),
-	// 	i32(len(image_data)),
-	// 	&x,
-	// 	&y,
-	// 	&actual_channels_in_image,
-	// 	1,
-	// )
-
-	// println(raw_data(font_texture_data))
-	printfln("x: {}, y: {}, chanels: {}", x, y, actual_channels_in_image)
-
-	// Upload to GPU
-	gl.TexImage2D(
-		gl.TEXTURE_2D,
-		0,
-		gl.R8,
-		i32(ui_state.font_atlas.texture.width),
-		i32(ui_state.font_atlas.texture.height),
-		0,
-		gl.RED,
-		gl.UNSIGNED_BYTE,
-		rawptr(font_texture_data),
-	)
-	set_shader_i32(program1, "font_texture", 0)
-
-	set_shader_i32(
-		ui_state.quad_shader_program,
-		"font_texture_width",
-		i32(ui_state.font_atlas.texture.width),
-	)
-	set_shader_i32(
-		ui_state.quad_shader_program,
-		"font_texture_height",
-		i32(ui_state.font_atlas.texture.height),
-	)
 	/*
 	---------------- Circle knob texture stuff -----------------------------------------------------
 	*/
+	image.set_flip_vertically_on_load(1)
 	// load knob texture image 
 	knob_width, knob_height, channels: i32
 	raw_image_data := #load("../data/knob.png")
@@ -357,7 +313,7 @@ init_ui_state :: proc() -> ^UI_State {
 	)
 
 	knob_texture_id: u32
-	gl.ActiveTexture(gl.TEXTURE1)
+	gl.ActiveTexture(gl.TEXTURE5)
 	gl.GenTextures(1, &knob_texture_id)
 	gl.BindTexture(gl.TEXTURE_2D, knob_texture_id)
 
@@ -378,8 +334,7 @@ init_ui_state :: proc() -> ^UI_State {
 	// // Set texture parameters
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-	gl.Uniform1i(gl.GetUniformLocation(program1, "circle_knob_texture"), 1)
-
+	gl.Uniform1i(gl.GetUniformLocation(program1, "circle_knob_texture"), 5)
 	// stbi_image_free(data)
 
 	/*
@@ -398,7 +353,7 @@ init_ui_state :: proc() -> ^UI_State {
 	)
 
 	fader_knob_texture_id: u32
-	gl.ActiveTexture(gl.TEXTURE2)
+	gl.ActiveTexture(gl.TEXTURE6)
 	gl.GenTextures(1, &fader_knob_texture_id)
 	gl.BindTexture(gl.TEXTURE_2D, fader_knob_texture_id)
 
@@ -419,7 +374,8 @@ init_ui_state :: proc() -> ^UI_State {
 	// // Set texture parameters
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-	gl.Uniform1i(gl.GetUniformLocation(program1, "fader_knob_texture"), 2)
+	gl.Uniform1i(gl.GetUniformLocation(program1, "fader_knob_texture"), 6)
+
 
 	/*
 	---------------- Background texture stuff -----------------------------------------------------
@@ -437,7 +393,7 @@ init_ui_state :: proc() -> ^UI_State {
 	)
 
 	background_texture_id: u32
-	gl.ActiveTexture(gl.TEXTURE3)
+	gl.ActiveTexture(gl.TEXTURE7)
 	gl.GenTextures(1, &background_texture_id)
 	gl.BindTexture(gl.TEXTURE_2D, background_texture_id)
 
@@ -458,7 +414,7 @@ init_ui_state :: proc() -> ^UI_State {
 	// // Set texture parameters
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-	gl.Uniform1i(gl.GetUniformLocation(program1, "background_texture"), 3)
+	gl.Uniform1i(gl.GetUniformLocation(program1, "background_texture"), 7)
 
 
 	setup_for_quads(&ui_state.quad_shader_program)
@@ -467,18 +423,6 @@ init_ui_state :: proc() -> ^UI_State {
 	ui_state.frame_num^ = 0
 
 	return ui_state
-}
-
-init_app :: proc() -> ^App_State {
-	app = new(App_State)
-	app.sampler_pos = {100, 100}
-	init_window()
-	app.ui_state = new(UI_State)
-	ui_state = app.ui_state
-	init_ui_state()
-	setup_audio()
-	app.n_tracks += 1
-	return app
 }
 
 update_app :: proc() -> bool {
@@ -628,7 +572,6 @@ run_app :: proc() {
 	// thread.join(audio_thr)
 	// println(main_color)
 }
-
 
 register_resize :: proc() -> bool {
 	old_width, old_height := app.wx^, app.wy^
