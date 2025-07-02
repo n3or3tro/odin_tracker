@@ -36,6 +36,7 @@ UI_State :: struct {
 	// of a box that's in the cache. Useful for parts of the code
 	// where the box isn't easilly accessible (like in audio related stuff).
 	override_color:      bool,
+	override_rect:       bool,
 	quad_vbuffer:        ^u32,
 	quad_vabuffer:       ^u32,
 	quad_shader_program: u32,
@@ -85,9 +86,10 @@ main_tracker_panel :: proc() {
 
 	track_padding: u32 = 10
 	track_width: f32 = 200
+	spacers := make_dynamic_array_len_cap([dynamic]^Box, 10, 10, context.temp_allocator)
 	for i in 0 ..< app.n_tracks {
 		create_track(u32(i), track_width)
-		defer free(spacer("spacer@spacer", RectCut{Size{.Pixels, f32(track_padding)}, .Left}))
+		append(&spacers, spacer("spacer@spacer", RectCut{Size{.Pixels, f32(track_padding)}, .Left}))
 	}
 
 	add_track_rect := Rect {
@@ -158,6 +160,18 @@ main_tracker_panel :: proc() {
 		// app.keys_held[sdl.Scancode.LCTRL] = false
 	}
 
+}
+
+get_active_track :: proc() -> u32 {
+	// Figure out relevant track wav.
+	// If sampler was opened via right click it should be obvious
+	// {.....}
+	// If sample opened via 'hotkey' get the track that holds the selected step.
+	if ui_state.selected_box != nil {
+		return track_num_from_step(ui_state.selected_box.id_string)
+	}
+	return 0
+	// If keyboard navigation hasn't started yet, then just render the .wav from the first track.
 }
 
 move_active_box_left :: proc() {
@@ -345,8 +359,7 @@ Color_Theme :: struct {
 
 // A mapping between color themes and actual ui elements.
 // This level of indirection should provide some flexibility.
-Element_Theme :: struct {
-}
+Element_Theme :: struct {}
 
 Palette_Entry :: struct {
 	s_300: Color,

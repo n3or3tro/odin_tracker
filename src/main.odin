@@ -36,7 +36,6 @@ when ODIN_OS == .Windows {
 	font_path := "fuck me dead"
 }
 
-
 when ODIN_OS == .Windows {
 	WINDOW_WIDTH := 1500
 	WINDOW_HEIGHT := 1000
@@ -81,6 +80,7 @@ App_State :: struct {
 	// Doesn't actually need to be dynamic, just doing this coz the dynamic array API works well as a stack.
 	char_queue:        [32]sdl.Keycode,
 	curr_chars_stored: u32,
+	samplers:          [N_TRACKS]^Sampler_State,
 }
 
 N_TRACKS :: 10
@@ -143,17 +143,17 @@ main :: proc() {
 	}
 	init_app()
 	for {
-		// assumes 120fps
-		max_frame_time_ns: f64 = 1_000_000 * 8.30
-		start := time.now()._nsec
+		// assumes 120 fps
+		// max_frame_time_ns: f64 = 1_000_000 * 8.30
+		// start := time.now()._nsec
 		if !update_app() {
 			break
 		}
-		frame_time := f64(time.now()._nsec - start)
-		time_to_wait := time.Duration(max_frame_time_ns - frame_time)
-		if time_to_wait > 0 {
-			time.sleep(time_to_wait)
-		}
+		// frame_time := f64(time.now()._nsec - start)
+		// time_to_wait := time.Duration(max_frame_time_ns - frame_time)
+		// if time_to_wait > 0 {
+		// 	time.sleep(time_to_wait)
+		// }
 	}
 	cleanup_app_state()
 }
@@ -254,6 +254,11 @@ init_app :: proc() -> ^App_State {
 	ui_state = app.ui_state
 	init_ui_state()
 	setup_audio()
+	for i in 0 ..< N_TRACKS {
+		new_sampler_state := new(Sampler_State)
+		new_sampler_state.zoom_center = 0.5
+		app.samplers[i] = new_sampler_state
+	}
 	app.n_tracks += 1
 	return app
 }
@@ -449,8 +454,8 @@ update_app :: proc() -> bool {
 	reset_renderer_data()
 	sdl.GL_SwapWindow(app.window)
 
+	// clear(&app.ui_state.temp_boxes)
 	free_all(context.temp_allocator)
-	clear(&app.ui_state.temp_boxes)
 	frame_num^ += 1
 	app.curr_chars_stored = {}
 	return true

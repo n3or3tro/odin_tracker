@@ -67,17 +67,17 @@ create_font_atlas :: proc(
 	font_size: f32
 	switch size {
 	case .xs:
-		font_size = 32
+		font_size = 16
 	case .s:
-		font_size = 18
+		font_size = 24
 	case .m:
 		font_size = 32
 	case .l:
 		font_size = 40
 	case .xl:
-		font_size = 44
+		font_size = 48
 	case:
-		font_size = 100
+		panic("font_size was not one of: {.xs, .s, .m, .l, xl}")
 	}
 	scale := tt.ScaleForPixelHeight(&font, font_size)
 
@@ -162,20 +162,6 @@ create_font_atlas :: proc(
 			width     = f32(glyph_width),
 			height    = f32(glyph_height),
 		}
-		// In create_font_atlas, after storing the metadata for 'i':
-		// if ch == 'i' || ch == 'l' || ch == 't' || ch == 'T' || ch == 'm' {
-		// 	printfln("Character '{}' metrics:", ch)
-		// 	printfln("  x0={}, y0={}, x1={}, y1={}", x0, y0, x1, y1)
-		// 	printfln("  glyph_width={}, glyph_height={}", glyph_width, glyph_height)
-		// 	printfln("  advance={}, scale={}", advance, scale)
-		// 	printfln("  advance_x={}", new_char_metadata.advance_x)
-		// }
-		// // In create_font_atlas
-		// if ch == 'i' || ch == 'l' || ch == 't' || ch == 'T' || ch == 'm' {
-		// 	printfln("Character '{}' metrics:", ch)
-		// 	printfln("  x0={}, x1={}, width={}", x0, x1, glyph_width)
-		// 	printfln("  advance={} (scaled={})", advance, f32(advance) * scale)
-		// }
 		atlas.chars[ch] = new_char_metadata
 		current_x += glyph_width + 1
 	}
@@ -184,7 +170,7 @@ create_font_atlas :: proc(
 
 setup_font_atlas :: proc(size: Font_Size) {
 	ui_state.font_atlases[size] = create_font_atlas(font_path, size)
-	printfln("created atlas for size {} - {}\n\n", size, ui_state.font_atlases[size])
+	// printfln("created atlas for size {} - {}\n\n", size, ui_state.font_atlases[size])
 	font_texture_data := raw_data(ui_state.font_atlases[size].texture.pixels)
 	font_texture_id: u32
 	switch size {

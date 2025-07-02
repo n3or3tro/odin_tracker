@@ -305,17 +305,17 @@ step_num_modify_value :: proc(box: ^Box, change: int) {
 }
 
 // This code is fairly brittle as it relies on box id strings of steps being of a certain format.
-step_num_from_step :: proc(id_string: string) -> u16 {
+step_num_from_step :: proc(id_string: string) -> u32 {
 	name := get_name_from_id_string(id_string)
 	index_of_num := s.index(name, "-")
-	num := u16(strconv.atoi(name[index_of_num + 1:]))
+	num := u32(strconv.atoi(name[index_of_num + 1:]))
 	return num
 }
 
-track_num_from_step :: proc(id_string: string) -> u16 {
+track_num_from_step :: proc(id_string: string) -> u32 {
 	track_id := get_id_from_id_string(id_string)
 	start := s.index(track_id, "track") + len("track")
-	num := cast(u16)strconv.atoi(track_id[start:])
+	num := u32(strconv.atoi(track_id[start:]))
 	return num
 }
 

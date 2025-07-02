@@ -26,6 +26,18 @@ container :: proc(id_string: string, rect: Rect) -> Box_Signals {
 	return box_signals(b)
 }
 
+clickable_container :: proc(id_string: string, rect: Rect) -> Box_Signals {
+	b := box_from_cache({.Clickable}, id_string, rect)
+	append(&ui_state.temp_boxes, b)
+	return box_signals(b)
+}
+
+line :: proc(id_string: string, rect: Rect) -> Box_Signals {
+	b := box_from_cache({.Draw}, id_string, rect)
+	append(&ui_state.temp_boxes, b)
+	return box_signals(b)
+}
+
 draggable_container :: proc(id_string: string, rect: ^Rect) -> Draggable_Container_Signals {
 	handle_bar_rect := cut_rect(rect, RectCut{side = .Top, size = {.Percent, 0.05}})
 	handle_bar := text_button(tprintf("drag-me@{}-handle-bar", id_string), handle_bar_rect)

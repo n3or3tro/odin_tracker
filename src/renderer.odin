@@ -226,6 +226,10 @@ get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 	rendering_data := new([dynamic]Rect_Render_Data, allocator = context.temp_allocator)
 	append(rendering_data, get_background_rendering_data())
 	for box in ui_state.temp_boxes {
+		if box.id_string == "" || box == nil {
+			println("skipping this box as it has no id_string OR box == nil")
+			continue
+		}
 		boxes_to_render := get_boxes_rendering_data(box^)
 		defer delete(boxes_to_render^)
 		if s.contains(get_id_from_id_string(box.id_string), "knob-body") {
@@ -238,27 +242,28 @@ get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 			}
 		}
 		if .Draw_Text in box.flags {
-			// // only draw text if box is 'selected'
-			// step_num := step_num_from_step(box.id_string)
-			// track_num := track_num_from_step(box.id_string)
-			// if s.contains(box.id_string, "step") {
-			// 	if ui_state.selected_steps[track_num][step_num] {
-			// 		add_word_rendering_data(box^, boxes_to_render, rendering_data)
-			// 	}
-			// } else {
-			// 	add_word_rendering_data(box^, boxes_to_render, rendering_data)
-			// }
 			add_word_rendering_data(box^, boxes_to_render, rendering_data)
 		}
 		if s.contains(get_id_from_id_string(box.id_string), "waveform-container") {
+			// Render left_channel and right_channel serperately. Maybe we can gain some efficiency by doing this together ? 
+			// unclear, but it previously setup to only render one channel, so we can do this without any changes.
+			active_track := get_active_track()
+			left_channel, right_channel := get_track_pcm_data(active_track)
+			rects := cut_rect_into_n_vertically(box.rect, 2)
+			top_rect, bottom_rect := rects[0], rects[1]
 			add_waveform_rendering_data(
-				box.rect,
-				app.audio_state.tracks[0].sound^,
-				get_track_pcm_data(0),
+				top_rect,
+				app.audio_state.tracks[active_track].sound^,
+				left_channel,
+				rendering_data,
+			)
+			add_waveform_rendering_data(
+				bottom_rect,
+				app.audio_state.tracks[active_track].sound^,
+				right_channel,
 				rendering_data,
 			)
 		}
-
 	}
 	return rendering_data
 }
@@ -378,9 +383,23 @@ add_waveform_rendering_data :: proc(
 		u32(render_width),
 		allocator = context.temp_allocator,
 	)
+	sampler := app.samplers[get_active_track()]
+	// might break with very large samples.
+	visible_width := f64(frames_read) * f64(1 - sampler.zoom_amount)
+
+	// Calculate start so that zoom_position stays at the same screen position
+	// If zoom_position = 0.3, it should remain at 30% across the screen width
+	start_sample := u64(f64(sampler.zoom_point) * f64(frames_read) - f64(sampler.zoom_point) * visible_width)
+	end_sample := start_sample + u64(visible_width)
+
+	// Clamp to valid range
+	start_sample = max(u64(0), start_sample)
+	end_sample = min(u64(frames_read), end_sample)
 	for x in 0 ..< render_width {
-		start := u64((f64(x) / f64(render_width)) * f64(frames_read))
-		end := u64(f64(x + 1) / f64(render_width) * f64(frames_read))
+		// start := u64((f64(x) / f64(render_width)) * f64(frames_read))
+		// end := u64(f64(x + 1) / f64(render_width) * f64(frames_read))
+		start := start_sample + u64((f64(x) / f64(render_width)) * (f64(end_sample - start_sample)))
+		end := start_sample + u64((f64(x + 1) / f64(render_width)) * (f64(end_sample - start_sample)))
 		if end >= frames_read {end = frames_read}
 		min: f32 = 1
 		max: f32 = -1

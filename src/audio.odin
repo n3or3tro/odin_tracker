@@ -11,8 +11,11 @@ Track :: struct {
 	armed:     bool,
 	volume:    f32,
 	// PCM data is used only for rendering waveforms atm.
-	pcm_data:  [dynamic]f32,
-	curr_step: u16,
+	pcm_data:  struct {
+		left_channel:  [dynamic]f32,
+		right_channel: [dynamic]f32,
+	},
+	curr_step: u32,
 }
 
 Audio_State :: struct {
@@ -211,10 +214,11 @@ pitch_difference :: proc(from: string, to: string) -> f32 {
 	return f32(total_diff)
 }
 
-// This is here coz I was thinking about cachine the pcm wav rendering data, 
+// This indirection is here coz I was thinking about cachine the pcm wav rendering data, 
 // since it's a little expensive to re-calc every frame.
-get_track_pcm_data :: proc(track: u32) -> [dynamic]f32 {
-	return app.audio_state.tracks[track].pcm_data
+get_track_pcm_data :: proc(track: u32) -> (left_channel, right_channel: [dynamic]f32) {
+	return app.audio_state.tracks[track].pcm_data.left_channel,
+		app.audio_state.tracks[track].pcm_data.right_channel
 }
 
 store_track_pcm_data :: proc(track: u32) {
@@ -233,11 +237,23 @@ store_track_pcm_data :: proc(track: u32) {
 	res = ma.data_source_read_pcm_frames(data_source, raw_data(buf), n_frames, &frames_read)
 	assert(res == .SUCCESS || res == .AT_END)
 
-	// pcm_frames := make([dynamic]f32, frames_read)
-	app.audio_state.tracks[track].pcm_data = make([dynamic]f32, frames_read)
-	pcm_frames := app.audio_state.tracks[track].pcm_data
-	// Gets left channel (interleaved stereo: L R L R ...)
-	for i in 0 ..< frames_read {
-		pcm_frames[i] = buf[i * 2]
+	// Remove data outside the 'zoom zone'
+
+
+	// might have weird off by one errors further in the system. CBF figuring out the math
+	// so we just add + 1 the capacity for now 
+	left_channel := make([dynamic]f32, frames_read / 2 + 1)
+	right_channel := make([dynamic]f32, frames_read / 2 + 1)
+	lc_pointer: u64 = 0
+	rc_pointer: u64 = 1
+	i := 0
+	for rc_pointer < frames_read {
+		left_channel[i] = buf[lc_pointer]
+		right_channel[i] = buf[rc_pointer]
+		i += 1
+		lc_pointer += 2
+		rc_pointer += 2
 	}
+	app.audio_state.tracks[track].pcm_data.left_channel = left_channel
+	app.audio_state.tracks[track].pcm_data.right_channel = right_channel
 }

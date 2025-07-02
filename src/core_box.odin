@@ -150,6 +150,7 @@ box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box 
 		new_box := box_make(flags, persistant_id_string, rect)
 		if id_string != "spacer@spacer" {
 			ui_state.box_cache[persistant_id_string] = new_box
+			printfln("creating new box with id_string: {}", id_string)
 		}
 		return new_box
 	}
@@ -194,7 +195,7 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 			signals.right_clicked = true
 			println("right button clicked on: ", box.id_string)
 		}
-		if app.mouse.wheel.x != 0 || app.mouse.wheel.y != 0 {
+		if app.mouse.wheel != {0, 0} {
 			signals.scrolled = true
 		}
 		if signals.pressed {
@@ -431,6 +432,33 @@ shrink :: proc(rect: Rect, amount: Size) -> Rect {
 	return shrink_x(shrink_y(rect, amount), amount)
 }
 
+
+// Let's you nudge rects by some amount in some direction.
+Direction :: enum {
+	up,
+	right,
+	down,
+	left,
+}
+
+// Let's you 'nudge' a box slightly in some direction. Should never be used
+// for large movements, that most likely indicates you have a layout issue.
+nudge_rect :: proc(rect: ^Rect, amount: f32, direction: Direction) {
+	switch direction {
+	case .up:
+		rect.top_left.y -= amount
+		rect.bottom_right.y -= amount
+	case .right:
+		rect.top_left.x += amount
+		rect.bottom_right.x += amount
+	case .down:
+		rect.top_left.y += amount
+		rect.bottom_right.y += amount
+	case .left:
+		rect.top_left.x -= amount
+		rect.bottom_right.x -= amount
+	}
+}
 // Calulcates actual pixel amount based on abstract size.
 get_pixel_change_amount :: proc(rect: Rect, amount: Size, direction: string) -> f32 {
 	switch amount.kind {
@@ -565,11 +593,6 @@ pack_to_right :: proc(rects: []^Rect, margin: f32 = 0) {
 		rects[i - 1].bottom_right.x += gap_to_left - margin
 	}
 }
-
-// pack_to_middle :: proc() {
-
-// }
-
 
 // Slices along x axis - like slicing vegetables. 
 cut_rect_into_n_horizontally :: proc(
