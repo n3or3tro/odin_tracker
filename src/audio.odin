@@ -97,38 +97,6 @@ set_track_sound :: proc(path: cstring, which: u32) {
 	app.audio_state.tracks[which].sound = new_sound
 }
 
-init_delay :: proc(delay_time: f32, decay_time: f32) {
-	channels := ma.engine_get_channels(app.audio_state.engine)
-	sample_rate := ma.engine_get_sample_rate(app.audio_state.engine)
-	config := ma.delay_node_config_init(
-		channels,
-		sample_rate,
-		u32(f32(sample_rate) * delay_time),
-		decay_time,
-	)
-	println(config)
-	res := ma.delay_node_init(
-		ma.engine_get_node_graph(app.audio_state.engine),
-		&config,
-		nil,
-		&app.audio_state.delay,
-	)
-	if res != .SUCCESS {
-		println(res)
-		panic("")
-	}
-
-	res = ma.node_attach_output_bus(
-		cast(^ma.node)(&app.audio_state.delay),
-		0,
-		ma.engine_get_endpoint(app.audio_state.engine),
-		0,
-	)
-	assert(res == .SUCCESS)
-}
-
-turn_on_delay :: proc() {
-}
 
 toggle_sound_playing :: proc(sound: ^ma.sound) {
 	if sound == nil {
@@ -214,6 +182,38 @@ pitch_difference :: proc(from: string, to: string) -> f32 {
 	return f32(total_diff)
 }
 
+init_delay :: proc(delay_time: f32, decay_time: f32) {
+	channels := ma.engine_get_channels(app.audio_state.engine)
+	sample_rate := ma.engine_get_sample_rate(app.audio_state.engine)
+	config := ma.delay_node_config_init(
+		channels,
+		sample_rate,
+		u32(f32(sample_rate) * delay_time),
+		decay_time,
+	)
+	println(config)
+	res := ma.delay_node_init(
+		ma.engine_get_node_graph(app.audio_state.engine),
+		&config,
+		nil,
+		&app.audio_state.delay,
+	)
+	if res != .SUCCESS {
+		println(res)
+		panic("")
+	}
+
+	res = ma.node_attach_output_bus(
+		cast(^ma.node)(&app.audio_state.delay),
+		0,
+		ma.engine_get_endpoint(app.audio_state.engine),
+		0,
+	)
+	assert(res == .SUCCESS)
+}
+
+turn_on_delay :: proc() {
+}
 // This indirection is here coz I was thinking about cachine the pcm wav rendering data, 
 // since it's a little expensive to re-calc every frame.
 get_track_pcm_data :: proc(track: u32) -> (left_channel, right_channel: [dynamic]f32) {
@@ -236,9 +236,6 @@ store_track_pcm_data :: proc(track: u32) {
 	data_source := ma.sound_get_data_source(sound)
 	res = ma.data_source_read_pcm_frames(data_source, raw_data(buf), n_frames, &frames_read)
 	assert(res == .SUCCESS || res == .AT_END)
-
-	// Remove data outside the 'zoom zone'
-
 
 	// might have weird off by one errors further in the system. CBF figuring out the math
 	// so we just add + 1 the capacity for now 

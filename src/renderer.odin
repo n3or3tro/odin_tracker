@@ -387,9 +387,9 @@ add_waveform_rendering_data :: proc(
 	// might break with very large samples.
 	visible_width := f64(frames_read) * f64(1 - sampler.zoom_amount)
 
-	// Calculate start so that zoom_position stays at the same screen position
-	// If zoom_position = 0.3, it should remain at 30% across the screen width
-	start_sample := u64(f64(sampler.zoom_point) * f64(frames_read) - f64(sampler.zoom_point) * visible_width)
+
+	// New CLAUDE fix for correct zooming.
+	start_sample := u64(f64(sampler.zoom_point) * f64(frames_read))
 	end_sample := start_sample + u64(visible_width)
 
 	// Clamp to valid range

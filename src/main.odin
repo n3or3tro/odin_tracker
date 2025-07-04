@@ -142,8 +142,9 @@ main :: proc() {
 		spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
 	}
 	init_app()
+	// thread.create_and_start(audio_thread_proc, priority = .High)
 	for {
-		// assumes 120 fps
+		// // assumes 120 fps
 		// max_frame_time_ns: f64 = 1_000_000 * 8.30
 		// start := time.now()._nsec
 		if !update_app() {
@@ -152,11 +153,18 @@ main :: proc() {
 		// frame_time := f64(time.now()._nsec - start)
 		// time_to_wait := time.Duration(max_frame_time_ns - frame_time)
 		// if time_to_wait > 0 {
-		// 	time.sleep(time_to_wait)
+		// 	time.accurate_sleep(time_to_wait)
 		// }
 	}
 	cleanup_app_state()
 }
+
+// audio_thread_proc :: proc() {
+// 	for {
+// 		time.accurate_sleep(time.Millisecond * 500)
+// 		println("hello from audio thread")
+// 	}
+// }
 
 init_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	// sdl.Init({.AUDIO, .EVENTS, .TIMER})
@@ -256,7 +264,6 @@ init_app :: proc() -> ^App_State {
 	setup_audio()
 	for i in 0 ..< N_TRACKS {
 		new_sampler_state := new(Sampler_State)
-		new_sampler_state.zoom_center = 0.5
 		app.samplers[i] = new_sampler_state
 	}
 	app.n_tracks += 1
@@ -553,30 +560,31 @@ handle_input :: proc(event: sdl.Event) -> bool {
 	return true
 }
 
-// stupid_sem: sync.Atomic_Sema
-run_app :: proc() {
-	// The weird semaphore stuff is required because of Odin's bad thread
-	// implementation, don't exactly understand the issue, but without it t1, will join
-	// and finish before ui_thread has even started.
 
-	// ui_thr := thread.create_and_start(proc() {
-	// 	sync.atomic_sema_post(&stupid_sem)
-	// 	ui_thread()
-	// })
-	// // waiting for ui_thread to start
-	// sync.atomic_sema_wait_with_timeout(&stupid_sem, time.Millisecond * 200)
+// // stupid_sem: sync.Atomic_Sema
+// run_app :: proc() {
+// 	// The weird semaphore stuff is required because of Odin's bad thread
+// 	// implementation, don't exactly understand the issue, but without it t1, will join
+// 	// and finish before ui_thread has even started.
 
-	// audio_thr := thread.create_and_start(proc() {
-	// 	sync.atomic_sema_post(&stupid_sem)
-	// 	audio_thread()
-	// })
-	// // waiting for audio_thread to start
-	// sync.atomic_sema_wait_with_timeout(&stupid_sem, time.Millisecond * 200)
+// 	ui_thr := thread.create_and_start(proc() {
+// 		sync.atomic_sema_post(&stupid_sem)
+// 		ui_thread()
+// 	})
+// 	// waiting for ui_thread to start
+// 	sync.atomic_sema_wait_with_timeout(&stupid_sem, time.Millisecond * 200)
 
-	// thread.join(ui_thr)
-	// thread.join(audio_thr)
-	// println(main_color)
-}
+// 	audio_thr := thread.create_and_start(proc() {
+// 		sync.atomic_sema_post(&stupid_sem)
+// 		audio_thread()
+// 	})
+// 	// waiting for audio_thread to start
+// 	sync.atomic_sema_wait_with_timeout(&stupid_sem, time.Millisecond * 200)
+
+// 	thread.join(ui_thr)
+// 	thread.join(audio_thr)
+// 	println(main_color)
+// }
 
 register_resize :: proc() -> bool {
 	old_width, old_height := app.wx^, app.wy^

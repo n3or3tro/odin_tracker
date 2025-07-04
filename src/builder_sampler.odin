@@ -29,21 +29,11 @@ Sampler_State :: struct {
 	// Where the zoom occurs 'around'. This changes as you move the mouse.
 	// Doesn't change when you're zooming as it's relevant to the rect, not the wave.
 	zoom_point:       f32,
-	// Where the zoom is in relation to the waveform. This changes
-	// upon scrolling because the waveform is moving.
-	zoom_center:      f32,
 	// To help avoid double actions on 'clicked' when dragging a slice.
 	dragging_a_slice: bool,
 	// Identify which slice is being dragged. Had issues with mouse going ahead of dragged box,
 	// so trying to implement 'sticky stateful' dragging.
 	dragged_slice:    u32,
-	// // Hacky thing put in to help with incorrect dragging behaviour.
-	// slice_drag_state: struct {
-	// 	anchor_mouse_x: i32,
-	// 	anchor_how_far: f32,
-	// 	active:         bool,
-	// 	slice_num:      u32,
-	// },
 }
 
 Sampler_Signals :: struct {
@@ -52,6 +42,9 @@ Sampler_Signals :: struct {
 
 // takes in the container that the controls will be drawn inside.
 sampler_left_controls :: proc(rect: ^Rect) {
+	old_font_size := ui_state.font_size
+	defer ui_state.font_size = old_font_size
+	ui_state.font_size = .m
 	track_num := get_active_track()
 	top_left_info_rect := cut_rect(rect, {{.Percent, 0.1}, .Top})
 	rects := cut_rect_into_n_vertically(rect^, 3)
@@ -131,8 +124,11 @@ slice_markers :: proc(sampler: ^Sampler_State, waveform_rect: Rect, track_num: u
 	}
 	for i in 0 ..< sampler.n_slices {
 		slice := &sampler.slices[i]
-		slice_position_ratio := slice.how_far
-		// Add vertical liine of slice marker.
+
+		if slice.how_far < sampler.zoom_point ||
+		   slice.how_far > sampler.zoom_point + (1 - sampler.zoom_amount) {continue}
+
+		slice_position_ratio := (slice.how_far - sampler.zoom_point) / (1 - sampler.zoom_amount)
 		slice_marker_x := waveform_rect.top_left.x + slice_position_ratio * rect_width(waveform_rect)
 		slice_marker_top_y := waveform_rect.top_left.y
 		slice_marker_bottom_y := waveform_rect.bottom_right.y
@@ -157,6 +153,8 @@ slice_markers :: proc(sampler: ^Sampler_State, waveform_rect: Rect, track_num: u
 			tprintf("slice-{}@sampler-{}-slice-{}-handle", slice.which, track_num, slice.which),
 			handle_rect,
 		)
+
+		// ============ Handle dragging slice markers.=====================
 		if handle.dragging {
 			sampler.dragged_slice = i
 			sampler.dragging_a_slice = true
@@ -164,9 +162,13 @@ slice_markers :: proc(sampler: ^Sampler_State, waveform_rect: Rect, track_num: u
 		// Continue drag (NOT dependent on handle.dragging!)
 		if app.mouse.left_pressed && sampler.dragged_slice == i && sampler.dragging_a_slice {
 			change_in_x := f32(app.mouse.pos.x - app.mouse.last_pos.x)
-			slice.how_far += change_in_x / rect_width(waveform_rect)
+			visible_range := 1 - sampler.zoom_amount
+			screen_delta := change_in_x / rect_width(waveform_rect)
+			audio_delta := screen_delta * visible_range
+			slice.how_far += audio_delta
+			// Clamp to valid range
+			slice.how_far = clamp(slice.how_far, 0, 1)
 		}
-
 		// End drag
 		if !app.mouse.left_pressed {
 			sampler.dragging_a_slice = false
@@ -175,8 +177,7 @@ slice_markers :: proc(sampler: ^Sampler_State, waveform_rect: Rect, track_num: u
 	}
 	clear_color_stack()
 
-
-	// // Add note label for each slice.
+	// =================== Handle adding slice labels ======================
 	sampler_slice_label :: proc(
 		start_x, end_x: f32,
 		waveform_rect: Rect,
@@ -195,22 +196,34 @@ slice_markers :: proc(sampler: ^Sampler_State, waveform_rect: Rect, track_num: u
 		)
 	}
 	this_x := waveform_rect.top_left.x
-	next_x := waveform_rect.top_left.x + sampler.slices[0].how_far * rect_width(waveform_rect)
+	// next_x := waveform_rect.top_left.x + sampler.slices[0].how_far * rect_width(waveform_rect)
+	slice_screen_normalized := (sampler.slices[0].how_far - sampler.zoom_point) / (1 - sampler.zoom_amount)
+	next_x := waveform_rect.top_left.x + slice_screen_normalized * rect_width(waveform_rect)
 	ui_state.font_size = .xs
 
 	// Add first lable
-
+	sampler_slice_label(this_x, next_x, waveform_rect, sampler^, 0)
 	// sampler_slice_label(this_x, next_x, waveform_rect, sampler^, 0)
 	for i: u32 = 0; i < sampler.n_slices - 1; i += 1 {
-		this_x := waveform_rect.top_left.x + sampler.slices[i].how_far * rect_width(waveform_rect)
-		next_x := waveform_rect.top_left.x + sampler.slices[i + 1].how_far * rect_width(waveform_rect)
+		// this_x := waveform_rect.top_left.x + sampler.slices[i].how_far * rect_width(waveform_rect)
+		// next_x := waveform_rect.top_left.x + sampler.slices[i + 1].how_far * rect_width(waveform_rect)
+		this_slice_screen_normalized :=
+			(sampler.slices[i].how_far - sampler.zoom_point) / (1 - sampler.zoom_amount)
+		this_x := waveform_rect.top_left.x + this_slice_screen_normalized * rect_width(waveform_rect)
+
+		next_slice_screen_normalized :=
+			(sampler.slices[i + 1].how_far - sampler.zoom_point) / (1 - sampler.zoom_amount)
+		next_x := waveform_rect.top_left.x + next_slice_screen_normalized * rect_width(waveform_rect)
 		sampler_slice_label(this_x, next_x, waveform_rect, sampler^, i + 1)
 	}
 	// Add last label.
 	if sampler.n_slices >= 1 {
-		this_x =
-			waveform_rect.top_left.x +
-			sampler.slices[sampler.n_slices - 1].how_far * rect_width(waveform_rect)
+		// this_x =
+		// 	waveform_rect.top_left.x +
+		// 	sampler.slices[sampler.n_slices - 1].how_far * rect_width(waveform_rect)
+		last_slice_screen_normalized :=
+			(sampler.slices[sampler.n_slices - 1].how_far - sampler.zoom_point) / (1 - sampler.zoom_amount)
+		this_x = waveform_rect.top_left.x + last_slice_screen_normalized * rect_width(waveform_rect)
 		next_x = waveform_rect.bottom_right.x
 		sampler_slice_label(this_x, next_x, waveform_rect, sampler^, sampler.n_slices)
 	}
@@ -265,50 +278,75 @@ sampler :: proc(id_string: string, rect: ^Rect) -> Sampler_Signals {
 
 	decrease_zoom :: proc(sampler: ^Sampler_State) {
 		zoom_factor := 1 / (1 - sampler.zoom_amount)
-		zoom_factor /= 1.1
+		zoom_factor /= 1.2
 		sampler.zoom_amount = clamp(1 - (1 / zoom_factor), 0, 0.99999)
 	}
 	increase_zoom :: proc(sampler: ^Sampler_State) {
 		zoom_factor := 1 / (1 - sampler.zoom_amount)
-		zoom_factor *= 1.1
+		zoom_factor *= 1.2
 		// sampler.zoom_amount = clamp(sampler.zoom_amount + zoom_factor, 0, 0.99999)
 		sampler.zoom_amount = clamp(1 - (1 / zoom_factor), 0, 0.99999)
 	}
 
-	// Handle zooming in on the waveform.
+	// =========== Handle zooming in on the waveform.=========================
 	waveform_rect := waveform_container.box.rect
 	track_num := get_active_track()
 	sampler := app.samplers[track_num]
-	// if waveform_container.scrolled && app.keys_held[sdl.Scancode.LCTRL] {
 	if waveform_container.scrolled {
-		sampler.zoom_center = sampler.zoom_point
-		if app.mouse.wheel.y == -1 {
-			println("decreaing (-) zoom")
-			decrease_zoom(sampler)
-		} else {
-			println("increasing (+) zoom")
-			increase_zoom(sampler)
-		}
-		sampler.zoom_point = map_range(
+		// ==== HELP FROM CLAUDE WITH PROPPER ZOOMING ======
+		// Calculate where the mouse is in the current visible waveform (0-1 range)
+		mouse_screen_normalized := map_range(
 			waveform_rect.top_left.x,
 			waveform_rect.bottom_right.x,
 			0,
 			1,
 			f32(app.mouse.pos.x),
 		)
-		printfln("changed zoom amount - point: {}  amount: {}", sampler.zoom_point, sampler.zoom_amount)
+
+		// Get current zoom values
+		old_zoom_amount := sampler.zoom_amount
+		old_visible_width := 1.0 - old_zoom_amount
+
+		// Calculate the waveform position under the mouse BEFORE zooming
+		// This is the key: we need to know what part of the actual waveform is under the cursor
+		waveform_position_under_mouse := sampler.zoom_point + mouse_screen_normalized * old_visible_width
+
+		// Apply zoom change
+		if app.mouse.wheel.y == -1 {
+			println("decreasing (-) zoom")
+			decrease_zoom(sampler)
+		} else {
+			println("increasing (+) zoom")
+			increase_zoom(sampler)
+		}
+
+		// Calculate new visible width after zoom
+		new_visible_width := 1.0 - sampler.zoom_amount
+
+		// Calculate new zoom_point to keep the same waveform position under the mouse
+		// We want: waveform_position_under_mouse = new_zoom_point + mouse_screen_normalized * new_visible_width
+		// Solving for new_zoom_point:
+		sampler.zoom_point = waveform_position_under_mouse - mouse_screen_normalized * new_visible_width
+
+		// Clamp zoom_point to valid range
+		sampler.zoom_point = clamp(sampler.zoom_point, 0, 1 - new_visible_width)
+
+		printfln("changed zoom - point: {}  amount: {}", sampler.zoom_point, sampler.zoom_amount)
 	}
 
 	// Handle adding slices.
 	if sampler.mode == .slice {
 		if !sampler.dragging_a_slice && waveform_container.clicked {
-			how_far := map_range(
+			mouse_screen_normalized := map_range(
 				waveform_rect.top_left.x,
 				waveform_rect.bottom_right.x,
 				0,
 				1,
 				f32(app.mouse.pos.x),
 			)
+
+			// Convert to waveform position
+			how_far := sampler.zoom_point + mouse_screen_normalized * (1 - sampler.zoom_amount)
 			add_slice_marker(how_far, sampler)
 		}
 		slice_markers(sampler, waveform_container.box.rect, track_num)
@@ -318,6 +356,7 @@ sampler :: proc(id_string: string, rect: ^Rect) -> Sampler_Signals {
 	return Sampler_Signals{container_signals = sampler_container}
 }
 
+// Binary search to add it into the list, and slide the rest of the elements over to maintain order.
 add_slice_marker :: proc(new_value: f32, sampler: ^Sampler_State) {
 	assert(sampler.n_slices < len(sampler.slices), "Tried to insert slice, but we have no more capacity!")
 
