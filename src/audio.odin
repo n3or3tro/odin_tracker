@@ -4,6 +4,7 @@ import "core:mem"
 import "core:os"
 import "core:strconv"
 import s "core:strings"
+import "core:time"
 import ma "vendor:miniaudio"
 
 Track :: struct {
@@ -19,16 +20,20 @@ Track :: struct {
 }
 
 Audio_State :: struct {
-	tracks:       [dynamic]Track,
-	engine:       ^ma.engine,
+	playing:             bool,
+	bpm:                 u16,
+	tracks:              [dynamic]Track,
+	engine:              ^ma.engine,
+	// For some reason this thing needs to be globally accessible (at least according to the docs),
+	// Perhaps we can localize it later.
+	delay:               ma.delay_node,
 	// for now there will be a fixed amount of channels, but irl this will be dynamic.
 	// channels are a miniaudio idea of basically audio processing groups. need to dive deeper into this
 	// as it probably will help in designging the audio processing stuff.
-	audio_groups: [N_AUDIO_GROUPS]^ma.sound_group,
-	playing:      bool,
-	// For some reason this thing needs to be globally accessible (at least according to the docs),
-	// Perhaps we can localize it later.
-	delay:        ma.delay_node,
+	audio_groups:        [N_AUDIO_GROUPS]^ma.sound_group,
+	//
+	// last_step_time: time.Time,
+	last_step_time_nsec: i64,
 }
 
 SOUND_FILE_LOAD_FLAGS: ma.sound_flags = {.DECODE, .NO_SPATIALIZATION}
@@ -67,6 +72,7 @@ setup_audio :: proc() -> ^Audio_State {
 	} else {
 		set_track_sound("/home/lucas/Music/test_sounds/the-create-vol-4/loops/01-save-the-day.wav", 0)
 	}
+	app.audio_state.bpm = 120
 	return audio_state
 }
 

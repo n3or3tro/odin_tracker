@@ -142,16 +142,16 @@ main :: proc() {
 		spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
 	}
 	init_app()
-	// thread.create_and_start(audio_thread_proc, priority = .High)
+	thread.create_and_start(audio_thread_timing_proc, priority = .High)
 	for {
 		// // assumes 120 fps
-		// max_frame_time_ns: f64 = 1_000_000 * 8.30
-		// start := time.now()._nsec
+		max_frame_time_ns: f64 = 1_000_000 * 8.30
+		start := time.now()._nsec
 		if !update_app() {
 			break
 		}
-		// frame_time := f64(time.now()._nsec - start)
-		// time_to_wait := time.Duration(max_frame_time_ns - frame_time)
+		frame_time := f64(time.now()._nsec - start)
+		time_to_wait := time.Duration(max_frame_time_ns - frame_time)
 		// if time_to_wait > 0 {
 		// 	time.accurate_sleep(time_to_wait)
 		// }
@@ -159,12 +159,42 @@ main :: proc() {
 	cleanup_app_state()
 }
 
-// audio_thread_proc :: proc() {
-// 	for {
-// 		time.accurate_sleep(time.Millisecond * 500)
-// 		println("hello from audio thread")
-// 	}
-// }
+/*  
+	Any data that is written to from outside this thread needs to be access atomically 
+	inside this thread. Might need to use locks, unclear right now.
+	Re-runs every 1ms.
+*/
+audio_thread_timing_proc :: proc() {
+	audio_start_time := time.now()
+	// time_between_beats := i64((f32(app.audio_state.bpm / 60)) * 1000)
+	time_between_beats := i64(60_000 / f64(app.audio_state.bpm))
+	// Probably need a special case to handle the first step.
+	for {
+		start_time := time.now()
+		last_step_time := app.audio_state.last_step_time_nsec
+		if sync.atomic_load(&app.audio_state.playing) {
+			curr_time := time.now()
+			time_since_last_step := (curr_time._nsec - last_step_time) / 1000 / 1000
+			if time_since_last_step >= time_between_beats {
+				for &track, track_num in app.audio_state.tracks {
+					track.curr_step = (track.curr_step + 1) % 32
+					if track.armed {
+						if ui_state.selected_steps[track_num][track.curr_step] {
+							play_track_step(u32(track_num))
+						}
+					}
+				}
+				sync.atomic_store(&app.audio_state.last_step_time_nsec, time.now()._nsec)
+			}
+		} else {
+			// printfln("didn't run, dif")
+		}
+		printfln("time between beats: {}", time_between_beats)
+		end_time := time.now()
+		// This might break if we take > 1ms in the above loop.
+		time.accurate_sleep(time.Microsecond * 1000 - time.Duration(end_time._nsec - start_time._nsec))
+	}
+}
 
 init_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	// sdl.Init({.AUDIO, .EVENTS, .TIMER})
@@ -456,7 +486,7 @@ update_app :: proc() -> bool {
 
 	create_ui()
 	render_ui()
-	handle_audio()
+	// handle_audio()
 
 	reset_renderer_data()
 	sdl.GL_SwapWindow(app.window)
@@ -466,21 +496,6 @@ update_app :: proc() -> bool {
 	frame_num^ += 1
 	app.curr_chars_stored = {}
 	return true
-}
-
-handle_audio :: proc() {
-	if app.audio_state.playing {
-		if ui_state.frame_num^ % (30) == 0 { 	// moves at 120BPM if fps is 120 FPS.
-			for &track, track_num in app.audio_state.tracks {
-				if track.armed {
-					if ui_state.selected_steps[track_num][track.curr_step] {
-						play_track_step(u32(track_num))
-					}
-					track.curr_step = (track.curr_step + 1) % 32
-				}
-			}
-		}
-	}
 }
 
 handle_input :: proc(event: sdl.Event) -> bool {

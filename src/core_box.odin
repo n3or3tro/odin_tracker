@@ -90,10 +90,19 @@ Box_Signals :: struct {
 	scrolled:       bool,
 }
 
+// Since I added this field late in the project, just keep box.type as general in order to keep the same behaviour as before
+Box_Type :: enum {
+	General,
+	Text_Input,
+	Num_Input,
+	Waveform,
+}
+
 Step_Value_Type :: union {
 	string, // pitch.
 	u32, // volume, send.s
 }
+
 // New Box struct based on my simplified layout algorithm.
 Box :: struct {
 	// UI info - color, padding, visual names, etc
@@ -135,9 +144,11 @@ Box :: struct {
 	// Feels a little wrong having this here, but let's try
 	signals:       Box_Signals,
 
-
 	// Helps determine event handling when items are stacked on each other.
 	z_index:       u8,
+	// Wasn't sure whether to add this or not, but basically I think it will be more helpful than messy,
+	// I.e. rather than always checking IDs, you can just check box.type
+	type:          Box_Type,
 }
 
 box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {

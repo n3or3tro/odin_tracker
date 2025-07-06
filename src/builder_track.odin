@@ -8,6 +8,7 @@ import "core:mem"
 import "core:strconv"
 import s "core:strings"
 import "core:text/edit"
+import "core:unicode"
 import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
 
@@ -68,7 +69,7 @@ pitch_step :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
 }
 
 num_step :: proc(id_string: string, rect: Rect) -> Num_Step_Input_Signals {
-	signals := step_num_input(id_string, rect)
+	signals := num_input(id_string, rect, 0, 100)
 	return signals
 }
 
@@ -128,13 +129,13 @@ handle_track_steps_interactions :: proc(track: Track_Steps_Signals, which: u32) 
 			}
 		}
 		if volume_box.signals.scrolled {
-			step_num_modify_value(volume_box, int(app.mouse.wheel.y))
+			step_num_modify_value(volume_box, 0, 100, int(app.mouse.wheel.y))
 		}
 		if send1_box.signals.scrolled {
-			step_num_modify_value(send1_box, int(app.mouse.wheel.y))
+			step_num_modify_value(send1_box, 0, 100, int(app.mouse.wheel.y))
 		}
 		if send2_box.signals.scrolled {
-			step_num_modify_value(send2_box, int(app.mouse.wheel.y))
+			step_num_modify_value(send2_box, 0, 100, int(app.mouse.wheel.y))
 		}
 	}
 }
@@ -169,20 +170,21 @@ enable_step :: proc(box: ^Box) {
 
 // assumes 0 <= value <= 100
 track_control :: proc(id_string: string, rect: ^Rect, value: f32, which: u32) -> Track_Control_Signals {
+	id := get_id_from_id_string(id_string)
 	buttons_rect := cut_rect(rect, {Size{.Percent, 0.1}, .Bottom})
 	enable_track_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Left})
-	enable_button_id := tprintf(
-		"{}@{}_button",
-		app.audio_state.tracks[which].armed ? "unarm" : "arm",
-		get_id_from_id_string(id_string),
-	)
+	enable_button_id := tprintf("{}@{}_button", app.audio_state.tracks[which].armed ? "unarm" : "arm", id)
 	push_color(palette.secondary.s_900)
 	enable_track_button := text_button(enable_button_id, enable_track_button_rect)
 	file_load_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Right})
-	file_load_button := text_button(
-		tprintf("load@{}_file_load_button", get_id_from_id_string(id_string)),
-		file_load_button_rect,
-	)
+	file_load_button := text_button(tprintf("load@{}_file_load_button", id), file_load_button_rect)
+
+	bpm_rect := cut_rect(rect, RectCut{Size{.Percent, 0.5}, .Left})
+	bpm_rect = cut_bottom(&bpm_rect, {.Percent, 0.5})
+	rects := cut_rect_into_n_vertically(bpm_rect, 2)
+	bpm_label_rect, bpm_input_rect := rects[0], rects[1]
+	bpm_label := text_container(tprintf("BPM:@bpm-label-track-{}", which), bpm_label_rect)
+	bpm_input := num_input(tprintf("bpm@bpm-input-track-{}", which), bpm_input_rect, 0, 100)
 
 	slider_track_rect := cut_rect(rect, RectCut{Size{.Percent, 1}, .Left})
 	slider_track_rect = shrink_x(slider_track_rect, {.Percent, 0.8})
@@ -198,7 +200,7 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32, which: u32) ->
 	slider_grip_rect.top_left.y -= (value / 100) * rect_height(slider_track_rect)
 	slider_grip := box_from_cache(
 		{.Clickable, .Hot_Animation, .Active_Animation, .Draggable, .Draw},
-		tprintf("grip@{}_grip", get_id_from_id_string(id_string)),
+		tprintf("grip@{}_grip", id),
 		slider_grip_rect,
 	)
 	append(&ui_state.temp_boxes, slider_grip)
@@ -247,7 +249,7 @@ calc_slider_grip_val :: proc(current_val: f32, max: f32) -> f32 {
 	}
 }
 
-step_num_input :: proc(id_string: string, rect: Rect) -> Num_Step_Input_Signals {
+num_input :: proc(id_string: string, rect: Rect, min, max: int) -> Num_Step_Input_Signals {
 	b := box_from_cache(
 		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
 		tprintf("{}-text-input", id_string),
@@ -277,26 +279,27 @@ step_num_input :: proc(id_string: string, rect: Rect) -> Num_Step_Input_Signals 
 				ui_state.active_box = nil
 				app.curr_chars_stored = 0
 				break
+			case:
+				ch := unicode.is_digit(rune(keycode))
 			}
 		}
 		app.curr_chars_stored = 0
 	}
-
-	step_num_modify_value(b, change)
+	step_num_modify_value(b, min, max, change)
 	append(&ui_state.temp_boxes, b)
 	return Num_Step_Input_Signals{box_signals = box_signals(b)}
 }
 
 // broke this out because it can be called in various circumstances:
 // arrow keys, vim keys, scrolling, (maybe dragging in the future).
-step_num_modify_value :: proc(box: ^Box, change: int) {
+step_num_modify_value :: proc(box: ^Box, min, max, change: int) {
 	box_value, has_value := box.value.?
 	if has_value {
 		switch _ in box_value {
 		case string:
 			panic("box.value was set as string in step_num_input()")
 		case u32:
-			box_value = clamp(u32(int(box.value.?.(u32)) + change), 0, 100)
+			box_value = clamp(u32(int(box.value.?.(u32)) + change), u32(min), u32(max))
 			box.value = box_value
 		}
 	} else {
