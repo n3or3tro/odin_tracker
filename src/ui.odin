@@ -5,10 +5,12 @@ import alg "core:math/linalg"
 import str "core:strings"
 import "core:sys/posix"
 import thread "core:thread"
+import "core:time"
 import gl "vendor:OpenGL"
 import "vendor:fontstash"
 import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
+
 
 Color :: [4]f32
 HSLA_Color :: [4]f32
@@ -20,50 +22,52 @@ Z_Layer :: enum {
 }
 
 UI_State :: struct {
-	box_cache:           Box_Cache, // cross-frame cache of boxes
-	font_atlases:        Atlases,
-	font_size:           Font_Size,
-	temp_boxes:          [dynamic]^Box,
-	first_frame:         bool, // dont want to render on the first frame
-	rect_stack:          [dynamic]^Rect,
-	settings_toggled:    bool,
-	color_stack:         [dynamic]Color,
-	font_size_stack:     [dynamic]Font_Size,
-	selected_steps:      [N_TRACKS][32]bool,
-	step_pitches:        [N_TRACKS][32]f32,
-	ui_scale:            f32, // between 0.0 and 1.0.
+	box_cache:             Box_Cache, // cross-frame cache of boxes
+	font_atlases:          Atlases,
+	font_size:             Font_Size,
+	temp_boxes:            [dynamic]^Box,
+	first_frame:           bool, // dont want to render on the first frame
+	rect_stack:            [dynamic]^Rect,
+	settings_toggled:      bool,
+	color_stack:           [dynamic]Color,
+	font_size_stack:       [dynamic]Font_Size,
+	selected_steps:        [N_TRACKS][32]bool,
+	step_pitches:          [N_TRACKS][32]f32,
+	ui_scale:              f32, // between 0.0 and 1.0.
 	// Used to tell the core layer to override some value
 	// of a box that's in the cache. Useful for parts of the code
 	// where the box isn't easilly accessible (like in audio related stuff).
-	override_color:      bool,
-	override_rect:       bool,
-	quad_vbuffer:        ^u32,
-	quad_vabuffer:       ^u32,
-	quad_shader_program: u32,
-	root_rect:           ^Rect,
-	frame_num:           ^u64,
+	override_color:        bool,
+	override_rect:         bool,
+	quad_vbuffer:          ^u32,
+	quad_vabuffer:         ^u32,
+	quad_shader_program:   u32,
+	root_rect:             ^Rect,
+	frame_num:             ^u64,
 	// hot_id:              string,
 	// active_id:           string,
-	hot_box:             ^Box,
-	active_box:          ^Box,
-	selected_box:        ^Box,
-	last_hot_box:        ^Box,
-	last_active_box:     ^Box,
-	z_index:             u8,
-	context_menu_pos:    Vec2,
-	context_menu_active: bool,
-	right_clicked_on:    ^Box,
-	wav_rendering_data:  map[ma.sound][dynamic]Rect_Render_Data,
+	hot_box:               ^Box,
+	active_box:            ^Box,
+	selected_box:          ^Box,
+	last_hot_box:          ^Box,
+	last_active_box:       ^Box,
+	z_index:               u8,
+	context_menu_pos:      Vec2,
+	context_menu_active:   bool,
+	right_clicked_on:      ^Box,
+	wav_rendering_data:    map[ma.sound][dynamic]Rect_Render_Data,
 	// Need to store where the cursor was across frame-boundaries.
-	text_cursor_pos:     int,
+	text_cursor_pos:       int,
 	// Actual pixel value of where the cursor is; we store this since it's 
 	// cumbersome to compute it inside the renderer code. This is mainly because
 	// the text input data is not available via a box / rect, only the id_string is.
 	// If id_strings store the inputted text in the future, then I can remove this.
-	text_cursor_x_coord: f32,
+	text_cursor_x_coord:   f32,
 	// the visual space between border of text box and the text inside.
-	text_box_padding:    u16,
-	keyboard_mode:       bool,
+	text_box_padding:      u16,
+	keyboard_mode:         bool,
+	last_clicked_box:      ^Box,
+	last_clicked_box_time: time.Time,
 }
 
 num_column :: proc(track_height: u32, n_steps: u32) {

@@ -186,10 +186,7 @@ audio_thread_timing_proc :: proc() {
 				}
 				sync.atomic_store(&app.audio_state.last_step_time_nsec, time.now()._nsec)
 			}
-		} else {
-			// printfln("didn't run, dif")
 		}
-		printfln("time between beats: {}", time_between_beats)
 		end_time := time.now()
 		// This might break if we take > 1ms in the above loop.
 		time.accurate_sleep(time.Microsecond * 1000 - time.Duration(end_time._nsec - start_time._nsec))
@@ -575,32 +572,6 @@ handle_input :: proc(event: sdl.Event) -> bool {
 	return true
 }
 
-
-// // stupid_sem: sync.Atomic_Sema
-// run_app :: proc() {
-// 	// The weird semaphore stuff is required because of Odin's bad thread
-// 	// implementation, don't exactly understand the issue, but without it t1, will join
-// 	// and finish before ui_thread has even started.
-
-// 	ui_thr := thread.create_and_start(proc() {
-// 		sync.atomic_sema_post(&stupid_sem)
-// 		ui_thread()
-// 	})
-// 	// waiting for ui_thread to start
-// 	sync.atomic_sema_wait_with_timeout(&stupid_sem, time.Millisecond * 200)
-
-// 	audio_thr := thread.create_and_start(proc() {
-// 		sync.atomic_sema_post(&stupid_sem)
-// 		audio_thread()
-// 	})
-// 	// waiting for audio_thread to start
-// 	sync.atomic_sema_wait_with_timeout(&stupid_sem, time.Millisecond * 200)
-
-// 	thread.join(ui_thr)
-// 	thread.join(audio_thr)
-// 	println(main_color)
-// }
-
 register_resize :: proc() -> bool {
 	old_width, old_height := app.wx^, app.wy^
 	sdl.GetWindowSize(app.window, app.wx, app.wy)
@@ -620,7 +591,6 @@ reset_mouse_state :: proc() {
 	app.mouse.wheel = {0, 0}
 	app.mouse.last_pos = app.mouse.pos
 	if app.mouse.clicked {
-		println("mouse clicked")
 		// do this here because events are captured before ui is created, 
 		// meaning context-menu.button1.signals.click will never be set.
 		ui_state.context_menu_active = false

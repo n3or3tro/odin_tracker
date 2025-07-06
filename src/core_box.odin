@@ -14,8 +14,8 @@ import "core:math/rand"
 import "core:mem"
 import "core:strings"
 import s "core:strings"
+import "core:time"
 import sdl "vendor:sdl2"
-
 
 Vec2 :: [2]f32
 Vec3 :: [3]f32
@@ -198,15 +198,24 @@ box_signals :: proc(box: ^Box) -> Box_Signals {
 		signals.pressed = app.mouse.left_pressed
 		signals.right_pressed = app.mouse.right_pressed
 		if left_clicked_on_box(box, prev_signals) {
+			if ui_state.last_active_box == box {
+				time_diff_ms := (time.now()._nsec - ui_state.last_clicked_box_time._nsec) / 1000 / 1000
+				if time_diff_ms <= 400 {
+					signals.double_clicked = true
+				}
+			}
+			printfln("clicked on {}", box.id_string)
 			ui_state.active_box = box
 			signals.clicked = true
+			ui_state.last_clicked_box = box
+			ui_state.last_clicked_box_time = time.now()
 		}
 		if right_clicked_on_box(box, prev_signals) {
 			ui_state.right_clicked_on = box
 			signals.right_clicked = true
 			println("right button clicked on: ", box.id_string)
 		}
-		if app.mouse.wheel != {0, 0} {
+		if app.mouse.wheel.y != 0 {
 			signals.scrolled = true
 		}
 		if signals.pressed {

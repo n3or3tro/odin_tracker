@@ -154,6 +154,10 @@ slice_markers :: proc(sampler: ^Sampler_State, waveform_rect: Rect, track_num: u
 			handle_rect,
 		)
 
+		if handle.double_clicked {
+			remove_slice_maker(slice.which, sampler)
+		}
+
 		// ============ Handle dragging slice markers.=====================
 		if handle.dragging {
 			sampler.dragged_slice = i
@@ -204,17 +208,15 @@ slice_markers :: proc(sampler: ^Sampler_State, waveform_rect: Rect, track_num: u
 	// Add first lable
 	sampler_slice_label(this_x, next_x, waveform_rect, sampler^, 0)
 	// sampler_slice_label(this_x, next_x, waveform_rect, sampler^, 0)
-	for i: u32 = 0; i < sampler.n_slices - 1; i += 1 {
-		// this_x := waveform_rect.top_left.x + sampler.slices[i].how_far * rect_width(waveform_rect)
-		// next_x := waveform_rect.top_left.x + sampler.slices[i + 1].how_far * rect_width(waveform_rect)
+	for j: u32 = 0; sampler.n_slices != 0 && j < sampler.n_slices - 1; j += 1 {
 		this_slice_screen_normalized :=
-			(sampler.slices[i].how_far - sampler.zoom_point) / (1 - sampler.zoom_amount)
+			(sampler.slices[j].how_far - sampler.zoom_point) / (1 - sampler.zoom_amount)
 		this_x := waveform_rect.top_left.x + this_slice_screen_normalized * rect_width(waveform_rect)
 
 		next_slice_screen_normalized :=
-			(sampler.slices[i + 1].how_far - sampler.zoom_point) / (1 - sampler.zoom_amount)
+			(sampler.slices[j + 1].how_far - sampler.zoom_point) / (1 - sampler.zoom_amount)
 		next_x := waveform_rect.top_left.x + next_slice_screen_normalized * rect_width(waveform_rect)
-		sampler_slice_label(this_x, next_x, waveform_rect, sampler^, i + 1)
+		sampler_slice_label(this_x, next_x, waveform_rect, sampler^, j + 1)
 	}
 	// Add last label.
 	if sampler.n_slices >= 1 {
@@ -312,11 +314,9 @@ sampler :: proc(id_string: string, rect: ^Rect) -> Sampler_Signals {
 		waveform_position_under_mouse := sampler.zoom_point + mouse_screen_normalized * old_visible_width
 
 		// Apply zoom change
-		if app.mouse.wheel.y == -1 {
-			println("decreasing (-) zoom")
+		if app.mouse.wheel.y < 0 {
 			decrease_zoom(sampler)
-		} else {
-			println("increasing (+) zoom")
+		} else if app.mouse.wheel.y > 0 {
 			increase_zoom(sampler)
 		}
 
@@ -391,4 +391,25 @@ add_slice_marker :: proc(new_value: f32, sampler: ^Sampler_State) {
 
 	sampler.slices[insert_pos] = new_slice
 	sampler.n_slices += 1
+}
+
+remove_slice_maker :: proc(slice_num: u32, sampler: ^Sampler_State) {
+	if sampler.n_slices == 1 {
+		sampler.slices[0] = {}
+		sampler.n_slices = 0
+	}
+	for i in 0 ..< sampler.n_slices {
+		slice := sampler.slices[i]
+		if slice.which == slice_num {
+			slice = {}
+			if !(u32(i) == sampler.n_slices - 1) {
+				mem.copy(
+					&sampler.slices[i],
+					&sampler.slices[i + 1],
+					int(size_of(Sampler_Slice) * (sampler.n_slices - u32(i) - 1)),
+				)
+			}
+			sampler.n_slices -= 1
+		}
+	}
 }
