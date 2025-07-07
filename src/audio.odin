@@ -45,7 +45,7 @@ setup_audio :: proc() -> ^Audio_State {
 	audio_state.tracks = make([dynamic]Track)
 	engine := new(ma.engine)
 
-	for i in 0 ..< N_TRACKS {
+	for i in 0 ..< MAX_TRACKS {
 		append(&audio_state.tracks, Track{})
 		audio_state.tracks[i].volume = f32(i + (i * 10))
 		audio_state.tracks[i].armed = true

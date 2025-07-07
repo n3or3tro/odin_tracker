@@ -7,6 +7,7 @@ import "core:math/rand"
 import "core:strconv"
 import str "core:strings"
 import "core:text/edit"
+import "core:unicode"
 import sdl "vendor:sdl2"
 
 Draggable_Container_Signals :: struct {
@@ -97,14 +98,118 @@ text_box :: proc(id_string: string, rect: Rect) -> Box_Signals {
 	return box_signals(b)
 }
 
+num_input :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
+	b := box_from_cache(
+		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
+		tprintf("{}-num-input", id_string),
+		rect,
+	)
+	if b.value == nil {
+		b.value = ""
+	}
+	buffer_to_use := b.value.?.(string)
+	signals := box_signals(b)
+	builder := str.builder_make()
+	state: edit.State
+
+	// Not sure if generating a unique ID is neccessary, but we shall do it anyway for now.
+	bytes_buffer: bytes.Buffer
+	defer bytes.buffer_destroy(&bytes_buffer)
+	bytes.buffer_init_string(&bytes_buffer, id_string)
+	byts := bytes.buffer_to_bytes(&bytes_buffer)
+	editor_id := u64(hash.crc32(byts))
+
+	edit.init(&state, context.temp_allocator, context.temp_allocator)
+	edit.setup_once(&state, &builder)
+	edit.begin(&state, editor_id, &builder)
+	edit.input_text(&state, buffer_to_use)
+
+	// Put cursor where it was last frame
+	diff := len(buffer_to_use) - app.ui_state.text_cursor_pos
+	diff = diff > 0 ? diff : diff * -1
+
+	for i := 0; i < diff; i += 1 {edit.move_to(&state, .Left)}
+
+	if app.ui_state.last_active_box == b {
+		i: u32 = 0
+		for i = 0; i < app.curr_chars_stored; i += 1 {
+			keycode := app.char_queue[i]
+			#partial switch keycode {
+			case .LEFT:
+				edit.move_to(&state, .Left)
+			case .RIGHT:
+				edit.move_to(&state, .Right)
+			case .BACKSPACE:
+				edit.delete_to(&state, .Left)
+			case .DELETE:
+				edit.delete_to(&state, .Right)
+			case .LCTRL | .RCTRL:
+			case .ESCAPE, .CAPSLOCK:
+				ui_state.last_active_box = nil
+				ui_state.active_box = nil
+				app.curr_chars_stored = 1
+				break
+			case .UP, .k:
+				len := len(state.builder.buf)
+				new_num := strconv.atoi(str.to_string(builder)) + 1
+				if new_num > 9999 {
+					new_num = 9999
+				}
+				buf: [4]u8
+				new_value := strconv.itoa(buf[:], new_num)
+				edit.move_to(&state, .Start)
+				edit.select_to(&state, .End)
+				edit.selection_delete(&state)
+				edit.input_text(&state, new_value)
+			case .DOWN, .j:
+				len := len(state.builder.buf)
+				new_num := strconv.atoi(str.to_string(builder)) - 1
+				if new_num < 0 {
+					new_num = 0
+				}
+				buf: [4]u8
+				new_value := strconv.itoa(buf[:], new_num)
+				edit.move_to(&state, .Start)
+				edit.select_to(&state, .End)
+				edit.selection_delete(&state)
+				edit.input_text(&state, new_value)
+			case:
+				ch := rune(keycode)
+				if unicode.is_number(ch) {
+					edit.input_rune(&state, rune(keycode))
+				}
+			}
+		}
+		// We do this because not every key should be handled by the text input.
+		// For example, the escape key, should remove focus from the current text box,
+		// but NOT be consumed, and instead be consumed elsewhere in the UI.
+		// app.curr_chars_stored -= app.curr_chars_stored - i
+		app.curr_chars_stored = 0
+	}
+
+	b.value = str.to_string(state.builder^)
+	append(&ui_state.temp_boxes, b)
+	res := Text_Input_Signals {
+		box_signals = signals,
+		new_string  = b.value.?.(string),
+		// Need to be careful here.
+		cursor_pos  = state.selection.x,
+	}
+	app.ui_state.text_cursor_pos = res.cursor_pos
+	app.ui_state.text_cursor_x_coord =
+		rect.top_left.x +
+		f32(app.ui_state.text_box_padding) +
+		f32(word_rendered_length(res.new_string[:res.cursor_pos], ui_state.font_size))
+	edit.end(&state)
+	return res
+}
+
 text_input :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
-	// could probably change the api of this function in order to avoid this messyness.
 	b := box_from_cache(
 		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
 		tprintf("{}-text-input", id_string),
 		rect,
 	)
-	// buffer_to_use := b.name == "" ? buffer : b.name
 	if b.value == nil {
 		b.value = ""
 	}

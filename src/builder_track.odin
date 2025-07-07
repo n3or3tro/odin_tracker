@@ -69,7 +69,7 @@ pitch_step :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
 }
 
 num_step :: proc(id_string: string, rect: Rect) -> Num_Step_Input_Signals {
-	signals := num_input(id_string, rect, 0, 100)
+	signals := old_num_input(id_string, rect, 0, 100)
 	return signals
 }
 
@@ -184,7 +184,7 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32, which: u32) ->
 	rects := cut_rect_into_n_vertically(bpm_rect, 2)
 	bpm_label_rect, bpm_input_rect := rects[0], rects[1]
 	bpm_label := text_container(tprintf("BPM:@bpm-label-track-{}", which), bpm_label_rect)
-	bpm_input := num_input(tprintf("bpm@bpm-input-track-{}", which), bpm_input_rect, 0, 100)
+	bpm_input := num_input(tprintf("bpm@bpm-input-track-{}", which), bpm_input_rect)
 
 	slider_track_rect := cut_rect(rect, RectCut{Size{.Percent, 1}, .Left})
 	slider_track_rect = shrink_x(slider_track_rect, {.Percent, 0.8})
@@ -249,7 +249,7 @@ calc_slider_grip_val :: proc(current_val: f32, max: f32) -> f32 {
 	}
 }
 
-num_input :: proc(id_string: string, rect: Rect, min, max: int) -> Num_Step_Input_Signals {
+old_num_input :: proc(id_string: string, rect: Rect, min, max: int) -> Num_Step_Input_Signals {
 	b := box_from_cache(
 		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
 		tprintf("{}-text-input", id_string),
@@ -323,19 +323,20 @@ track_num_from_step :: proc(id_string: string) -> u32 {
 }
 
 dropped_on_track :: proc() -> (u32, bool) {
-	mouse_x, mouse_y: i32
-	sdl.GetMouseState(&mouse_x, &mouse_y)
-	for i in 0 ..= N_TRACKS - 1 {
-		l := i32(f32(app.wx^) * f32(i) / f32(N_TRACKS))
-		r := i32(f32(app.wx^) * f32(i + 1) / f32(N_TRACKS))
-		printf("l: {}    r: {} ", l, r)
-		println("mouse state:", mouse_x)
-		println("i:", i, "i/ntracks:", f32(i) / f32(N_TRACKS))
-		if mouse_x >= l && mouse_x <= r {
-			return u32(i), true
-		}
-	}
 	return 0, false
+	// mouse_x, mouse_y: i32
+	// sdl.GetMouseState(&mouse_x, &mouse_y)
+	// for i in 0 ..= N_TRACKS - 1 {
+	// 	l := i32(f32(app.wx^) * f32(i) / f32(N_TRACKS))
+	// 	r := i32(f32(app.wx^) * f32(i + 1) / f32(N_TRACKS))
+	// 	printf("l: {}    r: {} ", l, r)
+	// 	println("mouse state:", mouse_x)
+	// 	println("i:", i, "i/ntracks:", f32(i) / f32(N_TRACKS))
+	// 	if mouse_x >= l && mouse_x <= r {
+	// 		return u32(i), true
+	// 	}
+	// }
+	// return 0, false
 }
 
 // The different parts of a single step.
@@ -394,4 +395,23 @@ get_substeps_input_from_step :: proc(
 	send1_box = ui_state.box_cache[create_substep_input_id(step_num, track_num, .Send1)]
 	send2_box = ui_state.box_cache[create_substep_input_id(step_num, track_num, .Send2)]
 	return pitch_box, volume_box, send1_box, send2_box
+}
+
+// Pretty janky, but it's the price we pay for earlier jank decisions of 
+// putting TOO much info in strings.
+get_track_num_from_track_id :: proc(id_string: string) -> u8 {
+	id := id_string[s.index(id_string, "@") + 1:]
+	start := s.index(id, "track") + len("track")
+	started_num := false
+	builder: s.Builder
+	num_str := s.builder_init(&builder, context.temp_allocator)
+	for ch in id[start:] {
+		if unicode.is_number(ch) {
+			s.write_rune(&builder, ch)
+			started_num = true
+		} else {
+			if started_num {break}
+		}
+	}
+	return u8(strconv.atoi(s.to_string(builder)))
 }

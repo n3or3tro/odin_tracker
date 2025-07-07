@@ -90,13 +90,13 @@ handle_top_bar_interactions :: proc(signals: Top_Bar_Signals) {
 		app.sampler_open = !app.sampler_open
 	}
 	if signals.tabs[0].clicked {
-		app.acitve_tab = 0
+		app.active_tab = 0
 	}
 	if signals.tabs[1].clicked {
-		app.acitve_tab = 1
+		app.active_tab = 1
 	}
 	if signals.tabs[2].clicked {
-		app.acitve_tab = 2
+		app.active_tab = 2
 	}
 }
 

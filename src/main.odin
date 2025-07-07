@@ -76,14 +76,18 @@ App_State :: struct {
 	sampler_pos:       Vec2,
 	dragging_window:   bool,
 	n_tracks:          u8,
-	acitve_tab:        u8,
+	active_tab:        u8,
 	// Doesn't actually need to be dynamic, just doing this coz the dynamic array API works well as a stack.
 	char_queue:        [32]sdl.Keycode,
 	curr_chars_stored: u32,
-	samplers:          [N_TRACKS]^Sampler_State,
+	samplers:          [MAX_TRACKS]^Sampler_State,
+	// Basically just tells you if track n exists or not.
+	tracks:            [MAX_TRACKS]bool,
 }
 
-N_TRACKS :: 10
+
+// Should be relatively arbitrary to extend this.
+MAX_TRACKS :: 20
 
 app: ^App_State
 ui_state: ^UI_State
@@ -289,7 +293,8 @@ init_app :: proc() -> ^App_State {
 	ui_state = app.ui_state
 	init_ui_state()
 	setup_audio()
-	for i in 0 ..< N_TRACKS {
+	// Could save memory by creating these only when needed.
+	for i in 0 ..< MAX_TRACKS {
 		new_sampler_state := new(Sampler_State)
 		app.samplers[i] = new_sampler_state
 	}

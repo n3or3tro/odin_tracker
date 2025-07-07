@@ -31,8 +31,8 @@ UI_State :: struct {
 	settings_toggled:      bool,
 	color_stack:           [dynamic]Color,
 	font_size_stack:       [dynamic]Font_Size,
-	selected_steps:        [N_TRACKS][32]bool,
-	step_pitches:          [N_TRACKS][32]f32,
+	selected_steps:        [MAX_TRACKS][32]bool,
+	step_pitches:          [MAX_TRACKS][32]f32,
 	ui_scale:              f32, // between 0.0 and 1.0.
 	// Used to tell the core layer to override some value
 	// of a box that's in the cache. Useful for parts of the code
@@ -100,6 +100,7 @@ main_tracker_panel :: proc() {
 		top_left     = {track_width * f32(app.n_tracks) + 100, f32(app.wy^ / 2) - 50},
 		bottom_right = {track_width * f32(app.n_tracks) + 150, f32(app.wy^ / 2)},
 	}
+
 	ui_state.z_index = 5
 	add_track := text_button("+@add-track-button", add_track_rect)
 	ui_state.z_index = 0
@@ -294,7 +295,7 @@ move_active_box_down :: proc() {
 create_ui :: proc() {
 	topbar := top_bar()
 	handle_top_bar_interactions(topbar)
-	switch app.acitve_tab {
+	switch app.active_tab {
 	case 0:
 		main_tracker_panel()
 	case 1:
