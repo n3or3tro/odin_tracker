@@ -21,25 +21,29 @@ Text_Input_Signals :: struct {
 	cursor_pos:  int,
 }
 
-container :: proc(id_string: string, rect: Rect) -> Box_Signals {
+container :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> Box_Signals {
 	b := box_from_cache({}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)
 }
 
-clickable_container :: proc(id_string: string, rect: Rect) -> Box_Signals {
+clickable_container :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> Box_Signals {
 	b := box_from_cache({.Clickable}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)
 }
 
-line :: proc(id_string: string, rect: Rect) -> Box_Signals {
+line :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> Box_Signals {
 	b := box_from_cache({.Draw}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)
 }
 
-draggable_container :: proc(id_string: string, rect: ^Rect) -> Draggable_Container_Signals {
+draggable_container :: proc(
+	id_string: string,
+	rect: ^Rect,
+	metadata: Box_Metadata = {},
+) -> Draggable_Container_Signals {
 	handle_bar_rect := cut_rect(rect, RectCut{side = .Top, size = {.Percent, 0.05}})
 	handle_bar := text_button(tprintf("drag-me@{}-handle-bar", id_string), handle_bar_rect)
 	b := box_from_cache({.Floating_X, .Draw}, id_string, rect^)
@@ -47,7 +51,7 @@ draggable_container :: proc(id_string: string, rect: ^Rect) -> Draggable_Contain
 	return Draggable_Container_Signals{handle_bar = handle_bar, container = box_signals(b)}
 }
 
-text_container :: proc(id_string: string, rect: Rect) -> Box_Signals {
+text_container :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> Box_Signals {
 	b := box_from_cache({.Draw_Text}, id_string, rect)
 	b.color = {1, 1, 1, 1}
 	append(&ui_state.temp_boxes, b)
@@ -56,7 +60,7 @@ text_container :: proc(id_string: string, rect: Rect) -> Box_Signals {
 
 // Lets you draw a text container at an absolute x,y position and calculates size
 // based on the font. ui_state.font_size has to be set if you want the right font size.
-text_container_absolute :: proc(id_string: string, x, y: f32) -> Box_Signals {
+text_container_absolute :: proc(id_string: string, x, y: f32, metadata: Box_Metadata = {}) -> Box_Signals {
 	name := get_name_from_id_string(id_string)
 	length := f32(word_rendered_length(name, ui_state.font_size))
 	height := tallest_rendered_char(name, ui_state.font_size)
@@ -67,20 +71,19 @@ text_container_absolute :: proc(id_string: string, x, y: f32) -> Box_Signals {
 	return box_signals(b)
 }
 
-button :: proc(id_string: string, rect: Rect) -> Box_Signals {
+button :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> Box_Signals {
 	b := box_from_cache({.Draw, .Clickable, .Active_Animation, .Hot_Animation}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)
 }
 
-text_button :: proc(id_string: string, rect: Rect) -> Box_Signals {
+text_button :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> Box_Signals {
 	b := box_from_cache({.Draw, .Clickable, .Active_Animation, .Draw_Text, .Hot_Animation}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)
 }
-
 // Same as text_container_absolute, but for text buttons.
-text_button_absolute :: proc(id_string: string, x, y: f32) -> Box_Signals {
+text_button_absolute :: proc(id_string: string, x, y: f32, metadata: Box_Metadata = {}) -> Box_Signals {
 	name := get_name_from_id_string(id_string)
 	length := f32(word_rendered_length(name, ui_state.font_size))
 	height := tallest_rendered_char(name, ui_state.font_size)
@@ -91,14 +94,14 @@ text_button_absolute :: proc(id_string: string, x, y: f32) -> Box_Signals {
 }
 
 // Differs from text_container as it's like <input> element from HTML.
-text_box :: proc(id_string: string, rect: Rect) -> Box_Signals {
+text_box :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> Box_Signals {
 	data: string // might need to allocte this.
 	b := box_from_cache({.Draw, .Clickable, .Draw_Text}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)
 }
 
-num_input :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
+num_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> Text_Input_Signals {
 	b := box_from_cache(
 		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
 		tprintf("{}-num-input", id_string),
@@ -204,11 +207,12 @@ num_input :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
 	return res
 }
 
-text_input :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
+text_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> Text_Input_Signals {
 	b := box_from_cache(
 		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
 		tprintf("{}-text-input", id_string),
 		rect,
+		metadata,
 	)
 	if b.value == nil {
 		b.value = ""
@@ -256,22 +260,25 @@ text_input :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
 				ui_state.active_box = nil
 				app.curr_chars_stored = 1
 				break
-			// for pitch editing
 			case .UP:
-				if str.contains(id_string, "pitch") {
-					new_value := up_one_semitone(str.to_string(builder))
-					edit.move_to(&state, .Start)
-					edit.select_to(&state, .End)
-					edit.selection_delete(&state)
-					edit.input_text(&state, new_value)
+				if val, is_pitch_step := metadata.(Step_Metadata); is_pitch_step {
+					if val.step_type == .Pitch {
+						new_value := up_one_semitone(str.to_string(builder))
+						edit.move_to(&state, .Start)
+						edit.select_to(&state, .End)
+						edit.selection_delete(&state)
+						edit.input_text(&state, new_value)
+					}
 				}
 			case .DOWN:
-				if str.contains(id_string, "pitch") {
-					new_value := down_one_semitone(str.to_string(builder))
-					edit.move_to(&state, .Start)
-					edit.select_to(&state, .End)
-					edit.selection_delete(&state)
-					edit.input_text(&state, new_value)
+				if val, is_pitch_step := metadata.(Step_Metadata); is_pitch_step {
+					if val.step_type == .Pitch {
+						new_value := down_one_semitone(str.to_string(builder))
+						edit.move_to(&state, .Start)
+						edit.select_to(&state, .End)
+						edit.selection_delete(&state)
+						edit.input_text(&state, new_value)
+					}
 				}
 			case:
 				edit.input_rune(&state, rune(keycode))

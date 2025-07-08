@@ -90,18 +90,54 @@ Box_Signals :: struct {
 	scrolled:       bool,
 }
 
-// Since I added this field late in the project, just keep box.type as general in order to keep the same behaviour as before
-Box_Type :: enum {
-	General,
-	Text_Input,
-	Num_Input,
-	Waveform,
+// Box-specific metadata, the idea here is: we were using id_strings to hold too much information.
+// It was a non type safe, slow-to-parse, way of storing this info that should just be stored on the box.
+// However, as a general rule we want to keep the UI core relatively small and simple, so don't want to 
+// implement all application state via this mechanism - this is a tricky design tradeoff, that may require
+// further refactoring in the future.
+Box_Metadata :: union #no_nil {
+	No_Metadata,
+	Step_Metadata,
+	Track_Control_Metadata,
+	Sampler_Metadata,
 }
+
+No_Metadata :: struct {}
+
+Step_Metadata :: struct {
+	track_num: u32,
+	step_num:  u32,
+	step_type: Track_Step_Part,
+}
+Track_Control_Metadata :: struct {
+	track_num:    u32,
+	control_type: enum {
+		// Sometimes all you want is the track_number.
+		Irrelevant,
+		Volume_Slider,
+		Enable_Button,
+		File_Load_Button,
+		BPM_Input,
+	},
+}
+
+Sampler_Metadata :: struct {
+	track_num:    u32,
+	sampler_part: enum {
+		Waveform,
+		Slice_Marker,
+		ADSR_Knob,
+		Mode_Button,
+	},
+	slice_num:    Maybe(u32), // For slice markers
+}
+
 
 Step_Value_Type :: union {
 	string, // pitch.
 	u32, // volume, send.s
 }
+
 
 // New Box struct based on my simplified layout algorithm.
 Box :: struct {
@@ -146,19 +182,27 @@ Box :: struct {
 
 	// Helps determine event handling when items are stacked on each other.
 	z_index:       u8,
+
 	// Wasn't sure whether to add this or not, but basically I think it will be more helpful than messy,
-	// I.e. rather than always checking IDs, you can just check box.type
-	type:          Box_Type,
+	// I.e. rather than always parsing id_string's, we'll store metadata when relevant.
+	metadata:      Box_Metadata,
 }
 
-box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
+box_from_cache :: proc(
+	flags: Box_Flags,
+	id_string: string,
+	rect: Rect,
+	metadata: Box_Metadata = {},
+) -> ^Box {
 	if id_string in ui_state.box_cache {
 		box := ui_state.box_cache[id_string]
 		box.rect = rect
+		// Not sure if this is neccessary.
+		// box.metadata = metadata
 		return box
 	} else {
 		persistant_id_string := s.clone(id_string)
-		new_box := box_make(flags, persistant_id_string, rect)
+		new_box := box_make(flags, persistant_id_string, rect, metadata)
 		if id_string != "spacer@spacer" {
 			ui_state.box_cache[persistant_id_string] = new_box
 			printfln("creating new box with id_string: {}", id_string)
@@ -167,7 +211,7 @@ box_from_cache :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box 
 	}
 }
 
-box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
+box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> ^Box {
 	box := new(Box)
 	box.flags = flags
 	box.id_string = id_string
@@ -183,6 +227,7 @@ box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect) -> ^Box {
 	box.rect = rect
 	box.z_index = ui_state.z_index
 	box.font_size = ui_state.font_size
+	box.metadata = metadata
 	return box
 }
 

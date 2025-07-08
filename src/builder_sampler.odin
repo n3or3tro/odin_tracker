@@ -76,10 +76,9 @@ sampler_left_controls :: proc(rect: ^Rect) {
 	}
 }
 
-sampler_bottom_controls :: proc(rect: ^Rect) {
+sampler_bottom_controls :: proc(rect: ^Rect, track_num: u32) {
 	// Create ADSR controls
 	adsr_rect := cut_left(rect, {.Percent, 0.3})
-	// test_button := button("test layout@flaskjdflaksjdf", cut_right(&container.rect, {.Percent, 0.2}))
 	rects := cut_rect_into_n_horizontally(adsr_rect, 4)
 
 	attack_rect := rect_to_square(rects[0])
@@ -88,16 +87,16 @@ sampler_bottom_controls :: proc(rect: ^Rect) {
 	release_rect := rect_to_square(rects[3])
 
 	pack_to_left({&attack_rect, &decay_rect, &sustain_rect, &release_rect}, margin = 15)
-
 	ui_state.font_size = .s
-	attack_knob := knob("attack@sampler-attack-knob", &attack_rect)
-	decay_knob := knob("decay@sampler-decay-knob", &decay_rect)
-	sustain_knob := knob("sustain@sampler-sustain-knob", &sustain_rect)
-	release_knob := knob("release@sampler-release-knob", &release_rect)
+	knob_metadata := Sampler_Metadata{track_num, .ADSR_Knob, {}}
+	attack_knob := knob(tprintf("sustain@sampler-{}-attack-knob", track_num), &attack_rect, knob_metadata)
+	decay_knob := knob(tprintf("sustain@sampler-{}-decay-knob", track_num), &decay_rect, knob_metadata)
+	sustain_knob := knob(tprintf("sustain@sampler-{}-sustain-knob", track_num), &sustain_rect, knob_metadata)
+	release_knob := knob(tprintf("sustain@sampler-{}-release-knob", track_num), &release_rect, knob_metadata)
 	ui_state.font_size = .l
 
 	line(
-		"line@adsr_margin_line",
+		tprintf("line@sampler-{}-adsr_margin_line", track_num),
 		{
 			{adsr_rect.bottom_right.x, adsr_rect.top_left.y},
 			{adsr_rect.bottom_right.x + 1, adsr_rect.bottom_right.y},
@@ -231,7 +230,7 @@ slice_markers :: proc(sampler: ^Sampler_State, waveform_rect: Rect, track_num: u
 	}
 }
 
-sampler :: proc(id_string: string, rect: ^Rect) -> Sampler_Signals {
+sampler :: proc(id_string: string, rect: ^Rect, track_num: u32) -> Sampler_Signals {
 	sampler_name := get_name_from_id_string(id_string)
 	ui_state.z_index = 2
 	defer ui_state.z_index = 0
@@ -252,7 +251,7 @@ sampler :: proc(id_string: string, rect: ^Rect) -> Sampler_Signals {
 		bottom_controls_rect,
 	)
 
-	sampler_bottom_controls(&bottom_controls_container.box.rect)
+	sampler_bottom_controls(&bottom_controls_container.box.rect, track_num)
 
 	active_track := get_active_track()
 	if app.audio_state.tracks[active_track].sound != nil &&

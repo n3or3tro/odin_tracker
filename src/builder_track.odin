@@ -42,7 +42,11 @@ Num_Step_Input_Signals :: struct {
 create_track :: proc(which: u32, track_width: f32) -> Track_Steps_Signals {
 	track_rect := cut_rect(top_rect(), RectCut{Size{.Pixels, track_width}, .Left})
 	track_controlls_rect := cut_rect(&track_rect, RectCut{Size{.Percent, 0.20}, .Bottom})
-	track_container := container(tprintf("container@track-{}-container", which), track_rect)
+	track_container := container(
+		tprintf("container@track-{}-container", which),
+		track_rect,
+		Track_Control_Metadata{which, {}},
+	)
 
 	push_parent_rect(&track_rect)
 	push_parent_rect(&track_controlls_rect)
@@ -63,19 +67,21 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Steps_Signals {
 	return steps
 }
 
-pitch_step :: proc(id_string: string, rect: Rect) -> Text_Input_Signals {
-	signals := text_input(id_string, rect)
+pitch_step :: proc(id_string: string, rect: Rect, metadata: Step_Metadata) -> Text_Input_Signals {
+	if type_of(metadata) != Step_Metadata {
+		panic(tprintf("pitch setp was created with Step_Metadata. id_string = {}", id_string))
+	}
+	signals := text_input(id_string, rect, metadata)
 	return signals
 }
 
-num_step :: proc(id_string: string, rect: Rect) -> Num_Step_Input_Signals {
-	signals := old_num_input(id_string, rect, 0, 100)
+num_step :: proc(id_string: string, rect: Rect, metadata: Step_Metadata) -> Num_Step_Input_Signals {
+	signals := old_num_input(id_string, rect, 0, 100, metadata)
 	return signals
 }
 
 track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_Signals {
 	step_height := rect_height(rect^) / 32
-	color1: [4]f32 = {0.9, 0.5, 0.1, 1}
 	steps: Track_Steps_Signals
 	// Shouldn't hardcode num of steps.
 	for i: u32 = 0; i < 32; i += 1 {
@@ -85,16 +91,32 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 		each_steps_rect := cut_rect_into_n_horizontally(steps_rect, 4)
 
 		push_color(palette.primary.s_500)
-		pitch_box := pitch_step(create_subset_id(i, which, .Pitch), each_steps_rect[0])
+		pitch_box := pitch_step(
+			create_subset_id(i, which, .Pitch),
+			each_steps_rect[0],
+			Step_Metadata{which, i, .Pitch},
+		)
 
 		push_color(palette.secondary.s_500)
-		volume_box := num_step(create_subset_id(i, which, .Volume), each_steps_rect[1])
+		volume_box := num_step(
+			create_subset_id(i, which, .Volume),
+			each_steps_rect[1],
+			Step_Metadata{which, i, .Volume},
+		)
 
 		push_color(palette.secondary.s_400)
-		step1_box := num_step(create_subset_id(i, which, .Send1), each_steps_rect[2])
+		step1_box := num_step(
+			create_subset_id(i, which, .Send1),
+			each_steps_rect[2],
+			Step_Metadata{which, i, .Send1},
+		)
 
 		push_color(palette.secondary.s_400)
-		step2_box := num_step(create_subset_id(i, which, .Send2), each_steps_rect[3])
+		step2_box := num_step(
+			create_subset_id(i, which, .Send2),
+			each_steps_rect[3],
+			Step_Metadata{which, i, .Send2},
+		)
 
 		individual_step := Individual_Step_Signals {
 			pitch  = pitch_box,
@@ -175,16 +197,28 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32, which: u32) ->
 	enable_track_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Left})
 	enable_button_id := tprintf("{}@{}_button", app.audio_state.tracks[which].armed ? "unarm" : "arm", id)
 	push_color(palette.secondary.s_900)
-	enable_track_button := text_button(enable_button_id, enable_track_button_rect)
+	enable_track_button := text_button(
+		enable_button_id,
+		enable_track_button_rect,
+		Track_Control_Metadata{which, .Enable_Button},
+	)
 	file_load_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Right})
-	file_load_button := text_button(tprintf("load@{}_file_load_button", id), file_load_button_rect)
+	file_load_button := text_button(
+		tprintf("load@{}_file_load_button", id),
+		file_load_button_rect,
+		Track_Control_Metadata{which, .File_Load_Button},
+	)
 
 	bpm_rect := cut_rect(rect, RectCut{Size{.Percent, 0.5}, .Left})
 	bpm_rect = cut_bottom(&bpm_rect, {.Percent, 0.5})
 	rects := cut_rect_into_n_vertically(bpm_rect, 2)
 	bpm_label_rect, bpm_input_rect := rects[0], rects[1]
 	bpm_label := text_container(tprintf("BPM:@bpm-label-track-{}", which), bpm_label_rect)
-	bpm_input := num_input(tprintf("bpm@bpm-input-track-{}", which), bpm_input_rect)
+	bpm_input := num_input(
+		tprintf("bpm@bpm-input-track-{}", which),
+		bpm_input_rect,
+		Track_Control_Metadata{which, .BPM_Input},
+	)
 
 	slider_track_rect := cut_rect(rect, RectCut{Size{.Percent, 1}, .Left})
 	slider_track_rect = shrink_x(slider_track_rect, {.Percent, 0.8})
@@ -202,6 +236,7 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32, which: u32) ->
 		{.Clickable, .Hot_Animation, .Active_Animation, .Draggable, .Draw},
 		tprintf("grip@{}_grip", id),
 		slider_grip_rect,
+		Track_Control_Metadata{which, .Volume_Slider},
 	)
 	append(&ui_state.temp_boxes, slider_grip)
 	clear_color_stack()
@@ -249,11 +284,17 @@ calc_slider_grip_val :: proc(current_val: f32, max: f32) -> f32 {
 	}
 }
 
-old_num_input :: proc(id_string: string, rect: Rect, min, max: int) -> Num_Step_Input_Signals {
+old_num_input :: proc(
+	id_string: string,
+	rect: Rect,
+	min, max: int,
+	metadata: Step_Metadata,
+) -> Num_Step_Input_Signals {
 	b := box_from_cache(
 		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
 		tprintf("{}-text-input", id_string),
 		rect,
+		metadata,
 	)
 	change: int
 	if app.ui_state.last_active_box == b {
@@ -307,19 +348,24 @@ step_num_modify_value :: proc(box: ^Box, min, max, change: int) {
 	}
 }
 
-// This code is fairly brittle as it relies on box id strings of steps being of a certain format.
 step_num_from_step :: proc(id_string: string) -> u32 {
-	name := get_name_from_id_string(id_string)
-	index_of_num := s.index(name, "-")
-	num := u32(strconv.atoi(name[index_of_num + 1:]))
-	return num
+	if id_string in ui_state.box_cache {
+		box := ui_state.box_cache[id_string]
+		metadata := box.metadata.(Step_Metadata)
+		return metadata.step_num
+	} else {
+		panic("tried to get step num from a step whose ID doesn't exist!!!")
+	}
 }
 
 track_num_from_step :: proc(id_string: string) -> u32 {
-	track_id := get_id_from_id_string(id_string)
-	start := s.index(track_id, "track") + len("track")
-	num := u32(strconv.atoi(track_id[start:]))
-	return num
+	if id_string in ui_state.box_cache {
+		box := ui_state.box_cache[id_string]
+		metadata := box.metadata.(Step_Metadata)
+		return metadata.track_num
+	} else {
+		panic("tried to get track num from a step whose ID doesn't exist!!!")
+	}
 }
 
 dropped_on_track :: proc() -> (u32, bool) {
@@ -395,23 +441,4 @@ get_substeps_input_from_step :: proc(
 	send1_box = ui_state.box_cache[create_substep_input_id(step_num, track_num, .Send1)]
 	send2_box = ui_state.box_cache[create_substep_input_id(step_num, track_num, .Send2)]
 	return pitch_box, volume_box, send1_box, send2_box
-}
-
-// Pretty janky, but it's the price we pay for earlier jank decisions of 
-// putting TOO much info in strings.
-get_track_num_from_track_id :: proc(id_string: string) -> u8 {
-	id := id_string[s.index(id_string, "@") + 1:]
-	start := s.index(id, "track") + len("track")
-	started_num := false
-	builder: s.Builder
-	num_str := s.builder_init(&builder, context.temp_allocator)
-	for ch in id[start:] {
-		if unicode.is_number(ch) {
-			s.write_rune(&builder, ch)
-			started_num = true
-		} else {
-			if started_num {break}
-		}
-	}
-	return u8(strconv.atoi(s.to_string(builder)))
 }

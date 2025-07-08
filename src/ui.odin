@@ -112,7 +112,11 @@ main_tracker_panel :: proc() {
 	if app.sampler_open {
 		sampler_top_left := app.sampler_pos
 		sampler_bottom_right := Vec2{1000 + sampler_top_left.x, 500 + sampler_top_left.y}
-		sampler_signals := sampler("sampler@first-sampler", &Rect{sampler_top_left, sampler_bottom_right})
+		sampler_signals := sampler(
+			"sampler@first-sampler",
+			&Rect{sampler_top_left, sampler_bottom_right},
+			get_active_track(),
+		)
 		if sampler_signals.container_signals.handle_bar.dragging {
 			app.dragging_window = true
 		}
@@ -183,26 +187,23 @@ move_active_box_left :: proc() {
 	box := app.ui_state.selected_box
 	step_num := u32(step_num_from_step(box.id_string))
 	track_num := u32(track_num_from_step(box.id_string))
-
 	next_active_box_id: string
-	if str.contains(box.id_string, "send2") {
-		next_active_box_id = create_substep_input_id(step_num, track_num, .Send1)
-	} else if str.contains(box.id_string, "send1") {
-		next_active_box_id = create_substep_input_id(step_num, track_num, .Volume)
-	} else if str.contains(box.id_string, "volume") {
-		next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch)
-	} else if str.contains(box.id_string, "pitch") {
+	data := box.metadata.(Step_Metadata)
+	switch data.step_type {
+	case .Pitch:
 		if track_num > 0 {
 			next_active_box_id = create_substep_input_id(step_num, track_num - 1, .Send2)
 		} else {
 			return
 		}
-	} else {
-		panic("we don't know how to move left :(")
+	case .Volume:
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch)
+	case .Send1:
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Volume)
+	case .Send2:
+		next_active_box_id = create_substep_input_id(step_num, track_num, .Send1)
 	}
-
 	next_box := ui_state.box_cache[next_active_box_id]
-	// printfln("next box id string: {}, next box: {}", next_active_box_id, next_box)
 	box.selected = false
 	next_box.selected = true
 	ui_state.selected_box = next_box
@@ -215,24 +216,24 @@ move_active_box_right :: proc() {
 	track_num := u32(track_num_from_step(box.id_string))
 	next_active_box_id: string
 
-	if str.contains(box.id_string, "pitch") {
+	data := box.metadata.(Step_Metadata)
+	switch data.step_type {
+	case .Pitch:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Volume)
-	} else if str.contains(box.id_string, "volume") {
+
+	case .Volume:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Send1)
-	} else if str.contains(box.id_string, "send1") {
+
+	case .Send1:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Send2)
 
-	} else if str.contains(box.id_string, "send2") {
+	case .Send2:
 		if track_num < u32(app.n_tracks) - 1 {
 			next_active_box_id = create_substep_input_id(step_num, track_num + 1, .Pitch)
 		} else {
 			return
 		}
-	} else {
-		printfln("box.id_string: {}", box.id_string)
-		panic("we don't know how to move left :(")
 	}
-
 	next_box := ui_state.box_cache[next_active_box_id]
 	box.selected = false
 	next_box.selected = true
@@ -247,17 +248,16 @@ move_active_box_up :: proc() {
 		return
 	}
 	next_active_box_id: string
-	if str.contains(box.id_string, "pitch") {
+	data := box.metadata.(Step_Metadata)
+	switch data.step_type {
+	case .Pitch:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch)
-	} else if str.contains(box.id_string, "volume") {
+	case .Volume:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Volume)
-	} else if str.contains(box.id_string, "send1") {
+	case .Send1:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Send1)
-	} else if str.contains(box.id_string, "send2") {
+	case .Send2:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Send2)
-	} else {
-		printfln("box.id_string: {}", box.id_string)
-		panic("we don't know how to move left :(")
 	}
 	next_box := ui_state.box_cache[next_active_box_id]
 	box.selected = false
@@ -274,17 +274,16 @@ move_active_box_down :: proc() {
 		return
 	}
 	next_active_box_id: string
-	if str.contains(box.id_string, "pitch") {
+	data := box.metadata.(Step_Metadata)
+	switch data.step_type {
+	case .Pitch:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch)
-	} else if str.contains(box.id_string, "volume") {
+	case .Volume:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Volume)
-	} else if str.contains(box.id_string, "send1") {
+	case .Send1:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Send1)
-	} else if str.contains(box.id_string, "send2") {
+	case .Send2:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Send2)
-	} else {
-		printfln("box.id_string: {}", box.id_string)
-		panic("we don't know how to move down :(")
 	}
 	next_box := ui_state.box_cache[next_active_box_id]
 	box.selected = false

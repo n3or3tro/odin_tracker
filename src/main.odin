@@ -480,15 +480,19 @@ update_app :: proc() -> bool {
 
 	event: sdl.Event
 	reset_mouse_state()
+	show_context_menu, exit: bool
 	for sdl.PollEvent(&event) {
-		if !handle_input(event) {
+		exit, show_context_menu = handle_input(event)
+		if exit {
 			return false
 		}
 	}
 
 	create_ui()
+	if show_context_menu {
+		ui_state.context_menu_active = true
+	}
 	render_ui()
-	// handle_audio()
 
 	reset_renderer_data()
 	sdl.GL_SwapWindow(app.window)
@@ -500,10 +504,10 @@ update_app :: proc() -> bool {
 	return true
 }
 
-handle_input :: proc(event: sdl.Event) -> bool {
+handle_input :: proc(event: sdl.Event) -> (exit, show_context_menu: bool) {
 	etype := event.type
 	if etype == .QUIT {
-		return false
+		exit = true
 	}
 	if etype == .MOUSEMOTION {
 		app.mouse.last_pos = app.mouse.pos
@@ -534,15 +538,8 @@ handle_input :: proc(event: sdl.Event) -> bool {
 				app.mouse.drag_done = false
 			}
 			app.mouse.left_pressed = true
-		// ui_state.context_menu_active = false
 		case sdl.BUTTON_RIGHT:
 			app.mouse.right_pressed = true
-			if ui_state.context_menu_active {
-
-			} else {
-				ui_state.context_menu_pos = Vec2{f32(app.mouse.pos.x), f32(app.mouse.pos.y)}
-				ui_state.context_menu_active = true
-			}
 		}
 	}
 	if etype == .MOUSEBUTTONUP {
@@ -550,6 +547,7 @@ handle_input :: proc(event: sdl.Event) -> bool {
 		case sdl.BUTTON_LEFT:
 			if app.mouse.left_pressed {
 				app.mouse.clicked = true
+				show_context_menu = false
 			}
 			app.mouse.left_pressed = false
 			app.mouse.drag_end = app.mouse.pos
@@ -558,8 +556,10 @@ handle_input :: proc(event: sdl.Event) -> bool {
 			app.dragging_window = false
 			printf("mouse was dragged from {} to {}\n", app.mouse.drag_start, app.mouse.drag_end)
 		case sdl.BUTTON_RIGHT:
-			if app.mouse.right_pressed {
+			if app.mouse.right_pressed { 	// i.e. A right click was performed.
 				app.mouse.right_clicked = true
+				show_context_menu = true
+				ui_state.context_menu_pos = Vec2{f32(app.mouse.pos.x), f32(app.mouse.pos.y)}
 			}
 			app.mouse.right_pressed = false
 		}
@@ -574,7 +574,7 @@ handle_input :: proc(event: sdl.Event) -> bool {
 			set_track_sound(event.drop.file, which)
 		}
 	}
-	return true
+	return exit, show_context_menu
 }
 
 register_resize :: proc() -> bool {

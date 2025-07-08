@@ -6,6 +6,7 @@ import "core:fmt"
 import "core:math"
 import alg "core:math/linalg"
 import "core:math/rand"
+import "core:mem/tlsf"
 import "core:strconv"
 import s "core:strings"
 import gl "vendor:OpenGL"
@@ -97,7 +98,7 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 	}
 
 	// Add red outline to indicate the current step of the sequence.
-	if s.contains(box.id_string, "step") {
+	if val, is_step := box.metadata.(Step_Metadata); is_step {
 		data.border_thickness = 100
 		if is_active_step(box) {
 			data.corner_radius = 0
@@ -119,7 +120,7 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 
 
 	// Add cursor inside text box. Blinking is kinda jank right now.
-	if s.contains(box.id_string, "input") && should_render_text_cursor() {
+	if .Edit_Text in box.flags && should_render_text_cursor() {
 		color := Color{0, 0.5, 1, 1}
 		cursor_data := Rect_Render_Data {
 			top_left         = {app.ui_state.text_cursor_x_coord, box.rect.top_left.y + 3},
@@ -146,7 +147,7 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 	}
 
 	// Add 2 rects to serve as outline indicators for the current step that's been edited.
-	if s.contains(box.id_string, "step") {
+	if val, is_step := box.metadata.(Step_Metadata); is_step {
 		if box.hot || box.selected || box.active {
 			left_selection_border := data
 			left_selection_border.border_thickness = 3
@@ -227,20 +228,24 @@ get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 	append(rendering_data, get_background_rendering_data())
 	for box in ui_state.temp_boxes {
 		if box.id_string == "" || box == nil {
-			println("skipping this box as it has no id_string OR box == nil")
-			continue
+			panic("This box as it has no id_string OR box == nil")
 		}
 		boxes_to_render := get_boxes_rendering_data(box^)
 		defer delete(boxes_to_render^)
-		if s.contains(get_id_from_id_string(box.id_string), "knob-body") {
-			add_knob_rendering_data(box^, rendering_data)
-		} else if s.contains(box.id_string, "_grip") {
-			add_fader_knob_rendering_data(box^, rendering_data)
+		if metadata, is_knob := box.metadata.(Sampler_Metadata); is_knob {
+			if metadata.sampler_part == .ADSR_Knob {
+				add_knob_rendering_data(box^, rendering_data)
+			}
+		} else if metadata, is_grip := box.metadata.(Track_Control_Metadata); is_grip {
+			if metadata.control_type == .Volume_Slider {
+				add_fader_knob_rendering_data(box^, rendering_data)
+			}
 		} else if .Draw in box.flags {
 			for data in boxes_to_render {
 				append(rendering_data, data)
 			}
 		}
+
 		if .Draw_Text in box.flags {
 			add_word_rendering_data(box^, boxes_to_render, rendering_data)
 		}
@@ -292,12 +297,12 @@ add_word_rendering_data :: proc(
 	rendering_data: ^[dynamic]Rect_Render_Data,
 ) {
 	// Only render text data of a tracker step if it's 'selected'.
-	step_num := step_num_from_step(box.id_string)
-	track_num := track_num_from_step(box.id_string)
-	if s.contains(box.id_string, "step") &&
-	   s.contains(box.id_string, "input") &&
-	   !ui_state.selected_steps[track_num][step_num] {
-		return
+	if _, is_step := box.metadata.(Step_Metadata); is_step {
+		step_num := step_num_from_step(box.id_string)
+		track_num := track_num_from_step(box.id_string)
+		if !ui_state.selected_steps[track_num][step_num] {
+			return
+		}
 	}
 
 	// Figure out whether to render box.name or box.value

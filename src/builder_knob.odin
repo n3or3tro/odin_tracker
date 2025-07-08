@@ -6,7 +6,7 @@ package main
 // }
 
 // rect will be a bounding box the knob circle is bound by.
-knob :: proc(id_string: string, rect: ^Rect) -> Box_Signals {
+knob :: proc(id_string: string, rect: ^Rect, metadata: Box_Metadata = {}) -> Box_Signals {
 	// outer part of the knob
 	name := get_name_from_id_string(id_string)
 	id := get_id_from_id_string(id_string)
@@ -19,6 +19,7 @@ knob :: proc(id_string: string, rect: ^Rect) -> Box_Signals {
 		{.Draw, .Clickable, .Scrollable},
 		tprintf("knob-body@{}-knob-body", id),
 		squared_rect,
+		metadata,
 	)
 	append(&ui_state.temp_boxes, knob_body)
 
