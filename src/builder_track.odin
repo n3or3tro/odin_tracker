@@ -28,10 +28,10 @@ Track_Control_Signals :: struct {
 }
 
 Individual_Step_Signals :: struct {
-	pitch:  Text_Input_Signals,
-	volume: Num_Step_Input_Signals,
-	send1:  Num_Step_Input_Signals,
-	send2:  Num_Step_Input_Signals,
+	pitch:  Box_Signals,
+	volume: Box_Signals,
+	send1:  Box_Signals,
+	send2:  Box_Signals,
 }
 
 Num_Step_Input_Signals :: struct {
@@ -67,7 +67,7 @@ create_track :: proc(which: u32, track_width: f32) -> Track_Steps_Signals {
 	return steps
 }
 
-pitch_step :: proc(id_string: string, rect: Rect, metadata: Step_Metadata) -> Text_Input_Signals {
+pitch_step :: proc(id_string: string, rect: Rect, metadata: Step_Metadata) -> Box_Signals {
 	if type_of(metadata) != Step_Metadata {
 		panic(tprintf("pitch setp was created with Step_Metadata. id_string = {}", id_string))
 	}
@@ -75,8 +75,8 @@ pitch_step :: proc(id_string: string, rect: Rect, metadata: Step_Metadata) -> Te
 	return signals
 }
 
-num_step :: proc(id_string: string, rect: Rect, metadata: Step_Metadata) -> Num_Step_Input_Signals {
-	signals := old_num_input(id_string, rect, 0, 100, metadata)
+num_step :: proc(id_string: string, rect: Rect, metadata: Step_Metadata, min, max: int) -> Box_Signals {
+	signals := num_input(id_string, rect, metadata, min, max)
 	return signals
 }
 
@@ -90,18 +90,36 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 		step_width := rect_height(steps_rect)
 		each_steps_rect := cut_rect_into_n_horizontally(steps_rect, 4)
 
+		// If track sampler is in slice mode, pitches should be slice numbers
+		// else they should just be notes to be played in 1 shot mode.
+		sampler := app.samplers[which]
+
 		push_color(palette.primary.s_500)
-		pitch_box := pitch_step(
-			create_subset_id(i, which, .Pitch),
-			each_steps_rect[0],
-			Step_Metadata{which, i, .Pitch},
-		)
+		pitch_box: Box_Signals
+		if sampler.mode == .slice {
+			pitch_box = num_step(
+				create_subset_id(i, which, .Pitch_Slice),
+				each_steps_rect[0],
+				Step_Metadata{which, i, .Pitch_Slice},
+				0,
+				10,
+				// sampler.n_slices > 0 ? int(sampler.n_slices - 1) : 0,
+			)
+		} else {
+			pitch_box = pitch_step(
+				create_subset_id(i, which, .Pitch_Note),
+				each_steps_rect[0],
+				Step_Metadata{which, i, .Pitch_Note},
+			)
+		}
 
 		push_color(palette.secondary.s_500)
 		volume_box := num_step(
 			create_subset_id(i, which, .Volume),
 			each_steps_rect[1],
 			Step_Metadata{which, i, .Volume},
+			0,
+			100,
 		)
 
 		push_color(palette.secondary.s_400)
@@ -109,6 +127,8 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 			create_subset_id(i, which, .Send1),
 			each_steps_rect[2],
 			Step_Metadata{which, i, .Send1},
+			0,
+			100,
 		)
 
 		push_color(palette.secondary.s_400)
@@ -116,6 +136,8 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 			create_subset_id(i, which, .Send2),
 			each_steps_rect[3],
 			Step_Metadata{which, i, .Send2},
+			0,
+			100,
 		)
 
 		individual_step := Individual_Step_Signals {
@@ -133,11 +155,11 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 
 handle_track_steps_interactions :: proc(track: Track_Steps_Signals, which: u32) {
 	for step in track {
-		pitch_box := step.pitch.box_signals.box
-		volume_box := step.volume.box_signals.box
-		send1_box := step.send1.box_signals.box
-		send2_box := step.send2.box_signals.box
-		if step.pitch.box_signals.clicked {
+		pitch_box := step.pitch.box
+		volume_box := step.volume.box
+		send1_box := step.send1.box
+		send2_box := step.send2.box
+		if step.pitch.clicked {
 			enable_step(pitch_box)
 		}
 		if pitch_box.selected && pitch_box.signals.scrolled {
@@ -162,10 +184,12 @@ handle_track_steps_interactions :: proc(track: Track_Steps_Signals, which: u32) 
 	}
 }
 
-enable_step :: proc(box: ^Box) {
-	step_num := u32(step_num_from_step(box.id_string))
-	track_num := u32(track_num_from_step(box.id_string))
-	pitch_box := ui_state.box_cache[create_substep_input_id(step_num, track_num, .Pitch)]
+// This will break if not called with the step_pitch box.
+enable_step :: proc(step_pitch_box: ^Box) {
+	step_num := u32(step_num_from_step(step_pitch_box.id_string))
+	track_num := u32(track_num_from_step(step_pitch_box.id_string))
+	pitch_type := step_pitch_box.metadata.(Step_Metadata).step_type
+	pitch_box := ui_state.box_cache[create_substep_input_id(step_num, track_num, pitch_type)]
 	volume_box := ui_state.box_cache[create_substep_input_id(step_num, track_num, .Volume)]
 	send1_box := ui_state.box_cache[create_substep_input_id(step_num, track_num, .Send1)]
 	send2_box := ui_state.box_cache[create_substep_input_id(step_num, track_num, .Send2)]
@@ -174,7 +198,7 @@ enable_step :: proc(box: ^Box) {
 	if pitch_box.selected {
 		ui_state.selected_steps[track_num][step_num] = true
 		if pitch_box.value == nil || pitch_box.value.?.(string) == "" {
-			pitch_box.value = "C3"
+			pitch_box.value = pitch_type == .Pitch_Note ? "C3" : "0"
 		}
 		if volume_box.value == nil {
 			volume_box.value = 50
@@ -218,6 +242,8 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32, which: u32) ->
 		tprintf("bpm@bpm-input-track-{}", which),
 		bpm_input_rect,
 		Track_Control_Metadata{which, .BPM_Input},
+		20,
+		250,
 	)
 
 	slider_track_rect := cut_rect(rect, RectCut{Size{.Percent, 1}, .Left})
@@ -284,52 +310,52 @@ calc_slider_grip_val :: proc(current_val: f32, max: f32) -> f32 {
 	}
 }
 
-old_num_input :: proc(
-	id_string: string,
-	rect: Rect,
-	min, max: int,
-	metadata: Step_Metadata,
-) -> Num_Step_Input_Signals {
-	b := box_from_cache(
-		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
-		tprintf("{}-text-input", id_string),
-		rect,
-		metadata,
-	)
-	change: int
-	if app.ui_state.last_active_box == b {
-		i: u32 = 0
-		for i = 0; i < app.curr_chars_stored; i += 1 {
-			keycode := app.char_queue[i]
-			#partial switch keycode {
-			case .UP, .k:
-				change = 1
-			case .DOWN, .j:
-				change = -1
-			case .LEFT, .h:
-				change = -10
-			case .RIGHT, .l:
-				change = 10
-			case .BACKSPACE:
-			// curr_value = 0
-			case .DELETE:
-			// curr_value = 0
-			case .ESCAPE:
-				println("last active box set to nil")
-				ui_state.last_active_box = nil
-				ui_state.active_box = nil
-				app.curr_chars_stored = 0
-				break
-			case:
-				ch := unicode.is_digit(rune(keycode))
-			}
-		}
-		app.curr_chars_stored = 0
-	}
-	step_num_modify_value(b, min, max, change)
-	append(&ui_state.temp_boxes, b)
-	return Num_Step_Input_Signals{box_signals = box_signals(b)}
-}
+// old_num_input :: proc(
+// 	id_string: string,
+// 	rect: Rect,
+// 	min, max: int,
+// 	metadata: Step_Metadata,
+// ) -> Num_Step_Input_Signals {
+// 	b := box_from_cache(
+// 		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
+// 		tprintf("{}-text-input", id_string),
+// 		rect,
+// 		metadata,
+// 	)
+// 	change: int
+// 	if app.ui_state.last_active_box == b {
+// 		i: u32 = 0
+// 		for i = 0; i < app.curr_chars_stored; i += 1 {
+// 			keycode := app.char_queue[i]
+// 			#partial switch keycode {
+// 			case .UP, .k:
+// 				change = 1
+// 			case .DOWN, .j:
+// 				change = -1
+// 			case .LEFT, .h:
+// 				change = -10
+// 			case .RIGHT, .l:
+// 				change = 10
+// 			case .BACKSPACE:
+// 			// curr_value = 0
+// 			case .DELETE:
+// 			// curr_value = 0
+// 			case .ESCAPE:
+// 				println("last active box set to nil")
+// 				ui_state.last_active_box = nil
+// 				ui_state.active_box = nil
+// 				app.curr_chars_stored = 0
+// 				break
+// 			case:
+// 				ch := unicode.is_digit(rune(keycode))
+// 			}
+// 		}
+// 		app.curr_chars_stored = 0
+// 	}
+// 	step_num_modify_value(b, min, max, change)
+// 	append(&ui_state.temp_boxes, b)
+// 	return Num_Step_Input_Signals{box_signals = box_signals(b)}
+// }
 
 // broke this out because it can be called in various circumstances:
 // arrow keys, vim keys, scrolling, (maybe dragging in the future).
@@ -338,7 +364,10 @@ step_num_modify_value :: proc(box: ^Box, min, max, change: int) {
 	if has_value {
 		switch _ in box_value {
 		case string:
-			panic("box.value was set as string in step_num_input()")
+			// panic("box.value was set as string in step_num_input()")
+			value_as_int := strconv.atoi(box.value.?.(string))
+			box_value = clamp(u32(value_as_int + change), u32(min), u32(max))
+			box.value = box_value
 		case u32:
 			box_value = clamp(u32(int(box.value.?.(u32)) + change), u32(min), u32(max))
 			box.value = box_value
@@ -387,7 +416,8 @@ dropped_on_track :: proc() -> (u32, bool) {
 
 // The different parts of a single step.
 Track_Step_Part :: enum {
-	Pitch,
+	Pitch_Note,
+	Pitch_Slice,
 	Volume,
 	Send1,
 	Send2,
@@ -399,14 +429,16 @@ create_subset_id :: proc(
 	allocator: mem.Allocator = context.temp_allocator,
 ) -> string {
 	switch type {
-	case .Pitch:
-		return tprintf("step-{}-pitch@step-{}-pitch-track{}-track-input", step_num, step_num, track_num)
+	case .Pitch_Note:
+		return tprintf("step-{}-pitch@step-{}-pitch-track-{}", step_num, step_num, track_num)
+	case .Pitch_Slice:
+		return tprintf("step-{}-slice-num@step-{}-slice-num-track-{}", step_num, step_num, track_num)
 	case .Volume:
-		return tprintf("step-{}-volume@step-{}-volume-track{}", step_num, step_num, track_num)
+		return tprintf("step-{}-volume@step-{}-volume-track-{}", step_num, step_num, track_num)
 	case .Send1:
-		return tprintf("step-{}-send1@step-{}-send1-track{}", step_num, step_num, track_num)
+		return tprintf("step-{}-send1@step-{}-send1-track-{}", step_num, step_num, track_num)
 	case .Send2:
-		return tprintf("step-{}-send2@step-{}-send2-track{}", step_num, step_num, track_num)
+		return tprintf("step-{}-send2@step-{}-send2-track-{}", step_num, step_num, track_num)
 	case:
 		panic("switch on type_of(Track_Step_Part) didn't trigger any case")
 	}
@@ -418,8 +450,10 @@ create_substep_input_id :: proc(
 	allocator: mem.Allocator = context.temp_allocator,
 ) -> string {
 	switch type {
-	case .Pitch:
-		return tprintf("{}-text-input", create_subset_id(step_num, track_num, .Pitch))
+	case .Pitch_Note:
+		return tprintf("{}-text-input", create_subset_id(step_num, track_num, .Pitch_Note))
+	case .Pitch_Slice:
+		return tprintf("{}-text-input", create_subset_id(step_num, track_num, .Pitch_Slice))
 	case .Volume:
 		return tprintf("{}-text-input", create_subset_id(step_num, track_num, .Volume))
 	case .Send1:
@@ -436,7 +470,11 @@ get_substeps_input_from_step :: proc(
 ) -> (
 	pitch_box, volume_box, send1_box, send2_box: ^Box,
 ) {
-	pitch_box = ui_state.box_cache[create_substep_input_id(step_num, track_num, .Pitch)]
+	if app.samplers[track_num].mode == .slice {
+		pitch_box = ui_state.box_cache[create_substep_input_id(step_num, track_num, .Pitch_Slice)]
+	} else {
+		pitch_box = ui_state.box_cache[create_substep_input_id(step_num, track_num, .Pitch_Note)]
+	}
 	volume_box = ui_state.box_cache[create_substep_input_id(step_num, track_num, .Volume)]
 	send1_box = ui_state.box_cache[create_substep_input_id(step_num, track_num, .Send1)]
 	send2_box = ui_state.box_cache[create_substep_input_id(step_num, track_num, .Send2)]

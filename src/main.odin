@@ -257,8 +257,8 @@ cleanup_app_state :: proc() {
 	delete_dynamic_array(app.ui_state.color_stack)
 	// println("deleted app.ui_state.color_stack")
 	for key, val in app.ui_state.box_cache {
-		println("freeing box from box_cache with id_string: {} ", val.id_string)
-		delete(key)
+		// delete(key)
+		delete_string(val.id_string)
 		free(val)
 	}
 	for entry in app.ui_state.temp_boxes {

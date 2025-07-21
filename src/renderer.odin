@@ -120,11 +120,28 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 
 
 	// Add cursor inside text box. Blinking is kinda jank right now.
-	if .Edit_Text in box.flags && should_render_text_cursor() {
+	if .Edit_Text in box.flags &&
+	   should_render_text_cursor() &&
+	   ui_state.last_active_box != nil &&
+	   ui_state.last_active_box.id_string == box.id_string {
 		color := Color{0, 0.5, 1, 1}
+		// calculate on screen co-ords for cursor
+		// app.ui_state.text_cursor_x_coord =
+		// 	rect.top_left.x +
+		// 	f32(app.ui_state.text_box_padding) +
+		// 	f32(word_rendered_length(res.new_string[:res.cursor_pos], ui_state.font_size))
+		cursor_x_coord :=
+			box.rect.top_left.x +
+			f32(ui_state.text_box_padding) +
+			f32(
+				word_rendered_length(
+					box.value.(Step_Value_Type).(string)[:box.cursor_pos],
+					ui_state.font_size,
+				),
+			)
 		cursor_data := Rect_Render_Data {
-			top_left         = {app.ui_state.text_cursor_x_coord, box.rect.top_left.y + 3},
-			bottom_right     = {app.ui_state.text_cursor_x_coord + 5, box.rect.bottom_right.y - 3},
+			top_left         = {cursor_x_coord, box.rect.top_left.y + 3},
+			bottom_right     = {cursor_x_coord + 5, box.rect.bottom_right.y - 3},
 			bl_color         = color,
 			tl_color         = color,
 			br_color         = color,

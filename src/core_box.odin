@@ -109,6 +109,7 @@ Step_Metadata :: struct {
 	step_num:  u32,
 	step_type: Track_Step_Part,
 }
+
 Track_Control_Metadata :: struct {
 	track_num:    u32,
 	control_type: enum {
@@ -132,12 +133,10 @@ Sampler_Metadata :: struct {
 	slice_num:    Maybe(u32), // For slice markers
 }
 
-
 Step_Value_Type :: union {
 	string, // pitch.
 	u32, // volume, send.s
 }
-
 
 // New Box struct based on my simplified layout algorithm.
 Box :: struct {
@@ -145,13 +144,6 @@ Box :: struct {
 	name:          string,
 	color:         [4]f32,
 	padding:       [4]Size, // {x-left, x-right, y-bottom, y-top}
-
-	// Caching related data.
-	// hash_next:                ^Box,
-	// hash_prev:                ^Box,
-	// // Key + generation info.
-	// key:                      string,
-	// last_frame_touched_index: u64,
 
 	// Per-frame info provided by builders
 	flags:         Box_Flags,
@@ -162,6 +154,8 @@ Box :: struct {
 	// Considering wrapping this in a Maybe(), but should be okay for now.
 	font_size:     Font_Size,
 
+	// only relevant if box is a text input. 
+	cursor_pos:    u32, // [0..len(value)]
 
 	// The actual (x1,y1),(x2,y2) co-ordinates of the box on the screen.
 	rect:          Rect,
@@ -197,8 +191,6 @@ box_from_cache :: proc(
 	if id_string in ui_state.box_cache {
 		box := ui_state.box_cache[id_string]
 		box.rect = rect
-		// Not sure if this is neccessary.
-		// box.metadata = metadata
 		return box
 	} else {
 		persistant_id_string := s.clone(id_string)

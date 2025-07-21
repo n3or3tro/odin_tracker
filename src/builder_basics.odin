@@ -101,17 +101,29 @@ text_box :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> 
 	return box_signals(b)
 }
 
-num_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> Text_Input_Signals {
+num_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}, min, max: int) -> Box_Signals {
 	b := box_from_cache(
 		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
-		tprintf("{}-num-input", id_string),
+		tprintf("{}-text-input", id_string),
 		rect,
+		metadata,
 	)
+
+	// We default to box.value as a string for num inputs, because otherwise, what should the default value be ?
+	// 0 can't be a default value since it's meaningfull; instead we just use the empty string.
 	if b.value == nil {
 		b.value = ""
 	}
-	buffer_to_use := b.value.?.(string)
+	buffer_to_use: string
+	tmp_buffer: [128]byte
+	switch _ in b.value.? {
+	case string:
+		buffer_to_use = b.value.?.(string)
+	case u32:
+		buffer_to_use = strconv.itoa(tmp_buffer[:], int(b.value.?.(u32)))
+	}
 	signals := box_signals(b)
+	// builder := str.builder_make(context.temp_allocator)
 	builder := str.builder_make()
 	state: edit.State
 
@@ -127,11 +139,8 @@ num_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) ->
 	edit.begin(&state, editor_id, &builder)
 	edit.input_text(&state, buffer_to_use)
 
-	// Put cursor where it was last frame
-	diff := len(buffer_to_use) - app.ui_state.text_cursor_pos
-	diff = diff > 0 ? diff : diff * -1
-
-	for i := 0; i < diff; i += 1 {edit.move_to(&state, .Left)}
+	edit.move_to(&state, .Start)
+	for i: u32 = 0; i < b.cursor_pos; i += 1 {edit.move_to(&state, .Right)}
 
 	if app.ui_state.last_active_box == b {
 		i: u32 = 0
@@ -155,8 +164,8 @@ num_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) ->
 			case .UP, .k:
 				len := len(state.builder.buf)
 				new_num := strconv.atoi(str.to_string(builder)) + 1
-				if new_num > 9999 {
-					new_num = 9999
+				if new_num > max {
+					new_num = max
 				}
 				buf: [4]u8
 				new_value := strconv.itoa(buf[:], new_num)
@@ -167,8 +176,8 @@ num_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) ->
 			case .DOWN, .j:
 				len := len(state.builder.buf)
 				new_num := strconv.atoi(str.to_string(builder)) - 1
-				if new_num < 0 {
-					new_num = 0
+				if new_num < min {
+					new_num = min
 				}
 				buf: [4]u8
 				new_value := strconv.itoa(buf[:], new_num)
@@ -195,30 +204,27 @@ num_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) ->
 	res := Text_Input_Signals {
 		box_signals = signals,
 		new_string  = b.value.?.(string),
-		// Need to be careful here.
 		cursor_pos  = state.selection.x,
 	}
-	app.ui_state.text_cursor_pos = res.cursor_pos
-	app.ui_state.text_cursor_x_coord =
-		rect.top_left.x +
-		f32(app.ui_state.text_box_padding) +
-		f32(word_rendered_length(res.new_string[:res.cursor_pos], ui_state.font_size))
+	b.cursor_pos = u32(res.cursor_pos)
 	edit.end(&state)
-	return res
+	return signals
 }
 
-text_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> Text_Input_Signals {
-	b := box_from_cache(
+text_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> Box_Signals {
+	box := box_from_cache(
 		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
 		tprintf("{}-text-input", id_string),
 		rect,
 		metadata,
 	)
-	if b.value == nil {
-		b.value = ""
+	signals := box_signals(box)
+
+	if box.value == nil {
+		box.value = ""
 	}
-	buffer_to_use := b.value.?.(string)
-	signals := box_signals(b)
+
+	buffer_to_use := box.value.?.(string)
 	builder := str.builder_make()
 	state: edit.State
 
@@ -234,13 +240,16 @@ text_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -
 	edit.begin(&state, editor_id, &builder)
 	edit.input_text(&state, buffer_to_use)
 
-	// Put cursor where it was last frame
-	diff := len(buffer_to_use) - app.ui_state.text_cursor_pos
-	diff = diff > 0 ? diff : diff * -1
+	// If clicked on a new textbox just put cursor at the end, else put it where it was at the end of the last frame.
+	if box != ui_state.last_active_box {
+		edit.move_to(&state, .End)
+	} else {
+		// Put cursor where it was last frame
+		edit.move_to(&state, .Start)
+		for i: u32 = 0; i < box.cursor_pos; i += 1 {edit.move_to(&state, .Right)}
+	}
 
-	for i := 0; i < diff; i += 1 {edit.move_to(&state, .Left)}
-
-	if app.ui_state.last_active_box == b {
+	if app.ui_state.last_active_box == box {
 		i: u32 = 0
 		for i = 0; i < app.curr_chars_stored; i += 1 {
 			keycode := app.char_queue[i]
@@ -262,7 +271,7 @@ text_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -
 				break
 			case .UP:
 				if val, is_pitch_step := metadata.(Step_Metadata); is_pitch_step {
-					if val.step_type == .Pitch {
+					if val.step_type == .Pitch_Note {
 						new_value := up_one_semitone(str.to_string(builder))
 						edit.move_to(&state, .Start)
 						edit.select_to(&state, .End)
@@ -272,7 +281,7 @@ text_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -
 				}
 			case .DOWN:
 				if val, is_pitch_step := metadata.(Step_Metadata); is_pitch_step {
-					if val.step_type == .Pitch {
+					if val.step_type == .Pitch_Note {
 						new_value := down_one_semitone(str.to_string(builder))
 						edit.move_to(&state, .Start)
 						edit.select_to(&state, .End)
@@ -281,7 +290,10 @@ text_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -
 					}
 				}
 			case:
-				edit.input_rune(&state, rune(keycode))
+				ch := rune(keycode)
+				if unicode.is_alpha(ch) || unicode.is_digit(ch) {
+					edit.input_rune(&state, ch)
+				}
 			}
 		}
 		// We do this because not every key should be handled by the text input.
@@ -290,22 +302,24 @@ text_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -
 		app.curr_chars_stored -= app.curr_chars_stored - i
 	}
 
-	// b.name = str.to_string(state.builder^)
-	b.value = str.to_string(state.builder^)
-	append(&ui_state.temp_boxes, b)
+	box.value = str.to_string(state.builder^)
+	append(&ui_state.temp_boxes, box)
 	res := Text_Input_Signals {
 		box_signals = signals,
-		new_string  = b.value.?.(string),
-		// Need to be careful here.
+		new_string  = box.value.?.(string),
 		cursor_pos  = state.selection[0],
 	}
-	app.ui_state.text_cursor_pos = res.cursor_pos
-	app.ui_state.text_cursor_x_coord =
-		rect.top_left.x +
-		f32(app.ui_state.text_box_padding) +
-		f32(word_rendered_length(res.new_string[:res.cursor_pos], ui_state.font_size))
+	box.cursor_pos = u32(res.cursor_pos)
+	// app.ui_state.text_cursor_x_coord =
+	// 	rect.top_left.x +
+	// 	f32(app.ui_state.text_box_padding) +
+	// 	f32(word_rendered_length(res.new_string[:res.cursor_pos], ui_state.font_size))
+
+	// str.builder_destroy(&builder)
 	edit.end(&state)
-	return res
+	edit.destroy(&state)
+	// return res
+	return signals
 }
 
 up_one_semitone :: proc(curr_note: string) -> string {

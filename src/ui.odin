@@ -57,12 +57,12 @@ UI_State :: struct {
 	right_clicked_on:      ^Box,
 	wav_rendering_data:    map[ma.sound][dynamic]Rect_Render_Data,
 	// Need to store where the cursor was across frame-boundaries.
-	text_cursor_pos:       int,
+	// text_cursor_pos:       int,
 	// Actual pixel value of where the cursor is; we store this since it's 
 	// cumbersome to compute it inside the renderer code. This is mainly because
 	// the text input data is not available via a box / rect, only the id_string is.
 	// If id_strings store the inputted text in the future, then I can remove this.
-	text_cursor_x_coord:   f32,
+	// text_cursor_x_coord:   f32,
 	// the visual space between border of text box and the text inside.
 	text_box_padding:      u16,
 	keyboard_mode:         bool,
@@ -142,7 +142,12 @@ main_tracker_panel :: proc() {
 		case .DOWN, .j:
 			move_active_box_down()
 		case .TAB:
-			first_box := app.ui_state.box_cache[create_substep_input_id(0, 0, .Pitch)]
+			first_box: ^Box
+			if app.samplers[get_active_track()].mode == .slice {
+				first_box = app.ui_state.box_cache[create_substep_input_id(0, 0, .Pitch_Slice)]
+			} else {
+				first_box = app.ui_state.box_cache[create_substep_input_id(0, 0, .Pitch_Note)]
+			}
 			ui_state.selected_box = first_box
 			first_box.selected = true
 		case .RETURN, .RETURN2:
@@ -171,6 +176,15 @@ main_tracker_panel :: proc() {
 
 }
 
+second_panel :: proc() {
+	space := Rect{{100, 100}, {600, 300}}
+	rects := cut_rect_into_n_vertically(space, 3)
+
+	input1 := text_input("text-input@input-1", rects[0])
+	input2 := text_input("text-input@input-2", rects[1])
+	// input3 := text_input("text-input@input-3", rects[2])
+}
+
 get_active_track :: proc() -> u32 {
 	// Figure out relevant track wav.
 	// If sampler was opened via right click it should be obvious
@@ -190,14 +204,18 @@ move_active_box_left :: proc() {
 	next_active_box_id: string
 	data := box.metadata.(Step_Metadata)
 	switch data.step_type {
-	case .Pitch:
+	case .Pitch_Note, .Pitch_Slice:
 		if track_num > 0 {
 			next_active_box_id = create_substep_input_id(step_num, track_num - 1, .Send2)
 		} else {
 			return
 		}
 	case .Volume:
-		next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch)
+		if app.samplers[track_num].mode == .slice {
+			next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch_Slice)
+		} else {
+			next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch_Note)
+		}
 	case .Send1:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Volume)
 	case .Send2:
@@ -218,18 +236,19 @@ move_active_box_right :: proc() {
 
 	data := box.metadata.(Step_Metadata)
 	switch data.step_type {
-	case .Pitch:
+	case .Pitch_Note, .Pitch_Slice:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Volume)
-
 	case .Volume:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Send1)
-
 	case .Send1:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Send2)
-
 	case .Send2:
 		if track_num < u32(app.n_tracks) - 1 {
-			next_active_box_id = create_substep_input_id(step_num, track_num + 1, .Pitch)
+			if app.samplers[track_num].mode == .slice {
+				next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch_Slice)
+			} else {
+				next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch_Note)
+			}
 		} else {
 			return
 		}
@@ -250,8 +269,12 @@ move_active_box_up :: proc() {
 	next_active_box_id: string
 	data := box.metadata.(Step_Metadata)
 	switch data.step_type {
-	case .Pitch:
-		next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch)
+	case .Pitch_Note, .Pitch_Slice:
+		if app.samplers[track_num].mode == .slice {
+			next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch_Slice)
+		} else {
+			next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch_Note)
+		}
 	case .Volume:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Volume)
 	case .Send1:
@@ -276,8 +299,12 @@ move_active_box_down :: proc() {
 	next_active_box_id: string
 	data := box.metadata.(Step_Metadata)
 	switch data.step_type {
-	case .Pitch:
-		next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch)
+	case .Pitch_Slice, .Pitch_Note:
+		if app.samplers[track_num].mode == .slice {
+			next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch_Slice)
+		} else {
+			next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch_Note)
+		}
 	case .Volume:
 		next_active_box_id = create_substep_input_id(step_num, track_num, .Volume)
 	case .Send1:
@@ -326,11 +353,6 @@ render_ui :: proc() {
 	reset_ui_state()
 }
 
-second_panel :: proc() {
-	text_input_rect := Rect{{100, 100}, {600, 140}}
-	input := text_input("text-input@input-1", text_input_rect)
-}
-
 reset_ui_state :: proc() {
 	/* 
 		I think maybe I don't want to actually reset this each frame, for exmaple,
@@ -347,7 +369,6 @@ reset_ui_state :: proc() {
 	ui_state.active_box = nil
 	ui_state.hot_box = nil
 }
-
 
 /* ------- stuff for a theme / color system -------------- */
 Color_Theme :: struct {
