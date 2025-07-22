@@ -101,7 +101,13 @@ text_box :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> 
 	return box_signals(b)
 }
 
-num_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}, min, max: int) -> Box_Signals {
+num_input :: proc(
+	id_string: string,
+	rect: Rect,
+	min, max: int,
+	metadata: Box_Metadata = {},
+	init_value: int = 0,
+) -> Box_Signals {
 	b := box_from_cache(
 		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
 		tprintf("{}-text-input", id_string),
@@ -109,13 +115,13 @@ num_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}, mi
 		metadata,
 	)
 
+	buffer_to_use: string
+	tmp_buffer: [128]byte
 	// We default to box.value as a string for num inputs, because otherwise, what should the default value be ?
 	// 0 can't be a default value since it's meaningfull; instead we just use the empty string.
 	if b.value == nil {
-		b.value = ""
+		b.value = strconv.itoa(tmp_buffer[:], init_value)
 	}
-	buffer_to_use: string
-	tmp_buffer: [128]byte
 	switch _ in b.value.? {
 	case string:
 		buffer_to_use = b.value.?.(string)
@@ -192,10 +198,6 @@ num_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}, mi
 				}
 			}
 		}
-		// We do this because not every key should be handled by the text input.
-		// For example, the escape key, should remove focus from the current text box,
-		// but NOT be consumed, and instead be consumed elsewhere in the UI.
-		// app.curr_chars_stored -= app.curr_chars_stored - i
 		app.curr_chars_stored = 0
 	}
 
@@ -310,10 +312,6 @@ text_input :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -
 		cursor_pos  = state.selection[0],
 	}
 	box.cursor_pos = u32(res.cursor_pos)
-	// app.ui_state.text_cursor_x_coord =
-	// 	rect.top_left.x +
-	// 	f32(app.ui_state.text_box_padding) +
-	// 	f32(word_rendered_length(res.new_string[:res.cursor_pos], ui_state.font_size))
 
 	// str.builder_destroy(&builder)
 	edit.end(&state)

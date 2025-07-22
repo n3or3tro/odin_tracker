@@ -87,12 +87,12 @@ sampler_bottom_controls :: proc(rect: ^Rect, track_num: u32) {
 	release_rect := rect_to_square(rects[3])
 
 	pack_to_left({&attack_rect, &decay_rect, &sustain_rect, &release_rect}, margin = 15)
-	ui_state.font_size = .s
+	ui_state.font_size = .xs
 	knob_metadata := Sampler_Metadata{track_num, .ADSR_Knob, {}}
-	attack_knob := knob(tprintf("sustain@sampler-{}-attack-knob", track_num), &attack_rect, knob_metadata)
-	decay_knob := knob(tprintf("sustain@sampler-{}-decay-knob", track_num), &decay_rect, knob_metadata)
+	attack_knob := knob(tprintf("attack@sampler-{}-attack-knob", track_num), &attack_rect, knob_metadata)
+	decay_knob := knob(tprintf("decay@sampler-{}-decay-knob", track_num), &decay_rect, knob_metadata)
 	sustain_knob := knob(tprintf("sustain@sampler-{}-sustain-knob", track_num), &sustain_rect, knob_metadata)
-	release_knob := knob(tprintf("sustain@sampler-{}-release-knob", track_num), &release_rect, knob_metadata)
+	release_knob := knob(tprintf("release@sampler-{}-release-knob", track_num), &release_rect, knob_metadata)
 	ui_state.font_size = .l
 
 	line(
@@ -103,7 +103,6 @@ sampler_bottom_controls :: proc(rect: ^Rect, track_num: u32) {
 		},
 	)
 
-	// reverse_button_rect := cut_left(rect, {.Percent, 0.1})
 	remaining_rects := cut_rect_into_n_horizontally(rect^, 4)
 	reverse_button_rect := remaining_rects[0]
 	nudge_rect(&reverse_button_rect, 7, .right)

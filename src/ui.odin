@@ -179,9 +179,11 @@ main_tracker_panel :: proc() {
 second_panel :: proc() {
 	space := Rect{{100, 100}, {600, 300}}
 	rects := cut_rect_into_n_vertically(space, 3)
-
 	input1 := text_input("text-input@input-1", rects[0])
+	old_font_size := ui_state.font_size
+	ui_state.font_size = .xl
 	input2 := text_input("text-input@input-2", rects[1])
+	ui_state.font_size = old_font_size
 	// input3 := text_input("text-input@input-3", rects[2])
 }
 
@@ -245,9 +247,9 @@ move_active_box_right :: proc() {
 	case .Send2:
 		if track_num < u32(app.n_tracks) - 1 {
 			if app.samplers[track_num].mode == .slice {
-				next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch_Slice)
+				next_active_box_id = create_substep_input_id(step_num, track_num + 1, .Pitch_Slice)
 			} else {
-				next_active_box_id = create_substep_input_id(step_num, track_num, .Pitch_Note)
+				next_active_box_id = create_substep_input_id(step_num, track_num + 1, .Pitch_Note)
 			}
 		} else {
 			return
@@ -261,11 +263,12 @@ move_active_box_right :: proc() {
 
 move_active_box_up :: proc() {
 	box := app.ui_state.selected_box
-	step_num := u32(step_num_from_step(box.id_string) - 1)
+	step_num := step_num_from_step(box.id_string)
 	track_num := u32(track_num_from_step(box.id_string))
 	if (step_num == 0) {
 		return
 	}
+	step_num -= 1
 	next_active_box_id: string
 	data := box.metadata.(Step_Metadata)
 	switch data.step_type {
@@ -290,12 +293,13 @@ move_active_box_up :: proc() {
 
 move_active_box_down :: proc() {
 	box := app.ui_state.selected_box
-	step_num := u32(step_num_from_step(box.id_string)) + 1
+	step_num := step_num_from_step(box.id_string)
 	track_num := u32(track_num_from_step(box.id_string))
 	if (step_num >= u32(n_track_steps) - 1) {
 		println("'moving' down into track controls ... JKS, that isn't implemented.")
 		return
 	}
+	step_num += 1
 	next_active_box_id: string
 	data := box.metadata.(Step_Metadata)
 	switch data.step_type {

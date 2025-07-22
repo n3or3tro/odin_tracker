@@ -15,7 +15,7 @@ context_menu :: proc() {
 	mouse_x := ui_state.context_menu_pos.x
 	mouse_y := ui_state.context_menu_pos.y
 
-	button_height: f32 = 40
+	button_height: f32 = 20
 	button_width: f32 = 200
 
 	first_button_tl := Vec2{mouse_x, mouse_y}
@@ -27,6 +27,7 @@ context_menu :: proc() {
 	case Step_Metadata:
 		delete_btn := text_button("delete@context-menu-delete-track", Rect{first_button_tl, first_button_br})
 		if delete_btn.clicked {
+			println("deleting track")
 			track_num := metadata.track_num
 			app.tracks[track_num] = false
 		}

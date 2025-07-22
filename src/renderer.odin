@@ -125,20 +125,10 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 	   ui_state.last_active_box != nil &&
 	   ui_state.last_active_box.id_string == box.id_string {
 		color := Color{0, 0.5, 1, 1}
-		// calculate on screen co-ords for cursor
-		// app.ui_state.text_cursor_x_coord =
-		// 	rect.top_left.x +
-		// 	f32(app.ui_state.text_box_padding) +
-		// 	f32(word_rendered_length(res.new_string[:res.cursor_pos], ui_state.font_size))
 		cursor_x_coord :=
 			box.rect.top_left.x +
 			f32(ui_state.text_box_padding) +
-			f32(
-				word_rendered_length(
-					box.value.(Step_Value_Type).(string)[:box.cursor_pos],
-					ui_state.font_size,
-				),
-			)
+			f32(word_rendered_length(box.value.(Step_Value_Type).(string)[:box.cursor_pos], box.font_size))
 		cursor_data := Rect_Render_Data {
 			top_left         = {cursor_x_coord, box.rect.top_left.y + 3},
 			bottom_right     = {cursor_x_coord + 5, box.rect.bottom_right.y - 3},
@@ -186,11 +176,11 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 			if box.selected {
 				left_selection_border.border_thickness = 5
 				right_selection_border.border_thickness = 5
-				// Set to hot pink for now.
-				left_selection_border.tr_color = {1.0, 0.41, 0.71, 1.0}
-				left_selection_border.br_color = {1.0, 0.41, 0.71, 1.0}
-				right_selection_border.tl_color = {1.0, 0.41, 0.71, 1.0}
-				right_selection_border.bl_color = {1.0, 0.41, 0.71, 1.0}
+				hot_pink_color := Color{1.0, 0.41, 0.71, 1.0}
+				left_selection_border.tr_color = hot_pink_color
+				left_selection_border.br_color = hot_pink_color
+				right_selection_border.tl_color = hot_pink_color
+				right_selection_border.bl_color = hot_pink_color
 				// left_selection_border.tr_color = palette.primary.s_300
 				// left_selection_border.br_color = palette.primary.s_300
 				// right_selection_border.tl_color = palette.primary.s_300
@@ -370,6 +360,7 @@ add_word_rendering_data :: proc(
 			},
 			texture_top_left     = {char_metadata.u0, char_metadata.v0},
 			texture_bottom_right = {char_metadata.u1, char_metadata.v1},
+			font_size            = box.font_size,
 		}
 		len_so_far += char_metadata.advance_x
 		append(rendering_data, new_rect)

@@ -76,7 +76,7 @@ pitch_step :: proc(id_string: string, rect: Rect, metadata: Step_Metadata) -> Bo
 }
 
 num_step :: proc(id_string: string, rect: Rect, metadata: Step_Metadata, min, max: int) -> Box_Signals {
-	signals := num_input(id_string, rect, metadata, min, max)
+	signals := num_input(id_string, rect, min, max, metadata)
 	return signals
 }
 
@@ -238,12 +238,14 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32, which: u32) ->
 	rects := cut_rect_into_n_vertically(bpm_rect, 2)
 	bpm_label_rect, bpm_input_rect := rects[0], rects[1]
 	bpm_label := text_container(tprintf("BPM:@bpm-label-track-{}", which), bpm_label_rect)
+	ui_state.font_size = .s
 	bpm_input := num_input(
 		tprintf("bpm@bpm-input-track-{}", which),
 		bpm_input_rect,
-		Track_Control_Metadata{which, .BPM_Input},
-		20,
-		250,
+		0,
+		100,
+		metadata = Track_Control_Metadata{which, .BPM_Input},
+		init_value = 120,
 	)
 
 	slider_track_rect := cut_rect(rect, RectCut{Size{.Percent, 1}, .Left})
@@ -309,53 +311,6 @@ calc_slider_grip_val :: proc(current_val: f32, max: f32) -> f32 {
 		return proposed_value
 	}
 }
-
-// old_num_input :: proc(
-// 	id_string: string,
-// 	rect: Rect,
-// 	min, max: int,
-// 	metadata: Step_Metadata,
-// ) -> Num_Step_Input_Signals {
-// 	b := box_from_cache(
-// 		{.Draw, .Draw_Text, .Edit_Text, .Text_Left, .Clickable, .Draw_Border},
-// 		tprintf("{}-text-input", id_string),
-// 		rect,
-// 		metadata,
-// 	)
-// 	change: int
-// 	if app.ui_state.last_active_box == b {
-// 		i: u32 = 0
-// 		for i = 0; i < app.curr_chars_stored; i += 1 {
-// 			keycode := app.char_queue[i]
-// 			#partial switch keycode {
-// 			case .UP, .k:
-// 				change = 1
-// 			case .DOWN, .j:
-// 				change = -1
-// 			case .LEFT, .h:
-// 				change = -10
-// 			case .RIGHT, .l:
-// 				change = 10
-// 			case .BACKSPACE:
-// 			// curr_value = 0
-// 			case .DELETE:
-// 			// curr_value = 0
-// 			case .ESCAPE:
-// 				println("last active box set to nil")
-// 				ui_state.last_active_box = nil
-// 				ui_state.active_box = nil
-// 				app.curr_chars_stored = 0
-// 				break
-// 			case:
-// 				ch := unicode.is_digit(rune(keycode))
-// 			}
-// 		}
-// 		app.curr_chars_stored = 0
-// 	}
-// 	step_num_modify_value(b, min, max, change)
-// 	append(&ui_state.temp_boxes, b)
-// 	return Num_Step_Input_Signals{box_signals = box_signals(b)}
-// }
 
 // broke this out because it can be called in various circumstances:
 // arrow keys, vim keys, scrolling, (maybe dragging in the future).

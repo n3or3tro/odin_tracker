@@ -165,6 +165,8 @@ create_font_atlas :: proc(
 		atlas.chars[ch] = new_char_metadata
 		current_x += glyph_width + 1
 	}
+	printfln("Font size {}: ascent={}, descent={}, scale={}", size, ascent, descent, scale)
+	// printfln("Font size {}: Atlas dimensions {}x{}", size, atlas_width, atlas.texture.height)
 	return atlas
 }
 
