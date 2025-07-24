@@ -163,23 +163,39 @@ handle_track_steps_interactions :: proc(track: Track_Steps_Signals, which: u32) 
 			enable_step(pitch_box)
 		}
 		if pitch_box.selected && pitch_box.signals.scrolled {
-			if app.mouse.wheel.y > 0 {
-				// new_value := up_one_semitone(pitch_box.value.?.(string))
-				// pitch_box.value = new_value
-				// println(0)
+			if pitch_box.signals.scrolled_up {
+				if app.samplers[which].mode == .slice {
+					curr_value := strconv.atoi(pitch_box.value.(Step_Value_Type).(string))
+					if curr_value == int(app.samplers[which].n_slices) {return}
+					new_value := curr_value + 1
+					// need to figure out how to not permanently allocate this thing, or atleast figure out when to free it.
+					conv_buf := make_dynamic_array_len([dynamic]u8, 10)
+					pitch_box.value = strconv.itoa(conv_buf[:], new_value)
+				}
 			} else {
-				pitch_box.value = down_one_semitone(pitch_box.value.?.(string))
-
+				if app.samplers[which].mode == .slice {
+					curr_value := strconv.atoi(pitch_box.value.(Step_Value_Type).(string))
+					if curr_value == 0 {return}
+					new_value := curr_value - 1
+					// need to figure out how to not permanently allocate this thing, or atleast figure out when to free it.
+					conv_buf := make_dynamic_array_len([dynamic]u8, 10)
+					pitch_box.value = strconv.itoa(conv_buf[:], new_value)
+				} else {
+					pitch_box.value = down_one_semitone(pitch_box.value.?.(string))
+				}
 			}
 		}
 		if volume_box.signals.scrolled {
-			step_num_modify_value(volume_box, 0, 100, int(app.mouse.wheel.y))
+			change := volume_box.signals.scrolled_up ? 1 : -1
+			step_num_modify_value(volume_box, 0, 100, change)
 		}
 		if send1_box.signals.scrolled {
-			step_num_modify_value(send1_box, 0, 100, int(app.mouse.wheel.y))
+			change := send1_box.signals.scrolled_up ? 1 : -1
+			step_num_modify_value(send1_box, 0, 100, change)
 		}
 		if send2_box.signals.scrolled {
-			step_num_modify_value(send2_box, 0, 100, int(app.mouse.wheel.y))
+			change := send2_box.signals.scrolled_up ? 1 : -1
+			step_num_modify_value(send2_box, 0, 100, change)
 		}
 	}
 }
@@ -248,21 +264,27 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32, which: u32) ->
 		init_value = 120,
 	)
 
+	ui_state.z_index = 5
+	defer ui_state.z_index = 0
+
+	push_color(palette.secondary.s_500)
 	slider_track_rect := cut_rect(rect, RectCut{Size{.Percent, 1}, .Left})
 	slider_track_rect = shrink_x(slider_track_rect, {.Percent, 0.8})
-	push_color(palette.secondary.s_500)
-	slider_track := box_from_cache({.Scrollable, .Draw, .Clickable}, id_string, slider_track_rect)
+	slider_track := box_from_cache(
+		{.Scrollable, .Draw, .Clickable},
+		tprintf("slider-track@track-{}-slider-track", which),
+		slider_track_rect,
+	)
 	append(&ui_state.temp_boxes, slider_track)
 
 	slider_grip_rect := get_bottom(slider_track.rect, Size{.Pixels, 30})
 	slider_grip_rect = expand_x(slider_grip_rect, Size{.Percent, 0.5})
-
-	space_below_grip := get_bottom(slider_track_rect, Size{.Percent, value / 100})
 	slider_grip_rect.bottom_right.y -= (value / 100) * rect_height(slider_track_rect)
 	slider_grip_rect.top_left.y -= (value / 100) * rect_height(slider_track_rect)
+
 	slider_grip := box_from_cache(
 		{.Clickable, .Hot_Animation, .Active_Animation, .Draggable, .Draw},
-		tprintf("grip@{}_grip", id),
+		tprintf("grip@track-{}-grip", id),
 		slider_grip_rect,
 		Track_Control_Metadata{which, .Volume_Slider},
 	)
@@ -278,15 +300,20 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32, which: u32) ->
 }
 
 handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, which: u32) {
-	if t_controls.track_signals.scrolled || t_controls.grip_signals.scrolled {
+	if t_controls.track_signals.scrolled_down ||
+	   t_controls.track_signals.scrolled_up ||
+	   t_controls.grip_signals.scrolled_down ||
+	   t_controls.grip_signals.scrolled_up {
 		app.audio_state.tracks[which].volume = calc_slider_grip_val(
 			app.audio_state.tracks[which].volume,
 			100,
+			t_controls.track_signals.scrolled_up || t_controls.grip_signals.scrolled_up,
 		)
 		set_volume(
 			app.audio_state.tracks[which].sound,
 			map_range(0, 100, 0, 1, app.audio_state.tracks[which].volume),
 		)
+		printfln("value before scrolling: {}", app.audio_state.tracks[which].volume)
 	}
 	if t_controls.button_signals.enable_signals.clicked {
 		armed_state := app.audio_state.tracks[which].armed
@@ -301,8 +328,8 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 }
 
 // Max is 0, min is pixel_height(slider), this is because the co-ord system of our layout.
-calc_slider_grip_val :: proc(current_val: f32, max: f32) -> f32 {
-	proposed_value := current_val + (3 * cast(f32)app.mouse.wheel.y)
+calc_slider_grip_val :: proc(current_val: f32, max: f32, up: bool) -> f32 {
+	proposed_value := current_val + (3 * (up ? 1 : -1))
 	if proposed_value < 0 {
 		return 0
 	} else if proposed_value > max {
@@ -319,7 +346,6 @@ step_num_modify_value :: proc(box: ^Box, min, max, change: int) {
 	if has_value {
 		switch _ in box_value {
 		case string:
-			// panic("box.value was set as string in step_num_input()")
 			value_as_int := strconv.atoi(box.value.?.(string))
 			box_value = clamp(u32(value_as_int + change), u32(min), u32(max))
 			box.value = box_value

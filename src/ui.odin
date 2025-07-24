@@ -2,6 +2,7 @@ package main
 import "core:fmt"
 import "core:math"
 import alg "core:math/linalg"
+import "core:mem"
 import str "core:strings"
 import "core:sys/posix"
 import thread "core:thread"
@@ -56,18 +57,16 @@ UI_State :: struct {
 	context_menu_active:   bool,
 	right_clicked_on:      ^Box,
 	wav_rendering_data:    map[ma.sound][dynamic]Rect_Render_Data,
-	// Need to store where the cursor was across frame-boundaries.
-	// text_cursor_pos:       int,
-	// Actual pixel value of where the cursor is; we store this since it's 
-	// cumbersome to compute it inside the renderer code. This is mainly because
-	// the text input data is not available via a box / rect, only the id_string is.
-	// If id_strings store the inputted text in the future, then I can remove this.
-	// text_cursor_x_coord:   f32,
 	// the visual space between border of text box and the text inside.
 	text_box_padding:      u16,
 	keyboard_mode:         bool,
 	last_clicked_box:      ^Box,
 	last_clicked_box_time: time.Time,
+	// Added this to help with sorting out z-order event consumption.
+	next_frame_signals:    map[string]Box_Signals,
+	// Used to help with the various bugs I was having related to input for box.value and mutating box.value.
+	steps_value_arena:     mem.Arena,
+	steps_value_allocator: mem.Allocator,
 }
 
 num_column :: proc(track_height: u32, n_steps: u32) {
@@ -120,6 +119,7 @@ main_tracker_panel :: proc() {
 		if sampler_signals.container_signals.handle_bar.dragging {
 			app.dragging_window = true
 		}
+		// if you have multiple floating windows this will get ugly pretty quick
 		if app.dragging_window {
 			change_in_x := app.mouse.last_pos.x - app.mouse.pos.x
 			change_in_y := app.mouse.last_pos.y - app.mouse.pos.y

@@ -88,6 +88,8 @@ Box_Signals :: struct {
 	dragged_over:   bool,
 	hovering:       bool,
 	scrolled:       bool,
+	scrolled_up:    bool,
+	scrolled_down:  bool,
 }
 
 // Box-specific metadata, the idea here is: we were using id_strings to hold too much information.
@@ -151,10 +153,14 @@ Box :: struct {
 	// Might need to generalise the type of value more in the future. ATM, this assumes
 	// that the only boxes with explicit values are tracker steps.
 	value:         Maybe(Step_Value_Type),
+	// Lifetimes of box.value are causing massive issues, trying this, basically if the len(box.value) is
+	// short enough, just store it here, if not, we can use some persistent allocator.
+	value_buffer:  [32]u8,
+
 	// Considering wrapping this in a Maybe(), but should be okay for now.
 	font_size:     Font_Size,
 
-	// only relevant if box is a text input. 
+	// Only relevant if box is a text input. 
 	cursor_pos:    u32, // [0..len(value)]
 
 	// The actual (x1,y1),(x2,y2) co-ordinates of the box on the screen.
@@ -170,8 +176,6 @@ Box :: struct {
 	active:        bool,
 	// I think selected is only relevant for tracker steps.
 	selected:      bool,
-
-	// Feels a little wrong having this here, but let's try
 	signals:       Box_Signals,
 
 	// Helps determine event handling when items are stacked on each other.
@@ -193,18 +197,26 @@ box_from_cache :: proc(
 		box.rect = rect
 		return box
 	} else {
-		persistant_id_string := s.clone(id_string)
-		new_box := box_make(flags, persistant_id_string, rect, metadata)
+		new_box: ^Box
 		if id_string != "spacer@spacer" {
+			persistant_id_string := s.clone(id_string)
+			new_box = box_make(flags, persistant_id_string, rect, metadata)
 			ui_state.box_cache[persistant_id_string] = new_box
 			printfln("creating new box with id_string: {}", id_string)
+		} else {
+			new_box = box_make(flags, id_string, rect, metadata)
 		}
 		return new_box
 	}
 }
 
 box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> ^Box {
-	box := new(Box)
+	box: ^Box
+	if id_string == "spacer@spacer" {
+		box = new(Box, context.temp_allocator)
+	} else {
+		box = new(Box)
+	}
 	box.flags = flags
 	box.id_string = id_string
 	box.color = {rand.float32_range(0, 1), rand.float32_range(0, 1), rand.float32_range(0, 1), 1}
@@ -223,49 +235,172 @@ box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect, metadata: Box_
 	return box
 }
 
+// box_signals :: proc(box: ^Box) -> Box_Signals {
+// 	// signals from previous frame
+// 	prev_signals := box.signals
+// 	signals: Box_Signals
+// 	signals.box = box
+// 	signals.hovering = hovering_in_box(box)
+// 	if signals.hovering {
+// 		ui_state.hot_box = box
+// 		box.hot = true
+// 		signals.pressed = app.mouse.left_pressed
+// 		signals.right_pressed = app.mouse.right_pressed
+// 		if left_clicked_on_box(box, prev_signals) {
+// 			if ui_state.last_active_box == box {
+// 				time_diff_ms := (time.now()._nsec - ui_state.last_clicked_box_time._nsec) / 1000 / 1000
+// 				if time_diff_ms <= 400 {
+// 					signals.double_clicked = true
+// 				}
+// 			}
+// 			printfln("clicked on {}", box.id_string)
+// 			ui_state.active_box = box
+// 			signals.clicked = true
+// 			ui_state.last_clicked_box = box
+// 			ui_state.last_clicked_box_time = time.now()
+// 		}
+// 		if right_clicked_on_box(box, prev_signals) {
+// 			ui_state.right_clicked_on = box
+// 			signals.right_clicked = true
+// 			println("right button clicked on: ", box.id_string)
+// 		}
+// 		if app.mouse.wheel.y != 0 {
+// 			signals.scrolled = true
+// 		}
+// 		if signals.pressed {
+// 			signals.dragged_over = true
+// 			if prev_signals.pressed {
+// 				signals.dragging = true
+// 			}
+// 		}
+// 	} else {
+// 		box.hot = false
+// 	}
+// 	box.signals = signals
+// 	return signals
+// }
+
+// Modified box_signals()
 box_signals :: proc(box: ^Box) -> Box_Signals {
-	// signals from previous frame
-	prev_signals := box.signals
-	signals: Box_Signals
-	signals.box = box
-	signals.hovering = hovering_in_box(box)
-	if signals.hovering {
-		ui_state.hot_box = box
-		box.hot = true
-		signals.pressed = app.mouse.left_pressed
-		signals.right_pressed = app.mouse.right_pressed
-		if left_clicked_on_box(box, prev_signals) {
-			if ui_state.last_active_box == box {
-				time_diff_ms := (time.now()._nsec - ui_state.last_clicked_box_time._nsec) / 1000 / 1000
-				if time_diff_ms <= 400 {
-					signals.double_clicked = true
-				}
-			}
-			printfln("clicked on {}", box.id_string)
-			ui_state.active_box = box
-			signals.clicked = true
-			ui_state.last_clicked_box = box
-			ui_state.last_clicked_box_time = time.now()
-		}
-		if right_clicked_on_box(box, prev_signals) {
-			ui_state.right_clicked_on = box
-			signals.right_clicked = true
-			println("right button clicked on: ", box.id_string)
-		}
-		if app.mouse.wheel.y != 0 {
-			signals.scrolled = true
-		}
-		if signals.pressed {
-			signals.dragged_over = true
-			if prev_signals.pressed {
-				signals.dragging = true
-			}
-		}
+	// Return signals computed in previous frame if they exist
+	if stored_signals, ok := ui_state.next_frame_signals[box.id_string]; ok {
+		// Update box visual state
+		box.hot = stored_signals.hovering
+		box.active = stored_signals.pressed || stored_signals.clicked
+		box.signals = stored_signals
+		return stored_signals
 	} else {
-		box.hot = false
+		printfln("didnt have box_signals for {} this frame", box.id_string)
+		this_frame_signals: Box_Signals
+		this_frame_signals.box = box
+		// Can always immediately set hover state.
+		if mouse_inside_box(box, app.mouse.pos) {
+			this_frame_signals.hovering = true
+		}
+		box.signals = this_frame_signals
+		return this_frame_signals
 	}
-	box.signals = signals
-	return signals
+}
+
+compute_frame_signals :: proc() {
+	candidates_at_mouse: [dynamic]^Box
+	defer delete(candidates_at_mouse)
+
+	mouse_pos := Vec2{f32(app.mouse.pos.x), f32(app.mouse.pos.y)}
+
+	// Find all boxes under mouse
+	for box in ui_state.temp_boxes {
+		if mouse_inside_box(box, app.mouse.pos) && .Clickable in box.flags {
+			append(&candidates_at_mouse, box)
+		}
+	}
+
+	// Find highest z-index
+	hot_box: ^Box
+	if len(candidates_at_mouse) > 0 {
+		hot_box = candidates_at_mouse[0]
+		for box in candidates_at_mouse[1:] {
+			if box.z_index > hot_box.z_index {
+				hot_box = box
+			}
+		}
+	}
+
+	// Process all boxes
+	for box in ui_state.temp_boxes {
+		next_signals: Box_Signals
+		next_signals.box = box
+
+		// Get previous frame's signals
+		prev_signals: Box_Signals
+		if stored, ok := ui_state.next_frame_signals[box.id_string]; ok {
+			prev_signals = stored
+		}
+
+		// These events should only trigger on the top most box.
+		if box == hot_box {
+			// Left mouse
+			if app.mouse.left_pressed {
+				next_signals.pressed = true
+				if !prev_signals.pressed {
+					ui_state.active_box = box
+				}
+			} else if prev_signals.pressed {
+				next_signals.clicked = true
+
+				// Double-click detection
+				if ui_state.last_clicked_box == box {
+					time_diff_ms := (time.now()._nsec - ui_state.last_clicked_box_time._nsec) / 1000 / 1000
+					if time_diff_ms <= 400 {
+						next_signals.double_clicked = true
+						printfln("double clicked on {}", box.id_string)
+					}
+				}
+				ui_state.last_clicked_box = box
+				ui_state.last_clicked_box_time = time.now()
+			}
+
+			// Right mouse
+			if app.mouse.right_pressed {
+				next_signals.right_pressed = true
+			} else if prev_signals.right_pressed {
+				next_signals.right_clicked = true
+				ui_state.right_clicked_on = box
+			}
+
+
+			// These are events that can just trigger regardless of z-index.
+			if mouse_inside_box(box, app.mouse.pos) {
+				next_signals.hovering = true
+				// Dragging
+				if next_signals.pressed && prev_signals.pressed {
+					next_signals.dragging = true
+				}
+				next_signals.dragged_over = next_signals.pressed
+
+				// Scrolling
+				if app.mouse.wheel.y != 0 {
+					next_signals.scrolled = true
+					printfln("scrolling on {}", box.id_string)
+					if app.mouse.wheel.y > 0 {
+						next_signals.scrolled_up = true
+					} else if app.mouse.wheel.y < 0 {
+						next_signals.scrolled_down = true
+					}
+				}
+
+			}
+
+
+		}
+
+		// Maintain active state even if not hot
+		if ui_state.active_box == box {
+			box.active = true
+		}
+
+		ui_state.next_frame_signals[box.id_string] = next_signals
+	}
 }
 
 // Does expected checking, but also accounts for z-index stuff.

@@ -45,26 +45,28 @@ when ODIN_OS == .Windows {
 }
 ASPECT_RATIO: f32 : 16.0 / 10.0
 
+Mouse_State :: struct {
+	pos:           [2]i32, // these are typed like this to follow the SDL api, else, they'd be u16
+	last_pos:      [2]i32, // pos of the mouse in the last frame.
+	drag_start:    [2]i32, // -1 if drag was already handled
+	drag_end:      [2]i32, // -1 if drag was already handled
+	dragging:      bool,
+	drag_done:     bool,
+	left_pressed:  bool,
+	right_pressed: bool,
+	wheel:         [2]i8, // -1 moved down, +1 move up
+	clicked:       bool, // whether mouse was left clicked in this frame.
+	right_clicked: bool, // whether mouse was right clicked in this frame.
+}
 // [NOTE]: Pretty sure that anything that's a pointer inside this struct needs to malloc'd.
 App_State :: struct {
 	window:            ^sdl.Window,
 	ui_state:          ^UI_State,
 	char_map:          ^u32,
-	// tracks which key is held down according to SDL.
+	// Tracks which key is held down according to SDL.
 	keys_held:         [sdl.NUM_SCANCODES]bool,
-	mouse:             struct {
-		pos:           [2]i32, // these are typed like this to follow the SDL api, else, they'd be u16
-		last_pos:      [2]i32, // pos of the mouse in the last frame.
-		drag_start:    [2]i32, // -1 if drag was already handled
-		drag_end:      [2]i32, // -1 if drag was already handled
-		dragging:      bool,
-		drag_done:     bool,
-		left_pressed:  bool,
-		right_pressed: bool,
-		wheel:         [2]i8, // -1 moved down, +1 move up
-		clicked:       bool, // whether mouse was left clicked in this frame.
-		right_clicked: bool, // whether mouse was right clicked in this frame.
-	},
+	mouse:             Mouse_State,
+	mouse_last_frame:  Mouse_State,
 	// Actual pixel values of the window.
 	wx:                ^i32,
 	wy:                ^i32,
@@ -72,8 +74,9 @@ App_State :: struct {
 	hot_id:            string,
 	active_id:         string,
 	sampler_open:      bool,
-	// top left of the sampler window
+	// Top left of the sampler window.
 	sampler_pos:       Vec2,
+	// This will become problematic when I want to have > 1 floating + draggable window.
 	dragging_window:   bool,
 	n_tracks:          u8,
 	active_tab:        u8,
@@ -156,12 +159,48 @@ main :: proc() {
 		}
 		frame_time := f64(time.now()._nsec - start)
 		time_to_wait := time.Duration(max_frame_time_ns - frame_time)
-		// if time_to_wait > 0 {
-		// 	time.accurate_sleep(time_to_wait)
-		// }
+		if time_to_wait > 0 {
+			time.accurate_sleep(time_to_wait)
+		}
 	}
 	cleanup_app_state()
 }
+
+update_app :: proc() -> bool {
+	root_rect := app.ui_state.root_rect
+	frame_num := app.ui_state.frame_num
+	if register_resize() {
+		set_shader_vec2(ui_state.quad_shader_program, "screen_res", {f32(app.wx^), f32(app.wy^)})
+	}
+	ui_state.root_rect.top_left = {0, 0}
+	ui_state.root_rect.bottom_right = {f32(app.wx^), f32(app.wy^)}
+
+	event: sdl.Event
+	reset_mouse_state()
+	show_context_menu, exit: bool
+	for sdl.PollEvent(&event) {
+		exit, show_context_menu = handle_input(event)
+		if exit {
+			return false
+		}
+	}
+
+	create_ui()
+	if show_context_menu {
+		ui_state.context_menu_active = true
+	}
+	compute_frame_signals()
+	render_ui()
+
+	reset_renderer_data()
+	sdl.GL_SwapWindow(app.window)
+
+	free_all(context.temp_allocator)
+	frame_num^ += 1
+	app.curr_chars_stored = {}
+	return true
+}
+
 
 /*  
 	Any data that is written to from outside this thread needs to be access atomically 
@@ -240,51 +279,6 @@ init_window :: proc() -> (^sdl.Window, sdl.GLContext) {
 	return app.window, gl_context
 }
 
-cleanup_app_state :: proc() {
-	free(app.wx)
-	// println("freed app.wx")
-	free(app.wy)
-	// println("freed app.wy")
-	free(app.ui_state.quad_vbuffer)
-	// println("freed app.ui_state.quad_vbuffer")
-	free(app.ui_state.quad_vabuffer)
-	// println("freed app.ui_state.quad_vauffer")
-	free(app.ui_state.frame_num)
-	free(app.ui_state.root_rect)
-	// println("freed app.frame_num")
-	delete_dynamic_array(app.ui_state.rect_stack)
-	// println("deleted app.ui_state.rect_stack")
-	delete_dynamic_array(app.ui_state.color_stack)
-	// println("deleted app.ui_state.color_stack")
-	for key, val in app.ui_state.box_cache {
-		// delete(key)
-		delete_string(val.id_string)
-		free(val)
-	}
-	for entry in app.ui_state.temp_boxes {
-		println("freeing box from temp_boxes with id_string: {}", entry.id_string)
-		free(entry)
-	}
-	delete_map(app.ui_state.box_cache)
-	// println("deleted app.ui_state.box_cache")
-	delete(app.ui_state.temp_boxes)
-	// println("deleted app.ui_state.temp_boxes")
-	sdl.DestroyWindow(app.window)
-	// println("destroyed sdl window")
-
-	delete(app.audio_state.tracks)
-	// println("deleted app.audio_state.tracks")
-	free(app.audio_state.engine)
-	// println("freed app.audio_state.engine")
-	for group in app.audio_state.audio_groups {
-		free(group)
-	}
-	free(app.ui_state)
-	free(app)
-	free_all(context.allocator)
-	free_all(context.temp_allocator)
-}
-
 init_app :: proc() -> ^App_State {
 	app = new(App_State)
 	app.sampler_pos = {100, 100}
@@ -302,6 +296,7 @@ init_app :: proc() -> ^App_State {
 	return app
 }
 
+steps_arena_buffer := make([dynamic]u8, 5_000_000)
 init_ui_state :: proc() -> ^UI_State {
 	ui_state.root_rect = new(Rect)
 
@@ -316,8 +311,11 @@ init_ui_state :: proc() -> ^UI_State {
 	append(&ui_state.rect_stack, ui_state.root_rect)
 	ui_state.box_cache = make(map[string]^Box)
 	ui_state.temp_boxes = make([dynamic]^Box)
+	ui_state.next_frame_signals = make(map[string]Box_Signals)
 	ui_state.first_frame = true
 	ui_state.text_box_padding = 10
+	ui_state.steps_value_allocator = mem.arena_allocator(&ui_state.steps_value_arena)
+	mem.arena_init(&ui_state.steps_value_arena, steps_arena_buffer[:])
 
 	gl.GenVertexArrays(1, ui_state.quad_vabuffer)
 	create_vbuffer(ui_state.quad_vbuffer, nil, 700_000)
@@ -469,43 +467,54 @@ init_ui_state :: proc() -> ^UI_State {
 	return ui_state
 }
 
-update_app :: proc() -> bool {
-	root_rect := app.ui_state.root_rect
-	frame_num := app.ui_state.frame_num
-	if register_resize() {
-		set_shader_vec2(ui_state.quad_shader_program, "screen_res", {f32(app.wx^), f32(app.wy^)})
+cleanup_app_state :: proc() {
+	free(app.wx)
+	// println("freed app.wx")
+	free(app.wy)
+	// println("freed app.wy")
+	free(app.ui_state.quad_vbuffer)
+	// println("freed app.ui_state.quad_vbuffer")
+	free(app.ui_state.quad_vabuffer)
+	// println("freed app.ui_state.quad_vauffer")
+	free(app.ui_state.frame_num)
+	free(app.ui_state.root_rect)
+	// println("freed app.frame_num")
+	delete_dynamic_array(app.ui_state.rect_stack)
+	// println("deleted app.ui_state.rect_stack")
+	delete_dynamic_array(app.ui_state.color_stack)
+	// println("deleted app.ui_state.color_stack")
+	for key, val in app.ui_state.box_cache {
+		// delete(key)
+		delete_string(val.id_string)
+		free(val)
 	}
-	ui_state.root_rect.top_left = {0, 0}
-	ui_state.root_rect.bottom_right = {f32(app.wx^), f32(app.wy^)}
-
-	event: sdl.Event
-	reset_mouse_state()
-	show_context_menu, exit: bool
-	for sdl.PollEvent(&event) {
-		exit, show_context_menu = handle_input(event)
-		if exit {
-			return false
-		}
+	for entry in app.ui_state.temp_boxes {
+		println("freeing box from temp_boxes with id_string: {}", entry.id_string)
+		free(entry)
 	}
+	delete_map(app.ui_state.box_cache)
+	// println("deleted app.ui_state.box_cache")
+	delete(app.ui_state.temp_boxes)
+	// println("deleted app.ui_state.temp_boxes")
+	sdl.DestroyWindow(app.window)
+	// println("destroyed sdl window")
 
-	create_ui()
-	if show_context_menu {
-		ui_state.context_menu_active = true
+	delete(app.audio_state.tracks)
+	// println("deleted app.audio_state.tracks")
+	free(app.audio_state.engine)
+	// println("freed app.audio_state.engine")
+	for group in app.audio_state.audio_groups {
+		free(group)
 	}
-	render_ui()
-
-	reset_renderer_data()
-	sdl.GL_SwapWindow(app.window)
-
-	// clear(&app.ui_state.temp_boxes)
+	free(app.ui_state)
+	free(app)
+	free_all(context.allocator)
 	free_all(context.temp_allocator)
-	frame_num^ += 1
-	app.curr_chars_stored = {}
-	return true
 }
 
 handle_input :: proc(event: sdl.Event) -> (exit, show_context_menu: bool) {
 	etype := event.type
+	app.mouse_last_frame = app.mouse
 	if etype == .QUIT {
 		exit = true
 	}

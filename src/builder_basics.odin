@@ -4,6 +4,7 @@ import "core:bytes"
 import "core:hash"
 import "core:math"
 import "core:math/rand"
+import "core:mem"
 import "core:strconv"
 import str "core:strings"
 import "core:text/edit"
@@ -129,20 +130,21 @@ num_input :: proc(
 		buffer_to_use = strconv.itoa(tmp_buffer[:], int(b.value.?.(u32)))
 	}
 	signals := box_signals(b)
-	// builder := str.builder_make(context.temp_allocator)
-	builder := str.builder_make()
-	state: edit.State
+	// builder := str.builder_make(ui_state.steps_value_allocator)
+	builder := str.builder_make(context.temp_allocator)
+	// defer str.builder_destroy(&builder)
 
 	// Not sure if generating a unique ID is neccessary, but we shall do it anyway for now.
-	bytes_buffer: bytes.Buffer
-	defer bytes.buffer_destroy(&bytes_buffer)
-	bytes.buffer_init_string(&bytes_buffer, id_string)
-	byts := bytes.buffer_to_bytes(&bytes_buffer)
-	editor_id := u64(hash.crc32(byts))
+	// bytes_buffer: bytes.Buffer
+	// defer bytes.buffer_destroy(&bytes_buffer)
+	// bytes.buffer_init_string(&bytes_buffer, id_string)
+	// byts := bytes.buffer_to_bytes(&bytes_buffer)
+	// editor_id := u64(hash.crc32(byts))
 
+	state: edit.State
 	edit.init(&state, context.temp_allocator, context.temp_allocator)
 	edit.setup_once(&state, &builder)
-	edit.begin(&state, editor_id, &builder)
+	edit.begin(&state, 0, &builder)
 	edit.input_text(&state, buffer_to_use)
 
 	edit.move_to(&state, .Start)
@@ -201,7 +203,20 @@ num_input :: proc(
 		app.curr_chars_stored = 0
 	}
 
-	b.value = str.to_string(state.builder^)
+
+	// b.value = str.to_string(state.builder^)
+	new_string := str.to_string(state.builder^)
+	// Careful with rune vs bytes here.
+	if len(new_string) <= len(b.value_buffer) {
+		copy(b.value_buffer[:], new_string)
+		b.value = string(b.value_buffer[:len(new_string)])
+	} else {
+		panic("couldn't fit output from num_value in 32 bytes of box.value_buffer")
+		// if old_str, ok := b.value.?.(string); ok && len(old_str) > len(b.value_buffer) {
+		// 	delete(old_str) // Free previous allocated string
+		// }
+		// b.value = str.clone(new_string) // Allocate new string
+	}
 	append(&ui_state.temp_boxes, b)
 	res := Text_Input_Signals {
 		box_signals = signals,

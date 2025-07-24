@@ -143,7 +143,13 @@ play_track_step :: proc(which_track: u32) {
 	println(pitch_box, volume_box, send1_box, send2_box)
 	// Assumes all values in the step are valid, which should be the case when a user 'enables' a step.
 	pitch := pitch_difference("C3", pitch_box.value.?.(string)) / 12
-	volume := f32(volume_box.value.?.(u32))
+	volume: f32
+	switch _ in volume_box.value.(Step_Value_Type) {
+	case u32:
+		volume = f32(volume_box.value.?.(u32))
+	case string:
+		volume = f32(strconv.atoi(volume_box.value.?.(string)))
+	}
 
 	// need to figure out sends.
 	if app.ui_state.selected_steps[which_track][step_num] {

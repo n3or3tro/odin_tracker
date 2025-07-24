@@ -300,7 +300,7 @@ sampler :: proc(id_string: string, rect: ^Rect, track_num: u32) -> Sampler_Signa
 			waveform_rect.bottom_right.x,
 			0,
 			1,
-			f32(app.mouse.pos.x),
+			f32(app.mouse_last_frame.pos.x),
 		)
 
 		// Get current zoom values
@@ -311,11 +311,13 @@ sampler :: proc(id_string: string, rect: ^Rect, track_num: u32) -> Sampler_Signa
 		// This is the key: we need to know what part of the actual waveform is under the cursor
 		waveform_position_under_mouse := sampler.zoom_point + mouse_screen_normalized * old_visible_width
 
+		zoom_in := waveform_container.scrolled_up
+		zoom_out := waveform_container.scrolled_down
 		// Apply zoom change
-		if app.mouse.wheel.y < 0 {
-			decrease_zoom(sampler)
-		} else if app.mouse.wheel.y > 0 {
+		if zoom_in {
 			increase_zoom(sampler)
+		} else if zoom_out {
+			decrease_zoom(sampler)
 		}
 
 		// Calculate new visible width after zoom
