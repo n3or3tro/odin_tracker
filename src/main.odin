@@ -209,7 +209,6 @@ update_app :: proc() -> bool {
 */
 audio_thread_timing_proc :: proc() {
 	audio_start_time := time.now()
-	// time_between_beats := i64((f32(app.audio_state.bpm / 60)) * 1000)
 	time_between_beats := i64(60_000 / f64(app.audio_state.bpm))
 	// Probably need a special case to handle the first step.
 	for {

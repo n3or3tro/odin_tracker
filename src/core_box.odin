@@ -235,51 +235,6 @@ box_make :: proc(flags: Box_Flags, id_string: string, rect: Rect, metadata: Box_
 	return box
 }
 
-// box_signals :: proc(box: ^Box) -> Box_Signals {
-// 	// signals from previous frame
-// 	prev_signals := box.signals
-// 	signals: Box_Signals
-// 	signals.box = box
-// 	signals.hovering = hovering_in_box(box)
-// 	if signals.hovering {
-// 		ui_state.hot_box = box
-// 		box.hot = true
-// 		signals.pressed = app.mouse.left_pressed
-// 		signals.right_pressed = app.mouse.right_pressed
-// 		if left_clicked_on_box(box, prev_signals) {
-// 			if ui_state.last_active_box == box {
-// 				time_diff_ms := (time.now()._nsec - ui_state.last_clicked_box_time._nsec) / 1000 / 1000
-// 				if time_diff_ms <= 400 {
-// 					signals.double_clicked = true
-// 				}
-// 			}
-// 			printfln("clicked on {}", box.id_string)
-// 			ui_state.active_box = box
-// 			signals.clicked = true
-// 			ui_state.last_clicked_box = box
-// 			ui_state.last_clicked_box_time = time.now()
-// 		}
-// 		if right_clicked_on_box(box, prev_signals) {
-// 			ui_state.right_clicked_on = box
-// 			signals.right_clicked = true
-// 			println("right button clicked on: ", box.id_string)
-// 		}
-// 		if app.mouse.wheel.y != 0 {
-// 			signals.scrolled = true
-// 		}
-// 		if signals.pressed {
-// 			signals.dragged_over = true
-// 			if prev_signals.pressed {
-// 				signals.dragging = true
-// 			}
-// 		}
-// 	} else {
-// 		box.hot = false
-// 	}
-// 	box.signals = signals
-// 	return signals
-// }
-
 // Modified box_signals()
 box_signals :: proc(box: ^Box) -> Box_Signals {
 	// Return signals computed in previous frame if they exist
@@ -326,6 +281,12 @@ compute_frame_signals :: proc() {
 		}
 	}
 
+	// Track where mouse down started, otherwise starting outside a box and releasing on a box
+	// will register as if we clicked on that box.
+	if app.mouse.left_pressed && !app.mouse_last_frame.left_pressed {
+		ui_state.mouse_down_on = hot_box
+	}
+
 	// Process all boxes
 	for box in ui_state.temp_boxes {
 		next_signals: Box_Signals
@@ -345,15 +306,13 @@ compute_frame_signals :: proc() {
 				if !prev_signals.pressed {
 					ui_state.active_box = box
 				}
-			} else if prev_signals.pressed {
+			} else if prev_signals.pressed && ui_state.mouse_down_on == box {
 				next_signals.clicked = true
-
 				// Double-click detection
 				if ui_state.last_clicked_box == box {
 					time_diff_ms := (time.now()._nsec - ui_state.last_clicked_box_time._nsec) / 1000 / 1000
 					if time_diff_ms <= 400 {
 						next_signals.double_clicked = true
-						printfln("double clicked on {}", box.id_string)
 					}
 				}
 				ui_state.last_clicked_box = box
@@ -388,9 +347,7 @@ compute_frame_signals :: proc() {
 						next_signals.scrolled_down = true
 					}
 				}
-
 			}
-
 
 		}
 
@@ -401,6 +358,7 @@ compute_frame_signals :: proc() {
 
 		ui_state.next_frame_signals[box.id_string] = next_signals
 	}
+
 }
 
 // Does expected checking, but also accounts for z-index stuff.

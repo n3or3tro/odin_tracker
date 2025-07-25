@@ -67,6 +67,8 @@ UI_State :: struct {
 	// Used to help with the various bugs I was having related to input for box.value and mutating box.value.
 	steps_value_arena:     mem.Arena,
 	steps_value_allocator: mem.Allocator,
+	// Helps to stop clicks registering when you start outside an element and release on top of it.
+	mouse_down_on:         ^Box,
 }
 
 num_column :: proc(track_height: u32, n_steps: u32) {
@@ -116,9 +118,10 @@ main_tracker_panel :: proc() {
 			&Rect{sampler_top_left, sampler_bottom_right},
 			get_active_track(),
 		)
-		if sampler_signals.container_signals.handle_bar.dragging {
-			app.dragging_window = true
-		}
+		// Dragging needs to be handled via a special case due to 1-frame delay fuckery.
+		// if sampler_signals.container_signals.handle_bar.dragging {
+		// 	app.dragging_window = true
+		// }
 		// if you have multiple floating windows this will get ugly pretty quick
 		if app.dragging_window {
 			change_in_x := app.mouse.last_pos.x - app.mouse.pos.x

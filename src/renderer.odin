@@ -118,7 +118,6 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 	append(render_data, data)
 	// These come after adding the main rect data since they have a higher 'z-order'.
 
-
 	// Add cursor inside text box. Blinking is kinda jank right now.
 	if .Edit_Text in box.flags &&
 	   should_render_text_cursor() &&
@@ -181,10 +180,6 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 				left_selection_border.br_color = hot_pink_color
 				right_selection_border.tl_color = hot_pink_color
 				right_selection_border.bl_color = hot_pink_color
-				// left_selection_border.tr_color = palette.primary.s_300
-				// left_selection_border.br_color = palette.primary.s_300
-				// right_selection_border.tl_color = palette.primary.s_300
-				// right_selection_border.bl_color = palette.primary.s_300
 			}
 			if box.active {
 				left_selection_border.tr_color = palette.secondary.s_500
@@ -265,13 +260,13 @@ get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 			top_rect, bottom_rect := rects[0], rects[1]
 			add_waveform_rendering_data(
 				top_rect,
-				app.audio_state.tracks[active_track].sound^,
+				app.audio_state.tracks[active_track].sound,
 				left_channel,
 				rendering_data,
 			)
 			add_waveform_rendering_data(
 				bottom_rect,
-				app.audio_state.tracks[active_track].sound^,
+				app.audio_state.tracks[active_track].sound,
 				right_channel,
 				rendering_data,
 			)
@@ -384,7 +379,7 @@ add_word_rendering_data :: proc(
 // Might need to cache calls to this function since it's pretty costly.
 add_waveform_rendering_data :: proc(
 	rect: Rect,
-	sound: ma.sound,
+	sound: ^ma.sound,
 	pcm_frames: [dynamic]f32,
 	rendering_data: ^[dynamic]Rect_Render_Data,
 ) {
@@ -408,9 +403,17 @@ add_waveform_rendering_data :: proc(
 	// Clamp to valid range
 	start_sample = max(u64(0), start_sample)
 	end_sample = min(u64(frames_read), end_sample)
+
+	// Figure out how much of the sound has played.
+	pos_in_track: u64
+	if ma.sound_get_cursor_in_pcm_frames(sound, &pos_in_track) != .SUCCESS {
+		panic("failed to get cursor position of sound")
+	}
+
+	played_color: Color = {1, 0.5, 1, 1}
+	unplayed_color: Color = {0.5, 0.5, 0.5, 1}
 	for x in 0 ..< render_width {
-		// start := u64((f64(x) / f64(render_width)) * f64(frames_read))
-		// end := u64(f64(x + 1) / f64(render_width) * f64(frames_read))
+		ratio_of_waveform := f64(x) / f64(render_width)
 		start := start_sample + u64((f64(x) / f64(render_width)) * (f64(end_sample - start_sample)))
 		end := start_sample + u64((f64(x + 1) / f64(render_width)) * (f64(end_sample - start_sample)))
 		if end >= frames_read {end = frames_read}
@@ -425,16 +428,23 @@ add_waveform_rendering_data :: proc(
 		y_top := rect.top_left.y + (0.5 - max * 0.5) * render_height
 		y_bot := rect.top_left.y + (0.5 - min * 0.5) * render_height
 		new_data := Rect_Render_Data {
-			tl_color         = {1, 0.5, 1, 1},
-			bl_color         = {1, 0.5, 0.5, 1},
-			tr_color         = {1, 0.5, 1, 1},
-			br_color         = {0.7, 0.5, 1, 1},
 			border_thickness = 300,
 			corner_radius    = 0,
 			edge_softness    = 0,
 			top_left         = Vec2{x_pos - 0.5, y_top},
 			bottom_right     = Vec2{x_pos + 0.5, y_bot},
 			ui_element_type  = 2.0,
+		}
+		if end <= pos_in_track {
+			new_data.tl_color = played_color
+			new_data.tr_color = played_color
+			new_data.bl_color = played_color
+			new_data.br_color = played_color
+		} else {
+			new_data.tl_color = unplayed_color
+			new_data.tr_color = unplayed_color
+			new_data.bl_color = unplayed_color
+			new_data.br_color = unplayed_color
 		}
 		append(rendering_data, new_data)
 	}

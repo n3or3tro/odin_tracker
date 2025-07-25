@@ -47,6 +47,12 @@ draggable_container :: proc(
 ) -> Draggable_Container_Signals {
 	handle_bar_rect := cut_rect(rect, RectCut{side = .Top, size = {.Percent, 0.05}})
 	handle_bar := text_button(tprintf("drag-me@{}-handle-bar", id_string), handle_bar_rect)
+
+	// Need this special case as dragging wasn't working correctly with the 1-frame delay.
+	if mouse_inside_box(handle_bar.box, app.mouse.pos) && app.mouse.left_pressed {
+		app.dragging_window = true
+	}
+
 	b := box_from_cache({.Floating_X, .Draw}, id_string, rect^)
 	append(&ui_state.temp_boxes, b)
 	return Draggable_Container_Signals{handle_bar = handle_bar, container = box_signals(b)}
@@ -130,9 +136,7 @@ num_input :: proc(
 		buffer_to_use = strconv.itoa(tmp_buffer[:], int(b.value.?.(u32)))
 	}
 	signals := box_signals(b)
-	// builder := str.builder_make(ui_state.steps_value_allocator)
 	builder := str.builder_make(context.temp_allocator)
-	// defer str.builder_destroy(&builder)
 
 	// Not sure if generating a unique ID is neccessary, but we shall do it anyway for now.
 	// bytes_buffer: bytes.Buffer

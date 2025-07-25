@@ -65,7 +65,7 @@ setup_audio :: proc() -> ^Audio_State {
 	app.audio_state = audio_state
 	audio_state.engine = engine
 
-	init_delay(0.5, 0.3)
+	// init_delay(0.5, 0.3)
 	when ODIN_OS == .Windows {
 		println("c:\\Music\\tracker\\3.wav loading...")
 		set_track_sound("c:\\users\\n3or3tro\\Music\\tracker\\3.wav", 0)
@@ -139,9 +139,9 @@ play_track_step :: proc(which_track: u32) {
 
 	pitch_box, volume_box, send1_box, send2_box := get_substeps_input_from_step(step_num, which_track)
 
-	println("trying to play_track_step()")
-	println(pitch_box, volume_box, send1_box, send2_box)
-	// Assumes all values in the step are valid, which should be the case when a user 'enables' a step.
+	// println("trying to play_track_step()")
+	// println(pitch_box, volume_box, send1_box, send2_box)
+	// Assumes all values in the step are valid, which should be the case when enable_step() has been called.
 	pitch := pitch_difference("C3", pitch_box.value.?.(string)) / 12
 	volume: f32
 	switch _ in volume_box.value.(Step_Value_Type) {
@@ -150,6 +150,29 @@ play_track_step :: proc(which_track: u32) {
 	case string:
 		volume = f32(strconv.atoi(volume_box.value.?.(string)))
 	}
+	slice_num: u32
+	pcm_start: u64 = 0
+	if app.samplers[which_track].mode == .slice {
+		slice_value: u32 = 0
+		switch _ in pitch_box.value.(Step_Value_Type) {
+		case u32:
+			slice_value = pitch_box.value.?.(u32)
+		case string:
+			slice_value = u32(strconv.atoi(pitch_box.value.?.(string)))
+		}
+		slice_ratio: f64 = 0
+		for slice in app.samplers[which_track].slices {
+			if slice.which == slice_value {
+				slice_ratio = f64(slice.how_far)
+			}
+		}
+		// slice_ratio := app.samplers[which_track].slices[slice_num].how_far
+		printfln("step is set to play slice {} which is {} through the track", slice_value, slice_ratio)
+		sound_length: u64
+		ma.sound_get_length_in_pcm_frames(sound, &sound_length)
+		pcm_start = u64(f64(sound_length) * slice_ratio)
+		printfln("sound is {} frames long, slice starts at frame {}", sound_length, pcm_start)
+	}
 
 	// need to figure out sends.
 	if app.ui_state.selected_steps[which_track][step_num] {
@@ -157,7 +180,7 @@ play_track_step :: proc(which_track: u32) {
 		pitch := ui_state.step_pitches[which_track][step_num]
 		ma.sound_set_pitch(sound, pitch / 12)
 		ma.sound_set_volume(sound, volume / 100)
-		ma.sound_seek_to_pcm_frame(sound, 0)
+		ma.sound_seek_to_pcm_frame(sound, pcm_start)
 		ma.sound_start(sound)
 	}
 }
@@ -251,12 +274,15 @@ store_track_pcm_data :: proc(track: u32) {
 
 	// might have weird off by one errors further in the system. CBF figuring out the math
 	// so we just add + 1 the capacity for now 
-	left_channel := make([dynamic]f32, frames_read / 2 + 1)
-	right_channel := make([dynamic]f32, frames_read / 2 + 1)
+	// left_channel := make([dynamic]f32, frames_read / 2 + 1)
+	// right_channel := make([dynamic]f32, frames_read / 2 + 1)
+	left_channel := make([dynamic]f32, frames_read)
+	right_channel := make([dynamic]f32, frames_read)
 	lc_pointer: u64 = 0
 	rc_pointer: u64 = 1
 	i := 0
-	for rc_pointer < frames_read {
+	printfln("when iterating through frames, we have {} frames in this sound", frames_read)
+	for rc_pointer < frames_read * 2 - 3 {
 		left_channel[i] = buf[lc_pointer]
 		right_channel[i] = buf[rc_pointer]
 		i += 1

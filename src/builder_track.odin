@@ -171,6 +171,10 @@ handle_track_steps_interactions :: proc(track: Track_Steps_Signals, which: u32) 
 					// need to figure out how to not permanently allocate this thing, or atleast figure out when to free it.
 					conv_buf := make_dynamic_array_len([dynamic]u8, 10)
 					pitch_box.value = strconv.itoa(conv_buf[:], new_value)
+				} else {
+					new_value := up_one_semitone(pitch_box.value.?.(string))
+					copy(pitch_box.value_buffer[:], new_value)
+					pitch_box.value = string(pitch_box.value_buffer[:len(new_value)])
 				}
 			} else {
 				if app.samplers[which].mode == .slice {
@@ -181,7 +185,10 @@ handle_track_steps_interactions :: proc(track: Track_Steps_Signals, which: u32) 
 					conv_buf := make_dynamic_array_len([dynamic]u8, 10)
 					pitch_box.value = strconv.itoa(conv_buf[:], new_value)
 				} else {
-					pitch_box.value = down_one_semitone(pitch_box.value.?.(string))
+					new_value := down_one_semitone(pitch_box.value.?.(string))
+					copy(pitch_box.value_buffer[:], new_value)
+					pitch_box.value = string(pitch_box.value_buffer[:len(new_value)])
+
 				}
 			}
 		}
@@ -216,7 +223,7 @@ enable_step :: proc(step_pitch_box: ^Box) {
 		if pitch_box.value == nil || pitch_box.value.?.(string) == "" {
 			pitch_box.value = pitch_type == .Pitch_Note ? "C3" : "0"
 		}
-		if volume_box.value == nil {
+		if volume_box.value == nil || volume_box.value.?.(string) == "" {
 			volume_box.value = 50
 		}
 		if send1_box.value == nil {
