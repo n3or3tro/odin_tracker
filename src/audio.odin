@@ -160,18 +160,17 @@ play_track_step :: proc(which_track: u32) {
 		case string:
 			slice_value = u32(strconv.atoi(pitch_box.value.?.(string)))
 		}
-		slice_ratio: f64 = 0
-		for slice in app.samplers[which_track].slices {
-			if slice.which == slice_value {
-				slice_ratio = f64(slice.how_far)
+		if slice_value == 0 {
+			pcm_start = 0
+		} else {
+			if app.samplers[which_track].n_slices > 0 && slice_value != 0 {
+				slice_value -= 1
 			}
+			slice_ratio := f64(app.samplers[which_track].slices[slice_value].how_far)
+			sound_length: u64
+			ma.sound_get_length_in_pcm_frames(sound, &sound_length)
+			pcm_start = u64(f64(sound_length) * slice_ratio)
 		}
-		// slice_ratio := app.samplers[which_track].slices[slice_num].how_far
-		printfln("step is set to play slice {} which is {} through the track", slice_value, slice_ratio)
-		sound_length: u64
-		ma.sound_get_length_in_pcm_frames(sound, &sound_length)
-		pcm_start = u64(f64(sound_length) * slice_ratio)
-		printfln("sound is {} frames long, slice starts at frame {}", sound_length, pcm_start)
 	}
 
 	// need to figure out sends.
@@ -281,8 +280,7 @@ store_track_pcm_data :: proc(track: u32) {
 	lc_pointer: u64 = 0
 	rc_pointer: u64 = 1
 	i := 0
-	printfln("when iterating through frames, we have {} frames in this sound", frames_read)
-	for rc_pointer < frames_read * 2 - 3 {
+	for rc_pointer < frames_read * 2 {
 		left_channel[i] = buf[lc_pointer]
 		right_channel[i] = buf[rc_pointer]
 		i += 1
