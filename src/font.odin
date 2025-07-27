@@ -236,11 +236,9 @@ setup_font_atlas :: proc(size: Font_Size) {
 
 // Gives you the first 'point' along the 'baseline' that
 // a string will be rendered on.
-get_font_baseline :: proc(text: string, box: Box) -> (x, y: f32) {
-	rect := box.rect
+get_font_baseline :: proc(text: string, font_size: Font_Size, rect: Rect, flags: Box_Flags) -> (x, y: f32) {
 	max_height: f32 = -1
 	str_width: f32 = 0
-	font_size := box.font_size
 	for ch in text {
 		height := f32(ui_state.font_atlases[font_size].chars[ch].height)
 		if height > max_height {
@@ -248,9 +246,9 @@ get_font_baseline :: proc(text: string, box: Box) -> (x, y: f32) {
 		}
 		str_width += f32(ui_state.font_atlases[font_size].chars[ch].advance_x)
 	}
-	if .Text_Left in box.flags {
+	if .Text_Left in flags {
 		x = rect.top_left.x + f32(app.ui_state.text_box_padding)
-	} else if .Text_Right in box.flags {
+	} else if .Text_Right in flags {
 		// figure this out when we need it :)
 	} else { 	// default case is to center text.
 		x = rect.top_left.x + (rect_width(rect) - str_width) / 2
@@ -267,6 +265,12 @@ word_rendered_length :: proc(s: string, font_size: Font_Size) -> int {
 	}
 	return int(tot)
 }
+
+// get_font_baselines :: proc(words: [dynamic]string, box: Box) -> [dynamic]Vec2 {
+// 	for word in words { 
+// 		get_font_baseline()
+// 	}	
+// }
 
 
 tallest_rendered_char :: proc(s: string, font_size: Font_Size) -> f32 {

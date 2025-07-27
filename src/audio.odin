@@ -138,7 +138,6 @@ play_track_step :: proc(which_track: u32) {
 	}
 
 	pitch_box, volume_box, send1_box, send2_box := get_substeps_input_from_step(step_num, which_track)
-
 	// println("trying to play_track_step()")
 	// println(pitch_box, volume_box, send1_box, send2_box)
 	// Assumes all values in the step are valid, which should be the case when enable_step() has been called.

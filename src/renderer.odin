@@ -249,7 +249,7 @@ get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 		}
 
 		if .Draw_Text in box.flags {
-			add_word_rendering_data(box^, boxes_to_render, rendering_data)
+			add_word_rendering_data_2(box^, boxes_to_render, rendering_data)
 		}
 		if s.contains(get_id_from_id_string(box.id_string), "waveform-container") {
 			// Render left_channel and right_channel serperately. Maybe we can gain some efficiency by doing this together ? 
@@ -293,11 +293,47 @@ add_fader_knob_rendering_data :: proc(box: Box, rendering_data: ^[dynamic]Rect_R
 	append(rendering_data, data)
 }
 
-add_word_rendering_data :: proc(
+add_word_rendering_data_2 :: proc(
 	box: Box,
 	boxes_to_render: ^[dynamic]Rect_Render_Data,
 	rendering_data: ^[dynamic]Rect_Render_Data,
 ) {
+	add_single_word_rendering_data :: proc(
+		word: string,
+		baseline: Vec2,
+		font_size: Font_Size,
+		rendering_data: ^[dynamic]Rect_Render_Data,
+	) {
+		len_so_far: f32 = 0
+		baseline_x, baseline_y := baseline.x, baseline.y
+		for i in 0 ..< len(word) {
+			ch := rune(word[i])
+			char_metadata := ui_state.font_atlases[font_size].chars[ch]
+			new_rect := Rect_Render_Data {
+				bl_color             = {1, 1, 1, 1},
+				br_color             = {1, 1, 1, 1},
+				tl_color             = {1, 1, 1, 1},
+				tr_color             = {1, 1, 1, 1},
+				border_thickness     = 300,
+				corner_radius        = 0,
+				edge_softness        = 0,
+				ui_element_type      = 1.0,
+				top_left             = {
+					baseline_x + len_so_far + char_metadata.glyph_x0, // Use glyph x0
+					baseline_y + char_metadata.glyph_y0, // Use glyph y0
+				},
+				bottom_right         = {
+					baseline_x + len_so_far + char_metadata.glyph_x1, // Use glyph_x1 for actual glyph width
+					baseline_y + char_metadata.glyph_y1,
+				},
+				texture_top_left     = {char_metadata.u0, char_metadata.v0},
+				texture_bottom_right = {char_metadata.u1, char_metadata.v1},
+				font_size            = font_size,
+			}
+			len_so_far += char_metadata.advance_x
+			append(rendering_data, new_rect)
+		}
+	}
 	// Only render text data of a tracker step if it's 'selected'.
 	if _, is_step := box.metadata.(Step_Metadata); is_step {
 		step_num := step_num_from_step(box.id_string)
@@ -311,7 +347,6 @@ add_word_rendering_data :: proc(
 	box_value, has_value := box.value.?
 	conversion_data: [8]byte
 	string_to_render: string
-	// 0 should be a valid value here, previously 0 was treated as special.
 	if has_value {
 		switch _ in box_value {
 		case string:
@@ -328,37 +363,30 @@ add_word_rendering_data :: proc(
 			string_to_render = box.name
 		}
 	}
-	word_length := word_rendered_length(string_to_render, box.font_size)
-	gap := (int(rect_width(box.rect)) - word_length) / 2
-	baseline_x, baseline_y := get_font_baseline(string_to_render, box)
-	parent_rect := boxes_to_render[len(boxes_to_render) - 1]
-	len_so_far: f32 = 0
-	for i in 0 ..< len(string_to_render) {
-		ch := rune(string_to_render[i])
-		char_metadata := ui_state.font_atlases[box.font_size].chars[ch]
-		new_rect := Rect_Render_Data {
-			bl_color             = {1, 1, 1, 1},
-			br_color             = {1, 1, 1, 1},
-			tl_color             = {1, 1, 1, 1},
-			tr_color             = {1, 1, 1, 1},
-			border_thickness     = 300,
-			corner_radius        = 0,
-			edge_softness        = 0,
-			ui_element_type      = 1.0,
-			top_left             = {
-				baseline_x + len_so_far + char_metadata.glyph_x0, // Use glyph x0
-				baseline_y + char_metadata.glyph_y0, // Use glyph y0
-			},
-			bottom_right         = {
-				baseline_x + len_so_far + char_metadata.glyph_x1, // Use glyph_x1 for actual glyph width
-				baseline_y + char_metadata.glyph_y1,
-			},
-			texture_top_left     = {char_metadata.u0, char_metadata.v0},
-			texture_bottom_right = {char_metadata.u1, char_metadata.v1},
-			font_size            = box.font_size,
+
+	potential_length := word_rendered_length(string_to_render, box.font_size)
+	if potential_length >= int(rect_width(box.rect)) {
+		words := s.split(string_to_render, " ", context.temp_allocator)
+		n_words := u32(len(words))
+		word_rects := cut_rect_into_n_vertically(box.rect, n_words, context.temp_allocator)
+		word_lengths := make([dynamic]u32, allocator = context.temp_allocator)
+		word_baselines := make([dynamic]Vec2, allocator = context.temp_allocator)
+		for word, i in words {
+			append(&word_lengths, u32(word_rendered_length(word, box.font_size)))
+			x, y := get_font_baseline(word, box.font_size, word_rects[i], box.flags)
+			append(&word_baselines, Vec2{x, y})
 		}
-		len_so_far += char_metadata.advance_x
-		append(rendering_data, new_rect)
+		printfln("string_to_render is: {}", string_to_render)
+		for j in 0 ..< len(words) {
+			word := words[j]
+			printfln("this token is: {}", word)
+			baseline := word_baselines[j]
+			add_single_word_rendering_data(word, baseline, box.font_size, rendering_data)
+		}
+	} else {
+		baseline_x, baseline_y := get_font_baseline(string_to_render, box.font_size, box.rect, box.flags)
+		baseline := Vec2{baseline_x, baseline_y}
+		add_single_word_rendering_data(string_to_render, baseline, box.font_size, rendering_data)
 	}
 	// render font baseline for debuggin purposes
 	// font_baseline_rect := Rect_Render_Data {
