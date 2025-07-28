@@ -187,7 +187,7 @@ update_app :: proc() -> bool {
 
 	create_ui()
 	if show_context_menu {
-		ui_state.context_menu_active = true
+		ui_state.context_menu.active = true
 	}
 	compute_frame_signals()
 	render_ui()
@@ -201,7 +201,6 @@ update_app :: proc() -> bool {
 	return true
 }
 
-
 /*  
 	Any data that is written to from outside this thread needs to be access atomically 
 	inside this thread. Might need to use locks, unclear right now.
@@ -209,7 +208,8 @@ update_app :: proc() -> bool {
 */
 audio_thread_timing_proc :: proc() {
 	audio_start_time := time.now()
-	time_between_beats := i64(60_000 / f64(app.audio_state.bpm))
+	// This moves the step marker at 1/4 steps at 120 BPM. 
+	time_between_beats := i64(60_000 / f64(app.audio_state.bpm) / 4)
 	// Probably need a special case to handle the first step.
 	for {
 		start_time := time.now()
@@ -290,6 +290,8 @@ init_app :: proc() -> ^App_State {
 	for i in 0 ..< MAX_TRACKS {
 		new_sampler_state := new(Sampler_State)
 		app.samplers[i] = new_sampler_state
+		// Mark all tracks as 'alive'.
+		app.tracks[i] = true
 	}
 	app.n_tracks += 1
 	return app
@@ -555,19 +557,18 @@ handle_input :: proc(event: sdl.Event) -> (exit, show_context_menu: bool) {
 		case sdl.BUTTON_LEFT:
 			if app.mouse.left_pressed {
 				app.mouse.clicked = true
-				show_context_menu = false
+
 			}
 			app.mouse.left_pressed = false
 			app.mouse.drag_end = app.mouse.pos
 			app.mouse.dragging = false
 			app.mouse.drag_done = true
 			app.dragging_window = false
-			printf("mouse was dragged from {} to {}\n", app.mouse.drag_start, app.mouse.drag_end)
 		case sdl.BUTTON_RIGHT:
 			if app.mouse.right_pressed { 	// i.e. A right click was performed.
 				app.mouse.right_clicked = true
 				show_context_menu = true
-				ui_state.context_menu_pos = Vec2{f32(app.mouse.pos.x), f32(app.mouse.pos.y)}
+				ui_state.context_menu.pos = Vec2{f32(app.mouse.pos.x), f32(app.mouse.pos.y)}
 			}
 			app.mouse.right_pressed = false
 		}
@@ -606,7 +607,11 @@ reset_mouse_state :: proc() {
 	if app.mouse.clicked {
 		// do this here because events are captured before ui is created, 
 		// meaning context-menu.button1.signals.click will never be set.
-		ui_state.context_menu_active = false
+		printfln("last active box clicked on was: {}", ui_state.last_active_box.id_string)
+		_, clicked_on_context_menu := ui_state.last_active_box.metadata.(Context_Menu_Metadata)
+		if !clicked_on_context_menu {
+			ui_state.context_menu.active = false
+		}
 	}
 	app.mouse.clicked = false
 	app.mouse.right_clicked = false

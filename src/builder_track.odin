@@ -75,8 +75,14 @@ pitch_step :: proc(id_string: string, rect: Rect, metadata: Step_Metadata) -> Bo
 	return signals
 }
 
-num_step :: proc(id_string: string, rect: Rect, metadata: Step_Metadata, min, max: int) -> Box_Signals {
-	signals := num_input(id_string, rect, min, max, metadata)
+num_step :: proc(
+	id_string: string,
+	rect: Rect,
+	metadata: Step_Metadata,
+	min, max: int,
+	init_value: int = 0,
+) -> Box_Signals {
+	signals := num_input(id_string, rect, min, max, metadata, init_value = init_value)
 	return signals
 }
 
@@ -120,6 +126,7 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 			Step_Metadata{which, i, .Volume},
 			0,
 			100,
+			init_value = 50,
 		)
 
 		push_color(palette.secondary.s_400)
@@ -216,7 +223,6 @@ enable_step :: proc(step_pitch_box: ^Box) {
 	volume_box := ui_state.box_cache[create_substep_input_id(step_num, track_num, .Volume)]
 	send1_box := ui_state.box_cache[create_substep_input_id(step_num, track_num, .Send1)]
 	send2_box := ui_state.box_cache[create_substep_input_id(step_num, track_num, .Send2)]
-	// step.pitch.box_signals.box.selected = !step.pitch.box_signals.box.selected
 	pitch_box.selected = !pitch_box.selected
 	if pitch_box.selected {
 		ui_state.selected_steps[track_num][step_num] = true
@@ -326,9 +332,15 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 		armed_state := app.audio_state.tracks[which].armed
 		app.audio_state.tracks[which].armed = !armed_state
 	}
-	if t_controls.button_signals.file_load_signals.clicked {
+	what: if t_controls.button_signals.file_load_signals.clicked {
 		files, ok := file_dialog(false)
-		assert(ok, "file dialog failed :(")
+		if !ok {
+			println(
+				"If you selected a file and pressed 'OK' and you're seeing this message, there's a bug in the file dialog code",
+			)
+			break what
+		}
+		// assert(ok, "file dialog failed :(")
 		printfln("{} returned from file dialog", files)
 		set_track_sound(files[0], which)
 	}

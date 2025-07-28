@@ -249,7 +249,7 @@ get_all_rendering_data :: proc() -> ^[dynamic]Rect_Render_Data {
 		}
 
 		if .Draw_Text in box.flags {
-			add_word_rendering_data_2(box^, boxes_to_render, rendering_data)
+			add_word_rendering_data(box^, boxes_to_render, rendering_data)
 		}
 		if s.contains(get_id_from_id_string(box.id_string), "waveform-container") {
 			// Render left_channel and right_channel serperately. Maybe we can gain some efficiency by doing this together ? 
@@ -293,7 +293,7 @@ add_fader_knob_rendering_data :: proc(box: Box, rendering_data: ^[dynamic]Rect_R
 	append(rendering_data, data)
 }
 
-add_word_rendering_data_2 :: proc(
+add_word_rendering_data :: proc(
 	box: Box,
 	boxes_to_render: ^[dynamic]Rect_Render_Data,
 	rendering_data: ^[dynamic]Rect_Render_Data,

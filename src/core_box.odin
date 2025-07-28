@@ -102,6 +102,7 @@ Box_Metadata :: union #no_nil {
 	Step_Metadata,
 	Track_Control_Metadata,
 	Sampler_Metadata,
+	Context_Menu_Metadata,
 }
 
 No_Metadata :: struct {}
@@ -134,11 +135,13 @@ Sampler_Metadata :: struct {
 	},
 	slice_num:    Maybe(u32), // For slice markers
 }
+Context_Menu_Metadata :: struct {}
 
 Step_Value_Type :: union {
 	string, // pitch.
 	u32, // volume, send.s
 }
+
 
 // New Box struct based on my simplified layout algorithm.
 Box :: struct {
@@ -179,7 +182,7 @@ Box :: struct {
 	signals:       Box_Signals,
 
 	// Helps determine event handling when items are stacked on each other.
-	z_index:       u8,
+	z_index:       i16,
 
 	// Wasn't sure whether to add this or not, but basically I think it will be more helpful than messy,
 	// I.e. rather than always parsing id_string's, we'll store metadata when relevant.
@@ -281,7 +284,7 @@ compute_frame_signals :: proc() {
 		}
 	}
 
-	// Track where mouse down started, otherwise starting outside a box and releasing on a box
+	// Record where mouse down started, otherwise starting outside a box and releasing on a box
 	// will register as if we clicked on that box.
 	if app.mouse.left_pressed && !app.mouse_last_frame.left_pressed {
 		ui_state.mouse_down_on = hot_box
@@ -300,7 +303,6 @@ compute_frame_signals :: proc() {
 
 		// These events should only trigger on the top most box.
 		if box == hot_box {
-			// Left mouse
 			if app.mouse.left_pressed {
 				next_signals.pressed = true
 				if !prev_signals.pressed {
@@ -319,7 +321,6 @@ compute_frame_signals :: proc() {
 				ui_state.last_clicked_box_time = time.now()
 			}
 
-			// Right mouse
 			if app.mouse.right_pressed {
 				next_signals.right_pressed = true
 			} else if prev_signals.right_pressed {

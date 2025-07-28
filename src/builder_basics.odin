@@ -85,7 +85,12 @@ button :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> Bo
 }
 
 text_button :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> Box_Signals {
-	b := box_from_cache({.Draw, .Clickable, .Active_Animation, .Draw_Text, .Hot_Animation}, id_string, rect)
+	b := box_from_cache(
+		{.Draw, .Clickable, .Active_Animation, .Draw_Text, .Hot_Animation},
+		id_string,
+		rect,
+		metadata = metadata,
+	)
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)
 }

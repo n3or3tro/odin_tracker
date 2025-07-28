@@ -52,9 +52,7 @@ UI_State :: struct {
 	selected_box:          ^Box,
 	last_hot_box:          ^Box,
 	last_active_box:       ^Box,
-	z_index:               u8,
-	context_menu_pos:      Vec2,
-	context_menu_active:   bool,
+	z_index:               i16,
 	right_clicked_on:      ^Box,
 	wav_rendering_data:    map[ma.sound][dynamic]Rect_Render_Data,
 	// the visual space between border of text box and the text inside.
@@ -69,6 +67,12 @@ UI_State :: struct {
 	steps_value_allocator: mem.Allocator,
 	// Helps to stop clicks registering when you start outside an element and release on top of it.
 	mouse_down_on:         ^Box,
+	context_menu:          struct {
+		pos:              Vec2,
+		active:           bool,
+		show_fill_menu:   bool,
+		show_remove_menu: bool,
+	},
 }
 
 num_column :: proc(track_height: u32, n_steps: u32) {
@@ -84,6 +88,25 @@ track_steps_height_ratio: f32 = 0.80
 track_steps_width_ratio: f32 = 0.04
 n_track_steps: u32 = 32
 
+create_ui :: proc() {
+	ui_state.z_index = -10
+	clickable_container("backgroung@background", Rect{{0, 0}, {f32(app.wx^), f32(app.wy^)}})
+	ui_state.z_index = 0
+	topbar := top_bar()
+	handle_top_bar_interactions(topbar)
+	switch app.active_tab {
+	case 0:
+		main_tracker_panel()
+	case 1:
+		second_panel()
+	case 2:
+		text_button_absolute("this is the conent of tab 3@whatalksj", 100, 100)
+	}
+	if ui_state.context_menu.active {
+		context_menu()
+	}
+}
+
 main_tracker_panel :: proc() {
 	col_height := cast(u32)(rect_height(top_rect()^) * track_steps_height_ratio)
 
@@ -93,6 +116,7 @@ main_tracker_panel :: proc() {
 	track_width: f32 = 200
 	spacers := make_dynamic_array_len_cap([dynamic]^Box, 10, 10, context.temp_allocator)
 	for i in 0 ..< app.n_tracks {
+		if !app.tracks[i] {continue}
 		create_track(u32(i), track_width)
 		append(&spacers, spacer("spacer@spacer", RectCut{Size{.Pixels, f32(track_padding)}, .Left}))
 	}
@@ -323,22 +347,6 @@ move_active_box_down :: proc() {
 	box.selected = false
 	next_box.selected = true
 	ui_state.selected_box = next_box
-}
-
-create_ui :: proc() {
-	topbar := top_bar()
-	handle_top_bar_interactions(topbar)
-	switch app.active_tab {
-	case 0:
-		main_tracker_panel()
-	case 1:
-		second_panel()
-	case 2:
-		text_button_absolute("this is the conent of tab 3@whatalksj", 100, 100)
-	}
-	if ui_state.context_menu_active {
-		context_menu()
-	}
 }
 
 render_ui :: proc() {

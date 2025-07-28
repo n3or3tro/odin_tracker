@@ -80,9 +80,8 @@ when ODIN_OS == .Windows {
 
 		open_ok := windows.GetOpenFileNameW(&config)
 		if !open_ok {
-			println("opening file dialog failed :(")
-			// should probably do some error checking here
-			panic("fuck")
+			println("If you selected a file and pressed 'OK', then we have a !! SERIOUS BUG !!")
+			return {}, false
 		}
 		return parse_result(config.lpstrFile[:], MAX_LEN, multiselect), true
 	}

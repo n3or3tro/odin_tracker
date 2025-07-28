@@ -54,10 +54,10 @@ sampler_left_controls :: proc(rect: ^Rect) {
 	warp_button_rect := rects[1]
 	slice_button_rect := rects[2]
 
-	ui_state.font_size = .l
+	ui_state.font_size = .m
 	one_shot_button := text_button("one shot@left-controls-one-shot", one_shot_rect)
 	warp_button := text_button("warp whole sample@left-controls-warp", warp_button_rect)
-	slice_button := text_button("slice up sample@left-controls-slice", slice_button_rect)
+	slice_button := text_button("slice-up sample@left-controls-slice", slice_button_rect)
 
 	if warp_button.clicked {
 		app.samplers[track_num].mode = .warp
