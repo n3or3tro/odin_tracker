@@ -96,9 +96,9 @@ void main() {
 	} else if (ui_element_type == 4.0) { // i.e. fader knob
 		vec4 texture_sample = texture(fader_knob_texture, texture_uv);
 		color = texture_sample;
-	} else if (ui_element_type == 15.0) { // i.e. background
-		vec4 texture_sample = texture(background_texture, texture_uv);
-		color = texture_sample;
+	//} else if (ui_element_type == 15.0) { // i.e. background
+		// vec4 texture_sample = texture(background_texture, texture_uv);
+		// color = texture_sample;
 	} else { // i.e. we're rendering text.
 		float texture_sample;
 		// Sample red channel due to how texture is uploaded.

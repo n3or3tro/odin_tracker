@@ -211,6 +211,7 @@ audio_thread_timing_proc :: proc() {
 	// This moves the step marker at 1/4 steps at 120 BPM. 
 	time_between_beats := i64(60_000 / f64(app.audio_state.bpm) / 4)
 	// Probably need a special case to handle the first step.
+	SCROLL_THRESHOLD :: 16
 	for {
 		start_time := time.now()
 		last_step_time := app.audio_state.last_step_time_nsec
@@ -220,6 +221,12 @@ audio_thread_timing_proc :: proc() {
 			if time_since_last_step >= time_between_beats {
 				for &track, track_num in app.audio_state.tracks {
 					track.curr_step = (track.curr_step + 1) % 32
+					if track.curr_step > ui_state.steps_vertical_offset + NUM_VISIBLE_STEPS - SCROLL_THRESHOLD {
+						ui_state.steps_vertical_offset = track.curr_step - (NUM_VISIBLE_STEPS - SCROLL_THRESHOLD)
+					}
+					if track.curr_step < ui_state.steps_vertical_offset {
+						ui_state.steps_vertical_offset = track.curr_step
+					}
 					if track.armed {
 						if ui_state.selected_steps[track_num][track.curr_step] {
 							play_track_step(u32(track_num))
@@ -321,10 +328,7 @@ init_ui_state :: proc() -> ^UI_State {
 	gl.GenVertexArrays(1, ui_state.quad_vabuffer)
 	create_vbuffer(ui_state.quad_vbuffer, nil, 700_000)
 
-	program1, quad_shader_ok := gl.load_shaders_source(
-		string(ui_vertex_shader_data),
-		string(ui_pixel_shader_data),
-	)
+	program1, quad_shader_ok := gl.load_shaders_source(string(ui_vertex_shader_data), string(ui_pixel_shader_data))
 	assert(quad_shader_ok)
 	ui_state.quad_shader_program = program1
 
@@ -361,17 +365,7 @@ init_ui_state :: proc() -> ^UI_State {
 	gl.BindTexture(gl.TEXTURE_2D, knob_texture_id)
 
 	// Upload texture data to OpenGL
-	gl.TexImage2D(
-		gl.TEXTURE_2D,
-		0,
-		gl.RGBA,
-		knob_width,
-		knob_height,
-		0,
-		gl.RGBA,
-		gl.UNSIGNED_BYTE,
-		knob_image_data,
-	)
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, knob_width, knob_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, knob_image_data)
 	// glGenerateMipmap(GL_TEXTURE_2D)
 
 	// // Set texture parameters

@@ -195,19 +195,6 @@ get_boxes_rendering_data :: proc(box: Box) -> ^[dynamic]Rect_Render_Data {
 	return render_data
 }
 
-// A jank way to 'animate' the text cursor blinking based on frame number.
-should_render_text_cursor :: proc() -> bool {
-	frame_rate: u64 = 120 // Shouldn't be hardcoded in prod.
-	curr_frame := app.ui_state.frame_num^ % frame_rate
-	return curr_frame < frame_rate
-}
-
-is_active_step :: proc(box: Box) -> bool {
-	track_num := track_num_from_step(box.id_string)
-	step_num := step_num_from_step(box.id_string)
-	return step_num == app.audio_state.tracks[track_num].curr_step
-}
-
 get_background_rendering_data :: proc() -> Rect_Render_Data {
 	background_box := Box {
 		rect = Rect{top_left = {0.0, 0.0}, bottom_right = {f32(app.wx^), f32(app.wy^)}},
@@ -215,11 +202,15 @@ get_background_rendering_data :: proc() -> Rect_Render_Data {
 		visible = true,
 	}
 	rendering_data := Rect_Render_Data {
-		ui_element_type      = 15.0,
-		texture_top_left     = {0, 0},
-		texture_bottom_right = {1, 1},
-		top_left             = {0, 0},
-		bottom_right         = {f32(app.wx^), f32(app.wy^)},
+		// ui_element_type      = 15.0,
+		// texture_top_left     = {0, 0},
+		// texture_bottom_right = {1, 1},
+		top_left     = {0, 0},
+		bottom_right = {f32(app.wx^), f32(app.wy^)},
+		bl_color     = {0, 0, 0, 1},
+		br_color     = {0, 0, 0, 1},
+		tl_color     = {0.3, 0.3, 0.3, 1},
+		tr_color     = {0.3, 0.3, 0.3, 1},
 	}
 	return rendering_data
 }
@@ -477,6 +468,21 @@ add_waveform_rendering_data :: proc(
 		append(rendering_data, new_data)
 	}
 }
+
+
+// A jank way to 'animate' the text cursor blinking based on frame number.
+should_render_text_cursor :: proc() -> bool {
+	frame_rate: u64 = 120 // Shouldn't be hardcoded in prod.
+	curr_frame := app.ui_state.frame_num^ % frame_rate
+	return curr_frame < frame_rate
+}
+
+is_active_step :: proc(box: Box) -> bool {
+	track_num := track_num_from_step(box.id_string)
+	step_num := step_num_from_step(box.id_string)
+	return step_num == app.audio_state.tracks[track_num].curr_step
+}
+
 
 setup_for_quads :: proc(shader_program: ^u32) {
 	//odinfmt:disable

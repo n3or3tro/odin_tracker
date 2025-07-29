@@ -269,7 +269,7 @@ sampler :: proc(id_string: string, rect: ^Rect, track_num: u32) -> Sampler_Signa
 		return Sampler_Signals{container_signals = sampler_container}
 	}
 
-	waveform_container := clickable_container(
+	waveform_container := clickable_transparent_container(
 		tprintf(
 			"{}-waveform-container@{}-waveform-container",
 			sampler_name,

@@ -73,6 +73,7 @@ UI_State :: struct {
 		show_fill_menu:   bool,
 		show_remove_menu: bool,
 	},
+	steps_vertical_offset: u32,
 }
 
 num_column :: proc(track_height: u32, n_steps: u32) {
@@ -90,7 +91,7 @@ n_track_steps: u32 = 32
 
 create_ui :: proc() {
 	ui_state.z_index = -10
-	clickable_container("backgroung@background", Rect{{0, 0}, {f32(app.wx^), f32(app.wy^)}})
+	clickable_transparent_container("backgroung@background", Rect{{0, 0}, {f32(app.wx^), f32(app.wy^)}})
 	ui_state.z_index = 0
 	topbar := top_bar()
 	handle_top_bar_interactions(topbar)
@@ -98,12 +99,20 @@ create_ui :: proc() {
 	case 0:
 		main_tracker_panel()
 	case 1:
-		second_panel()
+		linear_sequencing_panel()
 	case 2:
 		text_button_absolute("this is the conent of tab 3@whatalksj", 100, 100)
 	}
 	if ui_state.context_menu.active {
 		context_menu()
+	}
+	if (app.keys_held[sdl.Scancode.LSHIFT] || app.keys_held[sdl.Scancode.RSHIFT]) &&
+	   app.keys_held[sdl.Scancode.TAB] {
+		if app.active_tab == 1 {
+			app.active_tab = 0
+		} else {
+			app.active_tab = 1
+		}
 	}
 }
 

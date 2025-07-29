@@ -28,7 +28,11 @@ container :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) ->
 	return box_signals(b)
 }
 
-clickable_container :: proc(id_string: string, rect: Rect, metadata: Box_Metadata = {}) -> Box_Signals {
+clickable_transparent_container :: proc(
+	id_string: string,
+	rect: Rect,
+	metadata: Box_Metadata = {},
+) -> Box_Signals {
 	b := box_from_cache({.Clickable}, id_string, rect)
 	append(&ui_state.temp_boxes, b)
 	return box_signals(b)

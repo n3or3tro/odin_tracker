@@ -86,11 +86,14 @@ num_step :: proc(
 	return signals
 }
 
+NUM_VISIBLE_STEPS :: 32
 track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_Signals {
 	step_height := rect_height(rect^) / 32
 	steps: Track_Steps_Signals
 	// Shouldn't hardcode num of steps.
-	for i: u32 = 0; i < 32; i += 1 {
+	// for i: u32 = 0; i < 32; i += 1 {
+	for i: u32 = 0; i < NUM_VISIBLE_STEPS; i += 1 {
+		step_num := i + ui_state.steps_vertical_offset
 		track_name := get_name_from_id_string(id_string)
 		steps_rect := cut_rect(rect, {Size{.Pixels, step_height}, .Top})
 		step_width := rect_height(steps_rect)
@@ -104,26 +107,25 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 		pitch_box: Box_Signals
 		if sampler.mode == .slice {
 			pitch_box = num_step(
-				create_subset_id(i, which, .Pitch_Slice),
+				create_subset_id(step_num, which, .Pitch_Slice),
 				each_steps_rect[0],
-				Step_Metadata{which, i, .Pitch_Slice},
+				Step_Metadata{which, step_num, .Pitch_Slice},
 				0,
 				10,
-				// sampler.n_slices > 0 ? int(sampler.n_slices - 1) : 0,
 			)
 		} else {
 			pitch_box = pitch_step(
 				create_subset_id(i, which, .Pitch_Note),
 				each_steps_rect[0],
-				Step_Metadata{which, i, .Pitch_Note},
+				Step_Metadata{which, step_num, .Pitch_Note},
 			)
 		}
 
 		push_color(palette.secondary.s_500)
 		volume_box := num_step(
-			create_subset_id(i, which, .Volume),
+			create_subset_id(step_num, which, .Volume),
 			each_steps_rect[1],
-			Step_Metadata{which, i, .Volume},
+			Step_Metadata{which, step_num, .Volume},
 			0,
 			100,
 			init_value = 50,
@@ -131,18 +133,18 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 
 		push_color(palette.secondary.s_400)
 		step1_box := num_step(
-			create_subset_id(i, which, .Send1),
+			create_subset_id(step_num, which, .Send1),
 			each_steps_rect[2],
-			Step_Metadata{which, i, .Send1},
+			Step_Metadata{which, step_num, .Send1},
 			0,
 			100,
 		)
 
 		push_color(palette.secondary.s_400)
 		step2_box := num_step(
-			create_subset_id(i, which, .Send2),
+			create_subset_id(step_num, which, .Send2),
 			each_steps_rect[3],
-			Step_Metadata{which, i, .Send2},
+			Step_Metadata{which, step_num, .Send2},
 			0,
 			100,
 		)
@@ -155,6 +157,8 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 		}
 		clear_color_stack()
 
+		// steps[i] = individual_step
+		// This might be wrong.
 		steps[i] = individual_step
 	}
 	return steps
@@ -322,10 +326,7 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 			100,
 			t_controls.track_signals.scrolled_up || t_controls.grip_signals.scrolled_up,
 		)
-		set_volume(
-			app.audio_state.tracks[which].sound,
-			map_range(0, 100, 0, 1, app.audio_state.tracks[which].volume),
-		)
+		set_volume(app.audio_state.tracks[which].sound, map_range(0, 100, 0, 1, app.audio_state.tracks[which].volume))
 		printfln("value before scrolling: {}", app.audio_state.tracks[which].volume)
 	}
 	if t_controls.button_signals.enable_signals.clicked {
@@ -465,11 +466,7 @@ create_substep_input_id :: proc(
 	}
 }
 
-get_substeps_input_from_step :: proc(
-	step_num, track_num: u32,
-) -> (
-	pitch_box, volume_box, send1_box, send2_box: ^Box,
-) {
+get_substeps_input_from_step :: proc(step_num, track_num: u32) -> (pitch_box, volume_box, send1_box, send2_box: ^Box) {
 	if app.samplers[track_num].mode == .slice {
 		pitch_box = ui_state.box_cache[create_substep_input_id(step_num, track_num, .Pitch_Slice)]
 	} else {
