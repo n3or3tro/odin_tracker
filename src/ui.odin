@@ -31,13 +31,10 @@ UI_State :: struct {
 	rect_stack:            [dynamic]^Rect,
 	settings_toggled:      bool,
 	color_stack:           [dynamic]Color,
-	font_size_stack:       [dynamic]Font_Size,
-	selected_steps:        [MAX_TRACKS][32]bool,
-	step_pitches:          [MAX_TRACKS][32]f32,
-	ui_scale:              f32, // between 0.0 and 1.0.
-	// Used to tell the core layer to override some value
-	// of a box that's in the cache. Useful for parts of the code
-	// where the box isn't easilly accessible (like in audio related stuff).
+	// font_size_stack:       [dynamic]Font_Size,
+	// ui_scale:              f32, // between 0.0 and 1.0.
+	// Used to tell the core layer to override some valu of a box that's in the cache. 
+	// Useful for parts of the code where the box isn't easilly accessible (like in audio related stuff).
 	override_color:        bool,
 	override_rect:         bool,
 	quad_vbuffer:          ^u32,
@@ -45,8 +42,6 @@ UI_State :: struct {
 	quad_shader_program:   u32,
 	root_rect:             ^Rect,
 	frame_num:             ^u64,
-	// hot_id:              string,
-	// active_id:           string,
 	hot_box:               ^Box,
 	active_box:            ^Box,
 	selected_box:          ^Box,
@@ -68,10 +63,12 @@ UI_State :: struct {
 	// Helps to stop clicks registering when you start outside an element and release on top of it.
 	mouse_down_on:         ^Box,
 	context_menu:          struct {
-		pos:              Vec2,
-		active:           bool,
-		show_fill_menu:   bool,
-		show_remove_menu: bool,
+		pos:                   Vec2,
+		active:                bool,
+		show_fill_note_menu:   bool,
+		show_remove_note_menu: bool,
+		show_add_step_menu:    bool,
+		show_remove_step_menu: bool,
 	},
 	steps_vertical_offset: u32,
 }
@@ -106,8 +103,7 @@ create_ui :: proc() {
 	if ui_state.context_menu.active {
 		context_menu()
 	}
-	if (app.keys_held[sdl.Scancode.LSHIFT] || app.keys_held[sdl.Scancode.RSHIFT]) &&
-	   app.keys_held[sdl.Scancode.TAB] {
+	if (app.keys_held[sdl.Scancode.LSHIFT] || app.keys_held[sdl.Scancode.RSHIFT]) && app.keys_held[sdl.Scancode.TAB] {
 		if app.active_tab == 1 {
 			app.active_tab = 0
 		} else {
@@ -200,8 +196,7 @@ main_tracker_panel :: proc() {
 
 	// Handle keyboard navigation based on the state of keyboard keys held down,
 	// pretty sure this will only be used for handling multikey keyboard shortcuts
-	if app.keys_held[sdl.Scancode.T] &&
-	   (app.keys_held[sdl.Scancode.LCTRL] || app.keys_held[sdl.Scancode.RCTRL]) {
+	if app.keys_held[sdl.Scancode.T] && (app.keys_held[sdl.Scancode.LCTRL] || app.keys_held[sdl.Scancode.RCTRL]) {
 		println("adding a new track")
 		app.n_tracks += 1
 		// hack to stop triggering this too many times

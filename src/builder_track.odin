@@ -12,7 +12,7 @@ import "core:unicode"
 import ma "vendor:miniaudio"
 import sdl "vendor:sdl2"
 
-Track_Steps_Signals :: [32]Individual_Step_Signals
+Track_Steps_Signals :: [MAX_TRACK_STEPS]Individual_Step_Signals
 
 Track_Button_Signals :: struct {
 	enable_signals:    Box_Signals,
@@ -20,11 +20,13 @@ Track_Button_Signals :: struct {
 }
 
 Track_Control_Signals :: struct {
-	value:          f32,
-	max:            f32,
-	grip_signals:   Box_Signals,
-	track_signals:  Box_Signals,
-	button_signals: Track_Button_Signals,
+	value:               f32,
+	max:                 f32,
+	grip_signals:        Box_Signals,
+	track_signals:       Box_Signals,
+	button_signals:      Track_Button_Signals,
+	add_step_signals:    Box_Signals,
+	remove_step_signals: Box_Signals,
 }
 
 Individual_Step_Signals :: struct {
@@ -92,8 +94,8 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 	steps: Track_Steps_Signals
 	// Shouldn't hardcode num of steps.
 	// for i: u32 = 0; i < 32; i += 1 {
-	for i: u32 = 0; i < NUM_VISIBLE_STEPS; i += 1 {
-		step_num := i + ui_state.steps_vertical_offset
+	track := app.audio_state.tracks[which]
+	for i: u32 = 0; i < track.n_steps; i += 1 {
 		track_name := get_name_from_id_string(id_string)
 		steps_rect := cut_rect(rect, {Size{.Pixels, step_height}, .Top})
 		step_width := rect_height(steps_rect)
@@ -107,9 +109,9 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 		pitch_box: Box_Signals
 		if sampler.mode == .slice {
 			pitch_box = num_step(
-				create_subset_id(step_num, which, .Pitch_Slice),
+				create_subset_id(i, which, .Pitch_Slice),
 				each_steps_rect[0],
-				Step_Metadata{which, step_num, .Pitch_Slice},
+				Step_Metadata{which, i, .Pitch_Slice},
 				0,
 				10,
 			)
@@ -117,15 +119,15 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 			pitch_box = pitch_step(
 				create_subset_id(i, which, .Pitch_Note),
 				each_steps_rect[0],
-				Step_Metadata{which, step_num, .Pitch_Note},
+				Step_Metadata{which, i, .Pitch_Note},
 			)
 		}
 
 		push_color(palette.secondary.s_500)
 		volume_box := num_step(
-			create_subset_id(step_num, which, .Volume),
+			create_subset_id(i, which, .Volume),
 			each_steps_rect[1],
-			Step_Metadata{which, step_num, .Volume},
+			Step_Metadata{which, i, .Volume},
 			0,
 			100,
 			init_value = 50,
@@ -133,18 +135,18 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 
 		push_color(palette.secondary.s_400)
 		step1_box := num_step(
-			create_subset_id(step_num, which, .Send1),
+			create_subset_id(i, which, .Send1),
 			each_steps_rect[2],
-			Step_Metadata{which, step_num, .Send1},
+			Step_Metadata{which, i, .Send1},
 			0,
 			100,
 		)
 
 		push_color(palette.secondary.s_400)
 		step2_box := num_step(
-			create_subset_id(step_num, which, .Send2),
+			create_subset_id(i, which, .Send2),
 			each_steps_rect[3],
-			Step_Metadata{which, step_num, .Send2},
+			Step_Metadata{which, i, .Send2},
 			0,
 			100,
 		)
@@ -165,7 +167,8 @@ track_steps :: proc(id_string: string, rect: ^Rect, which: u32) -> Track_Steps_S
 }
 
 handle_track_steps_interactions :: proc(track: Track_Steps_Signals, which: u32) {
-	for step in track {
+	for i: u32 = 0; i < app.audio_state.tracks[which].n_steps; i += 1 {
+		step := track[i]
 		pitch_box := step.pitch.box
 		volume_box := step.volume.box
 		send1_box := step.send1.box
@@ -229,7 +232,7 @@ enable_step :: proc(step_pitch_box: ^Box) {
 	send2_box := ui_state.box_cache[create_substep_input_id(step_num, track_num, .Send2)]
 	pitch_box.selected = !pitch_box.selected
 	if pitch_box.selected {
-		ui_state.selected_steps[track_num][step_num] = true
+		app.audio_state.tracks[track_num].selected_steps[step_num] = true
 		if pitch_box.value == nil || pitch_box.value.?.(string) == "" {
 			pitch_box.value = pitch_type == .Pitch_Note ? "C3" : "0"
 		}
@@ -243,13 +246,24 @@ enable_step :: proc(step_pitch_box: ^Box) {
 			send2_box.value = 0
 		}
 	} else {
-		ui_state.selected_steps[track_num][step_num] = false
+		app.audio_state.tracks[track_num].selected_steps[step_num] = false
 	}
 }
 
 // assumes 0 <= value <= 100
 track_control :: proc(id_string: string, rect: ^Rect, value: f32, which: u32) -> Track_Control_Signals {
 	id := get_id_from_id_string(id_string)
+
+	add_remove_steps_rect := cut_rect(rect, {Size{.Percent, 0.1}, .Top})
+	add_step_rect := cut_rect(&add_remove_steps_rect, {Size{.Percent, 0.5}, .Left})
+	remove_step_rect := add_remove_steps_rect
+
+	old_font := ui_state.font_size
+	ui_state.font_size = .l
+	add_step_btn := text_button(tprintf("+@add-step-track-{}", which), add_step_rect)
+	remove_step_btn := text_button(tprintf("-@remove-step-track-{}", which), remove_step_rect)
+	ui_state.font_size = old_font
+
 	buttons_rect := cut_rect(rect, {Size{.Percent, 0.1}, .Bottom})
 	enable_track_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Left})
 	enable_button_id := tprintf("{}@{}_button", app.audio_state.tracks[which].armed ? "unarm" : "arm", id)
@@ -259,6 +273,7 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32, which: u32) ->
 		enable_track_button_rect,
 		Track_Control_Metadata{which, .Enable_Button},
 	)
+
 	file_load_button_rect := get_rect(buttons_rect, {Size{.Percent, 0.4}, .Right})
 	file_load_button := text_button(
 		tprintf("load@{}_file_load_button", id),
@@ -313,6 +328,8 @@ track_control :: proc(id_string: string, rect: ^Rect, value: f32, which: u32) ->
 		grip_signals = box_signals(slider_grip),
 		track_signals = box_signals(slider_track),
 		button_signals = {enable_track_button, file_load_button},
+		add_step_signals = add_step_btn,
+		remove_step_signals = remove_step_btn,
 	}
 }
 
@@ -332,6 +349,15 @@ handle_track_control_interactions :: proc(t_controls: ^Track_Control_Signals, wh
 	if t_controls.button_signals.enable_signals.clicked {
 		armed_state := app.audio_state.tracks[which].armed
 		app.audio_state.tracks[which].armed = !armed_state
+	}
+
+	if t_controls.remove_step_signals.clicked {
+		println("rmeoving step")
+		app.audio_state.tracks[which].n_steps -= 1
+	}
+	if t_controls.add_step_signals.clicked {
+		println("adding step")
+		app.audio_state.tracks[which].n_steps += 1
 	}
 	what: if t_controls.button_signals.file_load_signals.clicked {
 		files, ok := file_dialog(false)

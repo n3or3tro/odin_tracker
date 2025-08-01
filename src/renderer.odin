@@ -329,7 +329,7 @@ add_word_rendering_data :: proc(
 	if _, is_step := box.metadata.(Step_Metadata); is_step {
 		step_num := step_num_from_step(box.id_string)
 		track_num := track_num_from_step(box.id_string)
-		if !ui_state.selected_steps[track_num][step_num] {
+		if !app.audio_state.tracks[track_num].selected_steps[step_num] {
 			return
 		}
 	}
@@ -405,11 +405,7 @@ add_waveform_rendering_data :: proc(
 	render_width := rect_width(rect)
 	render_height := rect_height(rect)
 	frames_read := u64(len(pcm_frames))
-	wav_rendering_data := make(
-		[dynamic]Rect_Render_Data,
-		u32(render_width),
-		allocator = context.temp_allocator,
-	)
+	wav_rendering_data := make([dynamic]Rect_Render_Data, u32(render_width), allocator = context.temp_allocator)
 	sampler := app.samplers[get_active_track()]
 	// might break with very large samples.
 	visible_width := f64(frames_read) * f64(1 - sampler.zoom_amount)

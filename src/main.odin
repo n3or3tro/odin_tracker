@@ -43,8 +43,6 @@ when ODIN_OS == .Windows {
 	WINDOW_WIDTH := 2500
 	WINDOW_HEIGHT := 1500
 }
-ASPECT_RATIO: f32 : 16.0 / 10.0
-
 Mouse_State :: struct {
 	pos:           [2]i32, // these are typed like this to follow the SDL api, else, they'd be u16
 	last_pos:      [2]i32, // pos of the mouse in the last frame.
@@ -58,6 +56,12 @@ Mouse_State :: struct {
 	clicked:       bool, // whether mouse was left clicked in this frame.
 	right_clicked: bool, // whether mouse was right clicked in this frame.
 }
+
+
+ASPECT_RATIO :: 16.0 / 10.0
+// Should be relatively arbitrary to extend this, can also make it dynamic if neccessary.
+MAX_TRACKS :: 256
+
 // [NOTE]: Pretty sure that anything that's a pointer inside this struct needs to malloc'd.
 App_State :: struct {
 	window:            ^sdl.Window,
@@ -78,19 +82,16 @@ App_State :: struct {
 	sampler_pos:       Vec2,
 	// This will become problematic when I want to have > 1 floating + draggable window.
 	dragging_window:   bool,
-	n_tracks:          u8,
 	active_tab:        u8,
 	// Doesn't actually need to be dynamic, just doing this coz the dynamic array API works well as a stack.
 	char_queue:        [32]sdl.Keycode,
 	curr_chars_stored: u32,
 	samplers:          [MAX_TRACKS]^Sampler_State,
+	// Number of active tracks
+	n_tracks:          u16,
 	// Basically just tells you if track n exists or not.
 	tracks:            [MAX_TRACKS]bool,
 }
-
-
-// Should be relatively arbitrary to extend this.
-MAX_TRACKS :: 20
 
 app: ^App_State
 ui_state: ^UI_State
@@ -220,15 +221,15 @@ audio_thread_timing_proc :: proc() {
 			time_since_last_step := (curr_time._nsec - last_step_time) / 1000 / 1000
 			if time_since_last_step >= time_between_beats {
 				for &track, track_num in app.audio_state.tracks {
-					track.curr_step = (track.curr_step + 1) % 32
-					if track.curr_step > ui_state.steps_vertical_offset + NUM_VISIBLE_STEPS - SCROLL_THRESHOLD {
-						ui_state.steps_vertical_offset = track.curr_step - (NUM_VISIBLE_STEPS - SCROLL_THRESHOLD)
-					}
-					if track.curr_step < ui_state.steps_vertical_offset {
-						ui_state.steps_vertical_offset = track.curr_step
-					}
+					track.curr_step = (track.curr_step + 1) % track.n_steps
+					// if track.curr_step > ui_state.steps_vertical_offset + NUM_VISIBLE_STEPS - SCROLL_THRESHOLD {
+					// 	ui_state.steps_vertical_offset = track.curr_step - (NUM_VISIBLE_STEPS - SCROLL_THRESHOLD)
+					// }
+					// if track.curr_step < ui_state.steps_vertical_offset {
+					// 	ui_state.steps_vertical_offset = track.curr_step
+					// }
 					if track.armed {
-						if ui_state.selected_steps[track_num][track.curr_step] {
+						if track.selected_steps[track.curr_step] {
 							play_track_step(u32(track_num))
 						}
 					}
@@ -292,7 +293,7 @@ init_app :: proc() -> ^App_State {
 	app.ui_state = new(UI_State)
 	ui_state = app.ui_state
 	init_ui_state()
-	setup_audio()
+	init_audio()
 	// Could save memory by creating these only when needed.
 	for i in 0 ..< MAX_TRACKS {
 		new_sampler_state := new(Sampler_State)

@@ -7,16 +7,22 @@ import s "core:strings"
 import "core:time"
 import ma "vendor:miniaudio"
 
+MAX_TRACK_STEPS :: 256
 Track :: struct {
-	sound:     ^ma.sound,
-	armed:     bool,
-	volume:    f32,
+	sound:          ^ma.sound,
+	armed:          bool,
+	volume:         f32,
 	// PCM data is used only for rendering waveforms atm.
-	pcm_data:  struct {
+	pcm_data:       struct {
 		left_channel:  [dynamic]f32,
 		right_channel: [dynamic]f32,
 	},
-	curr_step: u32,
+	curr_step:      u32,
+	// Actual amount of steps in the track.
+	n_steps:        u32,
+	// Could make this dynamic, but for now we'll just limit the max amount of steps.
+	step_pitches:   [MAX_TRACK_STEPS]f32,
+	selected_steps: [MAX_TRACK_STEPS]bool,
 }
 
 Audio_State :: struct {
@@ -40,7 +46,7 @@ SOUND_FILE_LOAD_FLAGS: ma.sound_flags = {.DECODE, .NO_SPATIALIZATION}
 N_AUDIO_GROUPS :: 1
 
 
-setup_audio :: proc() -> ^Audio_State {
+init_audio :: proc() -> ^Audio_State {
 	audio_state := new(Audio_State)
 	audio_state.tracks = make([dynamic]Track)
 	engine := new(ma.engine)
@@ -49,6 +55,7 @@ setup_audio :: proc() -> ^Audio_State {
 		append(&audio_state.tracks, Track{})
 		audio_state.tracks[i].volume = f32(i + (i * 10))
 		audio_state.tracks[i].armed = true
+		audio_state.tracks[i].n_steps = 32
 	}
 
 	// Engine config is set by default when you init the engine, but can be manually set.
@@ -103,7 +110,6 @@ set_track_sound :: proc(path: cstring, which: u32) {
 	app.audio_state.tracks[which].sound = new_sound
 }
 
-
 toggle_sound_playing :: proc(sound: ^ma.sound) {
 	if sound == nil {
 		println("Passed in a 'nil' sound.\nMost likely this track hasn't been loaded with a sound.")
@@ -129,8 +135,9 @@ toggle_all_audio_playing :: proc() {
 }
 
 play_track_step :: proc(which_track: u32) {
-	sound := app.audio_state.tracks[which_track].sound
-	step_num := u32(app.audio_state.tracks[which_track].curr_step)
+	track := app.audio_state.tracks[which_track]
+	sound := track.sound
+	step_num := track.curr_step
 
 	// this can happen if a track is created and a sound HAS NOT been loaded.
 	if sound == nil {
@@ -138,8 +145,6 @@ play_track_step :: proc(which_track: u32) {
 	}
 
 	pitch_box, volume_box, send1_box, send2_box := get_substeps_input_from_step(step_num, which_track)
-	// println("trying to play_track_step()")
-	// println(pitch_box, volume_box, send1_box, send2_box)
 	// Assumes all values in the step are valid, which should be the case when enable_step() has been called.
 	pitch := pitch_difference("C3", pitch_box.value.?.(string)) / 12
 	volume: f32
@@ -173,9 +178,9 @@ play_track_step :: proc(which_track: u32) {
 	}
 
 	// need to figure out sends.
-	if app.ui_state.selected_steps[which_track][step_num] {
+	if track.selected_steps[step_num] {
 		ma.sound_stop(sound)
-		pitch := ui_state.step_pitches[which_track][step_num]
+		pitch := track.step_pitches[step_num]
 		ma.sound_set_pitch(sound, pitch / 12)
 		ma.sound_set_volume(sound, volume / 100)
 		ma.sound_seek_to_pcm_frame(sound, pcm_start)
@@ -218,19 +223,9 @@ pitch_difference :: proc(from: string, to: string) -> f32 {
 init_delay :: proc(delay_time: f32, decay_time: f32) {
 	channels := ma.engine_get_channels(app.audio_state.engine)
 	sample_rate := ma.engine_get_sample_rate(app.audio_state.engine)
-	config := ma.delay_node_config_init(
-		channels,
-		sample_rate,
-		u32(f32(sample_rate) * delay_time),
-		decay_time,
-	)
+	config := ma.delay_node_config_init(channels, sample_rate, u32(f32(sample_rate) * delay_time), decay_time)
 	println(config)
-	res := ma.delay_node_init(
-		ma.engine_get_node_graph(app.audio_state.engine),
-		&config,
-		nil,
-		&app.audio_state.delay,
-	)
+	res := ma.delay_node_init(ma.engine_get_node_graph(app.audio_state.engine), &config, nil, &app.audio_state.delay)
 	if res != .SUCCESS {
 		println(res)
 		panic("")
@@ -250,8 +245,7 @@ turn_on_delay :: proc() {
 // This indirection is here coz I was thinking about cachine the pcm wav rendering data, 
 // since it's a little expensive to re-calc every frame.
 get_track_pcm_data :: proc(track: u32) -> (left_channel, right_channel: [dynamic]f32) {
-	return app.audio_state.tracks[track].pcm_data.left_channel,
-		app.audio_state.tracks[track].pcm_data.right_channel
+	return app.audio_state.tracks[track].pcm_data.left_channel, app.audio_state.tracks[track].pcm_data.right_channel
 }
 
 store_track_pcm_data :: proc(track: u32) {
